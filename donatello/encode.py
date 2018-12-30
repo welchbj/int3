@@ -126,6 +126,7 @@ def encode_x86_32(payload, bad_chars, align=False, force=False):
     """
     payload = bytearray(payload)
     bad_chars = bytearray(bad_chars)
+    bad_chars_as_ints = tuple(int(bc) for bc in bad_chars)
 
     # handle case where no bad characters exist in the payload
     if not force:
@@ -160,15 +161,19 @@ def encode_x86_32(payload, bad_chars, align=False, force=False):
 
     # find a valid method for clearing eax
     clear_eax = first_valid_gadget(CLEAR_EAX_GADGETS, bad_chars)
+    clear_eax_asm = None
     if clear_eax is not None:
         clear_eax_asm = clear_eax.asm
     elif and_eax is not None:
-        # TODO
-        pass
+        factors = factor_and(0, bad_chars_as_ints)
+        if factors is not None:
+            clear_eax_asm = '\n'.join(factors_to_asm(factors, and_eax.asm))
     elif xor_eax is not None:
-        # TODO
-        pass
-    else:
+        factors = factor_xor(0, bad_chars_as_ints)
+        if factors is not None:
+            clear_eax_asm = '\n'.join(factors_to_asm(factors, xor_eax.asm))
+
+    if clear_eax_asm is None:
         raise DonatelloCannotEncodeError(
             'Bad character set restricts all methods of clearing eax')
 
@@ -183,7 +188,6 @@ def encode_x86_32(payload, bad_chars, align=False, force=False):
 
     # determine factors for each target
     asm = []
-    bad_chars_as_ints = tuple(int(bc) for bc in bad_chars)
     for target in targets:
         asm.append(clear_eax_asm)
         for gadget, factor_func in factor_mapping.items():
