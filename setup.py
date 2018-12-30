@@ -25,7 +25,7 @@ src_license = 'MIT'
 author = 'Brian Welch'
 author_email = 'welch18@vt.edu'
 url = 'https://github.com/welchbj/donatello'
-install_requires = ['ttable']
+install_requires = ['colorama', 'ttable']
 
 with codecs.open(version_file, encoding='utf-8') as f:
     exec(f.read())  # loads __version__ and __version_info__
@@ -35,7 +35,9 @@ with codecs.open(readme_file, encoding='utf-8') as f:
     long_description = f.read()
 
 entry_points = {
-    # TODO
+    'console_scripts': [
+        'donatello = donatello.__main__:main',
+    ]
 }
 
 classifiers = [

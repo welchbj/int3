@@ -14,6 +14,10 @@ class DonatelloError(Exception):
         return self._message
 
 
+class DonatelloConfigurationError(DonatelloError):
+    """An exception type for invalid configuration options."""
+
+
 class DonatelloNoPresentBadCharactersError(DonatelloError):
     """An exception type for when a payload contains no bad characters."""
 

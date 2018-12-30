@@ -6,6 +6,7 @@ from collections import (
 
 Gadget = namedtuple('Gadget', ['shellcode', 'asm'])
 
+IMPLEMENTED_OPS = ('and', 'or', 'xor',)
 
 # gadgets for pushing eax onto the stack
 PUSH_EAX_GADGETS = [
