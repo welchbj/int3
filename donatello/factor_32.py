@@ -3,7 +3,13 @@
 from functools import (
     lru_cache)
 from tt import (
-    BooleanExpression)
+    BooleanExpression,
+    to_cnf)
+
+
+def _cnfify(exprs):
+    """Convert a sequence of expressions to their CNF form."""
+    return ['(' + str(to_cnf(expr)) + ')' for expr in exprs]
 
 
 @lru_cache(maxsize=None)
@@ -45,9 +51,9 @@ def factor_byte_bitwise(target, bad_chars, op='and', max_factors=2):
 
         # build the expression we aim to satisfy
         expr = ''
-        expr += ' and '.join(factor_clauses)
+        expr += ' and '.join(_cnfify(factor_clauses))
         expr += ' and '
-        expr += ' and '.join(char_constraint_clauses)
+        expr += ' and '.join(_cnfify(char_constraint_clauses))
 
         # try solving the sat problem
         b = BooleanExpression(expr)
