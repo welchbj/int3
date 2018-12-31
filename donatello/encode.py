@@ -2,8 +2,6 @@
 
 from collections import (
     OrderedDict)
-from itertools import (
-    product)
 from struct import (
     unpack)
 
@@ -21,11 +19,11 @@ from .constants_x86_32 import (
     XOR_EAX_GADGETS)
 from .errors import (
     DonatelloCannotEncodeError,
+    DonatelloConfigurationError,
     DonatelloNoPossibleNopsError,
     DonatelloNoPresentBadCharactersError)
 from .factor_32 import (
-    factor_by_byte,
-    factor_by_dword)
+    factor_by_byte)
 from .utils import (
     chunked)
 
@@ -114,8 +112,7 @@ def chunked_payload_32(payload, nop):
     return packed_chunks
 
 
-def encode_x86_32(payload, bad_chars, unit='byte', max_factors=2, align=False,
-                  force=False):
+def encode_x86_32(payload, bad_chars, max_factors=2, align=False, force=False):
     """Encode a payload into x86 assembly, excluding the specified characters.
 
     Args:
@@ -127,12 +124,14 @@ def encode_x86_32(payload, bad_chars, unit='byte', max_factors=2, align=False,
             bad characters.
 
     Raises:
+        DonatelloConfigurationError: If invalid arguments are received.
         DonatelloNoPossibleNopsError: When no the bad character set restricts
             all nops from being used.
 
     """
-    # TODO: check unit value
-    # TODO: check max_factors value
+    if max_factors < 2:
+        raise DonatelloConfigurationError('`max_factors` must be >= 2')
+
     payload = bytearray(payload)
     bad_chars = bytearray(bad_chars)
     bad_chars_as_ints = tuple(int(bc) for bc in bad_chars)
@@ -176,66 +175,36 @@ def encode_x86_32(payload, bad_chars, unit='byte', max_factors=2, align=False,
         asm_context['or'] = or_eax
     if xor_eax is not None:
         asm_context['xor'] = xor_eax
+    usable_ops = tuple(asm_context.keys())
 
     # find a valid method for clearing eax
     clear_eax = first_valid_gadget(CLEAR_EAX_GADGETS, bad_chars)
     clear_eax_asm = None
     if clear_eax is not None:
+        # one of our static gadgets will suffice
         clear_eax_asm = clear_eax.asm
     elif and_eax is not None:
-        factors = factor_by_byte(
-            0, bad_chars_as_ints, op='and', num_factors=2)
-        if factors is not None:
-            clear_eax_asm = '\n'.join(factors_to_asm(factors, asm_context))
-    elif xor_eax is not None:
-        factors = factor_by_byte(
-            0, bad_chars_as_ints, op='xor', num_factors=2)
-        if factors is not None:
-            clear_eax_asm = '\n'.join(factors_to_asm(factors, asm_context))
+        # try to dynamically generate AND factors to clear eax
+        for num_factors in range(2, max_factors+1):
+            factors = factor_by_byte(
+                0, bad_chars_as_ints, usable_ops=('and',),
+                num_factors=num_factors, start_value=0xffffffff)
+            if factors is not None:
+                clear_eax_asm = '\n'.join(factors_to_asm(factors, asm_context))
+                break
 
     if clear_eax_asm is None:
         raise DonatelloCannotEncodeError(
             'bad character set restricts all methods of clearing eax')
 
     # determine factors for each target
-    if unit == 'byte':
-        factor_instructions = _encode_x86_32_by_byte(
-            targets, bad_chars_as_ints, max_factors, asm_context)
-    elif unit == 'dword':
-        factor_instructions = _encode_x86_32_by_dword(
-            targets, bad_chars_as_ints, max_factors, asm_context)
-
-    # build the assembly program
-    asm = []
-    for build_eax_asm in factor_instructions:
-        asm.append(clear_eax_asm)
-        asm.append(build_eax_asm)
-        asm.append(push_eax_asm)
-
-    if align:
-        # TODO
-        # need to compute gadgets for `push esp` and `pop eax`
-        pass
-
-    return '\n'.join(asm)
-
-
-def _encode_x86_32_by_byte(targets, bad_chars_as_ints, max_factors,
-                           asm_context):
-    """Helper for encoding a payload on a per-byte basis.
-
-    Returns:
-        List[str]: A list of the assembly instruction strings needed to
-            build each payload value in eax.
-
-    """
     asm = []
     for target in targets:
-        _param_iter = product(range(2, max_factors+1), asm_context.items())
-        for num_factors, (op_str, gadget) in _param_iter:
+        asm.append(clear_eax_asm)
+        for num_factors in range(2, max_factors+1):
             factors = factor_by_byte(
-                target, bad_chars_as_ints, op=op_str,
-                num_factors=num_factors)
+                target, bad_chars_as_ints,
+                usable_ops=usable_ops, num_factors=num_factors)
             if factors is not None:
                 asm.append('\n'.join(factors_to_asm(factors, asm_context)))
                 break
@@ -243,17 +212,11 @@ def _encode_x86_32_by_byte(targets, bad_chars_as_ints, max_factors,
             raise DonatelloCannotEncodeError(
                 'unable to encode target value ' + hex(target) +
                 ' using byte factorization')
-    return asm
+        asm.append(push_eax_asm)
 
+    if align:
+        # TODO
+        # need to compute gadgets for `push esp` and `pop eax`
+        raise NotImplementedError('`align` kwarg not yet implemented')
 
-def _encode_x86_32_by_dword(targets, bad_chars_as_ints, max_factors,
-                            asm_context):
-    """Helper for encoding a payload on a per-dword basis.
-
-    Returns:
-        List[str]: A list of the assembly instruction strings needed to
-            build each payload value in eax.
-
-    """
-    # TODO
-    pass
+    return '\n'.join(asm)

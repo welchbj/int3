@@ -9,8 +9,6 @@ from argparse import (
     RawTextHelpFormatter)
 from colorama import (
     init as init_colorama)
-from itertools import (
-    product)
 
 from ._version import (
     __version__)
@@ -25,8 +23,7 @@ from .errors import (
     DonatelloNoPossibleNopsError,
     DonatelloNoPresentBadCharactersError)
 from .factor_32 import (
-    factor_by_byte,
-    factor_by_dword)
+    factor_by_byte)
 from .io import (
     print_e,
     print_i,
@@ -62,12 +59,16 @@ def get_parsed_args(args=None):
 
     # TODO: -f/--force option
 
+    # TODO: -s/--start-value for `factor`
+
     parser.add_argument(
         '-m', '--max-factors',
         action='store',
         metavar='',
         help='the maximum number of factors used to generate each portion of\n'
              'the target value or payload')
+
+    # TODO: -q/--quiet option
 
     parser.add_argument(
         '-o', '--ops',
@@ -78,16 +79,6 @@ def get_parsed_args(args=None):
              'implemented x86 arithmetic operations not violating the bad\n'
              'character set and only applies when the command is set to\n'
              '`factor`')
-
-    parser.add_argument(
-        '-u', '--unit',
-        action='store',
-        metavar='',
-        help='the smallest unit on which factoring is based on; `byte` \n'
-             'allows for more aggressive caching and increased performance,\n'
-             'while `dword` performs a more exhaustive search in the\n'
-             'solution space (must be either `byte` or `dword`, defaults to\n'
-             '`byte`)')
 
     parser.add_argument(
         '--version',
@@ -116,7 +107,7 @@ def get_parsed_args(args=None):
     return parser.parse_args(args)
 
 
-def _parse_bytes(byte_str_literal):
+def _parse_bytes(byte_str_literal, check_dups=False):
     """Parse a byte string literal into a bytearray."""
     _cache = set()
     parsed = []
@@ -125,7 +116,7 @@ def _parse_bytes(byte_str_literal):
             parsed_bc = int(bc, base=16)
             if parsed_bc < 0 or parsed_bc > 255:
                 raise ValueError
-            elif parsed_bc in _cache:
+            elif check_dups and parsed_bc in _cache:
                 print_w('`\\x', bc, '` is present multiple times in your '
                         '-b/--bad-chars argument')
                 continue
@@ -157,7 +148,7 @@ def _parse_max_factors(max_factors):
 
 def _parse_ops(ops):
     """Parse the -o/--ops argument."""
-    ret = ops.split(',')
+    ret = tuple(ops.split(','))
     for op in ret:
         if op not in IMPLEMENTED_OPS:
             raise DonatelloConfigurationError(
@@ -199,7 +190,7 @@ def main(args=None):
         opts = get_parsed_args(args)
 
         if opts.bad_chars is not None:
-            bad_chars = _parse_bytes(opts.bad_chars)
+            bad_chars = _parse_bytes(opts.bad_chars, check_dups=True)
         else:
             bad_chars = b''
         bad_chars_as_ints = tuple(int(bc) for bc in bad_chars)
@@ -213,15 +204,6 @@ def main(args=None):
             ops = _parse_ops(opts.ops)
         else:
             ops = IMPLEMENTED_OPS
-
-        if opts.unit is not None:
-            if opts.unit not in ('byte', 'dword',):
-                raise DonatelloConfigurationError(
-                    'unsupported unit `' + opts.unit + '`')
-
-            unit = opts.unit
-        else:
-            unit = 'byte'
 
         if opts.command not in ('factor', 'encode',):
             raise DonatelloConfigurationError(
@@ -237,29 +219,25 @@ def main(args=None):
         if opts.command == 'factor':
             value = _parse_target_hex(target)
             print_i('Attempting to factor target value ', hex(value))
-            if unit == 'byte':
-                _param_iter = product(range(2, max_factors+1), ops)
-                for num_factors, op in _param_iter:
-                    print_i('Attempting per-byte factoring with operator `',
-                            op, '` and ', num_factors, ' factors...')
-                    factors = factor_by_byte(
-                        value, bad_chars_as_ints, op=op,
-                        num_factors=num_factors)
-                    if factors is not None:
-                        print_i('Found factorization!')
-                        hex_factor_iter = (hex(f.operand) for f in factors)
-                        print(' {} '.format(op).join(hex_factor_iter))
-                        break
-                else:
-                    print_e('Unable to find any factors')
-            elif unit == 'dword':
-                # TODO
-                pass
+
+            for num_factors in range(2, max_factors+1):
+                factors = factor_by_byte(
+                    value, bad_chars_as_ints, usable_ops=ops,
+                    num_factors=num_factors)
+                if factors is not None:
+                    print_i('Found factorization!')
+                    res = ['    0x00000000']
+                    for f in factors:
+                        res.append('{0: <3}'.format(f.operator) +
+                                   ' {0:#010x}'.format(f.operand))
+                    print('\n'.join(res))
+                    break
+            else:
+                print_e('Unable to find any factors')
         elif opts.command == 'encode':
             payload = _parse_bytes(target)
             print_i('Attempting to encode payload...')
-            asm = encode_x86_32(payload, bad_chars, unit=unit,
-                                max_factors=max_factors)
+            asm = encode_x86_32(payload, bad_chars, max_factors=max_factors)
             print_i('Successfully encoded payload!')
             print(asm)
 

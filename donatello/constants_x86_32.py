@@ -1,5 +1,11 @@
 """Relevant constants for the x86 32-bit instruction set."""
 
+#
+# Some useful references:
+#   - reg-clearing techniques: https://stackoverflow.com/a/32673696/5094008
+#   - detailed discussion of ^: https://stackoverflow.com/a/33668295/5094008
+#
+
 from collections import (
     namedtuple)
 
@@ -7,6 +13,10 @@ from collections import (
 Gadget = namedtuple('Gadget', ['shellcode', 'asm'])
 
 IMPLEMENTED_OPS = ('and', 'or', 'xor',)
+
+# int constants
+NUM_BITS_IN_BYTE = 8
+NUM_BITS_IN_DWORD = 32
 
 # gadgets for pushing eax onto the stack
 PUSH_EAX_GADGETS = [
