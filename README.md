@@ -20,7 +20,7 @@ pip install https://github.com/welchbj/donatello/archive/master.tar.gz
 
 ## Basic Usage
 
-You can use `donatello` as both a Python library and a command-line tool. When encoding entire payloads, it's best to write a quick Python script and use `donatello` as a library. Here's a simple script to do some basic encoding on a [Metasploit](https://www.metasploit.com/) payload:
+You can use `donatello` as both a Python library and a command-line tool. When encoding entire payloads, it's best to write a quick Python script and use `donatello` as a library. Here's a simple script to do some basic encoding on a [Metasploit](https://www.metasploit.com/) payload, with every other of its characters specified as a bad character:
 ```python
 """Simple demo for encoding a metasploit payload with a few bad chars."""
 
