@@ -21,6 +21,8 @@ from .errors import (
     DonatelloNoPresentBadCharactersError)
 from .factor_32 import (
     factor_by_byte)
+from .io import (
+    format_dword)
 from .utils import (
     chunked)
 
@@ -42,7 +44,7 @@ def factors_to_asm(factors, context):
     asm = []
     for factor in factors:
         gadget = context[factor.operator]
-        asm.append(gadget.asm.format(hex(factor.operand)))
+        asm.append(gadget.asm.format(format_dword(factor.operand)))
     return asm
 
 
@@ -194,20 +196,30 @@ def encode_x86_32(payload, bad_chars, max_factors=2, align=False, force=False):
         raise DonatelloCannotEncodeError(
             'bad character set restricts all methods of clearing eax')
 
-    # determine factors for each target
+    # build asm header
     asm = []
+    asm.append('[BITS 32]')
+    asm.append('global _start')
+    asm.append('_start:')
+
+    # determine factors for each target
     for target in targets:
+        asm.append(';')
+        asm.append(';')
+        asm.append('; clear eax')
         asm.append(clear_eax_asm)
         for num_factors in range(2, max_factors+1):
             factors = factor_by_byte(
                 target, bad_chars_as_ints,
                 usable_ops=usable_ops, num_factors=num_factors)
             if factors is not None:
+                asm.append(';')
+                asm.append('; build value ' + format_dword(target))
                 asm.append('\n'.join(factors_to_asm(factors, asm_context)))
                 break
         else:
             raise DonatelloCannotEncodeError(
-                'unable to encode target value ' + hex(target) +
+                'unable to encode target value ' + format_dword(target) +
                 ' using byte factorization')
         asm.append(push_eax_asm)
 
