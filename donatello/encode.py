@@ -11,10 +11,7 @@ from .constants_x86_32 import (
     AND_EAX_GADGETS,
     CLEAR_EAX_GADGETS,
     OR_EAX_GADGETS,
-    POP_EAX_GADGETS,
-    POP_ESP_GADGETS,
     PUSH_EAX_GADGETS,
-    PUSH_ESP_GADGETS,
     NOPS,
     XOR_EAX_GADGETS)
 from .errors import (
