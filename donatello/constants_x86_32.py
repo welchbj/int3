@@ -45,6 +45,10 @@ POP_ESP_GADGETS = [
 # gadgets for clearing eax
 CLEAR_EAX_GADGETS = [
     Gadget(b'\x31\xc0', 'xor eax,eax'),
+    Gadget(b'\x68\x61\x61\x61'
+           b'\x58'
+           b'\x35\x61\x61\x61',
+           "push 'aaaa'\npop eax\nxor eax,'aaaa'")
     # TODO
 ]
 
