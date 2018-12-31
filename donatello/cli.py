@@ -1,5 +1,7 @@
 """Command-line interface for `donatello`."""
 
+from __future__ import print_function
+
 import sys
 
 from argparse import (
@@ -7,17 +9,24 @@ from argparse import (
     RawTextHelpFormatter)
 from colorama import (
     init as init_colorama)
+from itertools import (
+    product)
 
 from ._version import (
     __version__)
 from .constants_x86_32 import (
     IMPLEMENTED_OPS)
+from .encode import (
+    encode_x86_32)
 from .errors import (
     DonatelloCannotEncodeError,
     DonatelloConfigurationError,
     DonatelloError,
     DonatelloNoPossibleNopsError,
     DonatelloNoPresentBadCharactersError)
+from .factor_32 import (
+    factor_by_byte,
+    factor_by_dword)
 from .io import (
     print_e,
     print_i,
@@ -28,7 +37,7 @@ def get_parsed_args(args=None):
     """Get the parsed command-line arguments."""
     parser = ArgumentParser(
         prog='donatello',
-        usage='dontallo [OPTIONS] <factor|encode> target',
+        usage='donatello [OPTIONS] <factor|encode> target',
         description=(
             '████████▄   ▄██████▄  ███▄▄▄▄      ▄████████     ███        ▄████████  ▄█        ▄█        ▄██████▄\n'   # noqa
             '███   ▀███ ███    ███ ███▀▀▀██▄   ███    ███ ▀█████████▄   ███    ███ ███       ███       ███    ███\n'  # noqa
@@ -42,12 +51,16 @@ def get_parsed_args(args=None):
             '                   sculpt the stack when facing restrictive bad character sets'),  # noqa
         formatter_class=RawTextHelpFormatter)
 
+    # TODO: -a/--align option
+
     parser.add_argument(
         '-b', '--bad-chars',
         action='store',
         metavar='',
         help='bad characters in the format `\\x00\\x01` that cannot be\n'
              'present in the factored/encoded result')
+
+    # TODO: -f/--force option
 
     parser.add_argument(
         '-m', '--max-factors',
@@ -60,10 +73,21 @@ def get_parsed_args(args=None):
         '-o', '--ops',
         action='store',
         metavar='',
-        help='comma-delimited list of operations permitted to be used in the\n'
-             'encoding (`or`, `and`, `xor`, etc.); defaults to all\n'
+        help='comma-delimited list of operations permitted to be used when\n'
+             'factoring (`or`, `and`, `xor`, etc.); defaults to all\n'
              'implemented x86 arithmetic operations not violating the bad\n'
-             'character set')
+             'character set and only applies when the command is set to\n'
+             '`factor`')
+
+    parser.add_argument(
+        '-u', '--unit',
+        action='store',
+        metavar='',
+        help='the smallest unit on which factoring is based on; `byte` \n'
+             'allows for more aggressive caching and increased performance,\n'
+             'while `dword` performs a more exhaustive search in the\n'
+             'solution space (must be either `byte` or `dword`, defaults to\n'
+             '`byte`)')
 
     parser.add_argument(
         '--version',
@@ -92,11 +116,11 @@ def get_parsed_args(args=None):
     return parser.parse_args(args)
 
 
-def _parse_bad_chars(bad_chars):
-    """Parse the -b/--bad-characters argument."""
+def _parse_bytes(byte_str_literal):
+    """Parse a byte string literal into a bytearray."""
     _cache = set()
     parsed = []
-    for bc in bad_chars.split('\\x')[1:]:
+    for bc in byte_str_literal.split('\\x')[1:]:
         try:
             parsed_bc = int(bc, base=16)
             if parsed_bc < 0 or parsed_bc > 255:
@@ -110,6 +134,10 @@ def _parse_bad_chars(bad_chars):
         except ValueError:
             raise DonatelloConfigurationError(
                 'invalid bad character `\\x' + bc + '`')
+
+    if not parsed:
+        raise DonatelloConfigurationError(
+            'received empty set of valid byte codes')
 
     return bytearray(parsed)
 
@@ -138,6 +166,24 @@ def _parse_ops(ops):
     return ret
 
 
+def _parse_target_hex(target):
+    """Parse the target argument as a hex value."""
+    try:
+        if not target.startswith('0x'):
+            print_w('`target` does not start with `0x` but is being '
+                    'interpreted as a hex value')
+        target_as_int = int(target, base=16)
+    except ValueError:
+        raise DonatelloConfigurationError(
+            'expected hex value for `target` but got ' + target)
+
+    if target_as_int.bit_length() > 32:
+        raise DonatelloConfigurationError(
+            'a maximum integer size of 32 bits is currently supported')
+
+    return target_as_int
+
+
 def main(args=None):
     """Main entry point for `donatello`'s command-line interface.
 
@@ -153,9 +199,10 @@ def main(args=None):
         opts = get_parsed_args(args)
 
         if opts.bad_chars is not None:
-            bad_chars = _parse_bad_chars(opts.bad_chars)
+            bad_chars = _parse_bytes(opts.bad_chars)
         else:
             bad_chars = b''
+        bad_chars_as_ints = tuple(int(bc) for bc in bad_chars)
 
         if opts.max_factors is not None:
             max_factors = _parse_max_factors(opts.max_factors)
@@ -167,24 +214,65 @@ def main(args=None):
         else:
             ops = IMPLEMENTED_OPS
 
+        if opts.unit is not None:
+            if opts.unit not in ('byte', 'dword',):
+                raise DonatelloConfigurationError(
+                    'unsupported unit `' + opts.unit + '`')
+
+            unit = opts.unit
+        else:
+            unit = 'byte'
+
         if opts.command not in ('factor', 'encode',):
-            # TODO
-            pass
-        elif opts.command == 'factor':
-            # TODO
-            pass
-        elif opts.command == 'encode':
-            # TODO
-            pass
+            raise DonatelloConfigurationError(
+                'must specify either `factor` or `encode`; `' + opts.command +
+                '` is invalid')
 
         if opts.target == '-':
             # TODO
             pass
         else:
-            # TODO
-            pass
+            target = opts.target
+
+        if opts.command == 'factor':
+            value = _parse_target_hex(target)
+            print_i('Attempting to factor target value ', hex(value))
+            if unit == 'byte':
+                _param_iter = product(range(2, max_factors+1), ops)
+                for num_factors, op in _param_iter:
+                    print_i('Attempting per-byte factoring with operator `',
+                            op, '` and ', num_factors, ' factors...')
+                    factors = factor_by_byte(
+                        value, bad_chars_as_ints, op=op,
+                        num_factors=num_factors)
+                    if factors is not None:
+                        print_i('Found factorization!')
+                        hex_factor_iter = (hex(f.operand) for f in factors)
+                        print(' {} '.format(op).join(hex_factor_iter))
+                        break
+                else:
+                    print_e('Unable to find any factors')
+            elif unit == 'dword':
+                # TODO
+                pass
+        elif opts.command == 'encode':
+            payload = _parse_bytes(target)
+            print_i('Attempting to encode payload...')
+            asm = encode_x86_32(payload, bad_chars, unit=unit,
+                                max_factors=max_factors)
+            print_i('Successfully encoded payload!')
+            print(asm)
+
+        return 0
+    except (DonatelloCannotEncodeError, DonatelloNoPossibleNopsError) as e:
+        print_e('Failed to factor/encode the specified target: ', e)
+        return 1
     except DonatelloConfigurationError as e:
         print_e('Configuration error: ', e)
+        return 1
+    except DonatelloNoPresentBadCharactersError:
+        print_e('No bad characters present in the specified payload; ',
+                'use the -f/--force flag to bypass this check')
         return 1
     except DonatelloError as e:
         print_e('This should not be reached! See below for error.')
