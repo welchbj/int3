@@ -25,6 +25,7 @@ from .errors import (
 from .factor_32 import (
     factor_by_byte)
 from .io import (
+    format_dword,
     print_e,
     print_i,
     print_w)
@@ -92,7 +93,6 @@ def get_parsed_args(args=None):
         metavar='<factor|encode>',
         help='the action to perform; either `factor` or `encode`')
 
-    # TODO: read this from stdin, too (https://docs.python.org/3/library/fileinput.html)
     parser.add_argument(
         'target',
         action='store',
@@ -211,14 +211,14 @@ def main(args=None):
                 '` is invalid')
 
         if opts.target == '-':
-            # TODO
+            # TODO: https://docs.python.org/3/library/fileinput.html
             pass
         else:
             target = opts.target
 
         if opts.command == 'factor':
             value = _parse_target_hex(target)
-            print_i('Attempting to factor target value ', hex(value))
+            print_i('Attempting to factor target value ', format_dword(value))
 
             for num_factors in range(2, max_factors+1):
                 factors = factor_by_byte(
@@ -228,8 +228,8 @@ def main(args=None):
                     print_i('Found factorization!')
                     res = ['    0x00000000']
                     for f in factors:
-                        res.append('{0: <3}'.format(f.operator) +
-                                   ' {0:#010x}'.format(f.operand))
+                        res.append('{0: <3}'.format(f.operator) + ' ' +
+                                   format_dword(f.operand))
                     print('\n'.join(res))
                     break
             else:

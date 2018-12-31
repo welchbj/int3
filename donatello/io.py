@@ -23,6 +23,11 @@ def yellow(s):
     return Fore.YELLOW + s + Style.RESET_ALL
 
 
+def format_dword(i):
+    """Format an integer to 32-bit hex."""
+    return '{0:#010x}'.format(i)
+
+
 print_i = partial(print, blue('[I] '), sep='')
 print_e = partial(print, red('[E] '), sep='')
 print_w = partial(print, yellow('[W] '), sep='')
