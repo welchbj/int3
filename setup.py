@@ -12,6 +12,9 @@ except ImportError:
     sys.exit(1)
 
 
+# TODO: this is all broken
+# TOOD: https://github.com/Z3Prover/z3/wiki/Using-Z3Py-on-Windows
+
 # file paths
 here = os.path.abspath(os.path.dirname(__file__))
 readme_file = os.path.join(here, 'README.md')
@@ -25,7 +28,7 @@ src_license = 'MIT'
 author = 'Brian Welch'
 author_email = 'welch18@vt.edu'
 url = 'https://github.com/welchbj/donatello'
-install_requires = ['colorama', 'ttable']
+install_requires = ['colorama', 'ttable']  # TODO: this needs to be updated
 
 with codecs.open(version_file, encoding='utf-8') as f:
     exec(f.read())  # loads __version__ and __version_info__
@@ -33,6 +36,7 @@ with codecs.open(version_file, encoding='utf-8') as f:
 
 with codecs.open(readme_file, encoding='utf-8') as f:
     long_description = f.read()
+long_description_content_type = 'text/markdown'
 
 entry_points = {
     'console_scripts': [
@@ -50,6 +54,7 @@ setup(
     version=version,
     description=description,
     long_description=long_description,
+    long_description_content_type=long_description_content_type,
     author=author,
     author_email=author_email,
     url=url,
