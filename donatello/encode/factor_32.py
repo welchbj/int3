@@ -16,6 +16,8 @@ from .constants_x86_32 import (
     NUM_BITS_IN_BYTE)
 from .errors import (
     DonatelloConfigurationError)
+from .io import (
+    format_dword)
 
 Factor = namedtuple('Factor', ['operator', 'operand'])
 

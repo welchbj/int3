@@ -1,5 +1,7 @@
 """Command-line interface for `donatello`."""
 
+# TODO: this is all broken
+
 from __future__ import print_function
 
 import sys
@@ -61,6 +63,8 @@ def get_parsed_args(args=None):
     # TODO: -f/--force option
 
     # TODO: -s/--start-value for `factor`
+
+    # TODO: specify output format / syntax
 
     parser.add_argument(
         '-m', '--max-factors',
