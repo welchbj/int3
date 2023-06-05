@@ -1,6 +1,0 @@
-include LICENSE.txt
-include README.md
-
-graft donatello
-
-global-exclude *.py[cod]
