@@ -55,7 +55,7 @@ poetry install
 Assuming [Poetry credentials are properly setup](https://python-poetry.org/docs/repositories/#configuring-credentials), publishing to PyPI should be simple:
 
 ```sh
-poetry publish
+poetry publish --build
 ```
 
 ## License
