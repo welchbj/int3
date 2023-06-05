@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "int3"
-version = "0.0.1"
+version = "0.0.2"
 description = "Tools and libraries for the aspiring shellcoder."
 authors = ["welchbj <12776611+welchbj@users.noreply.github.com>"]
 license = "MIT"
