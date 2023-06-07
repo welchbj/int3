@@ -3,6 +3,19 @@ from typing import BinaryIO
 
 import click
 
+from int3.assembly import assemble
+from int3.architectures import Architecture, Architectures
+from int3.context import Context
+from int3.platforms import Platform, Platforms
+
+
+def _platform_from_str(ctx, param, value: str):
+    return Platforms.from_str(value)
+
+
+def _architecture_from_str(ctx, param, value: str):
+    return Architectures.from_str(value)
+
 
 @click.group
 def cli():
@@ -12,66 +25,88 @@ def cli():
 # Re-used option/argument definitions are created here and applied as
 # decorators below.
 
-file_or_stdin_input = click.option(
+file_or_stdin_input_option = click.option(
     "--input",
+    "-i",
     "input_file",
     help="Input file. Omit this option to read from stdin.",
-    type=click.File("r"),
-    default=sys.stdin,
+    type=click.File("rb"),
+    default=sys.stdin.buffer,
 )
 
-bad_bytes = click.option(
+platform_option = click.option(
+    "--platform",
+    "-p",
+    help="Target platform.",
+    type=click.Choice(Platforms.names()),
+    callback=_platform_from_str,
+    default=Platforms.from_host().name,
+    show_default=True,
+)
+
+architecture_option = click.option(
+    "--architecture",
+    "-a",
+    help="Target architecture.",
+    type=click.Choice(Architectures.names()),
+    callback=_architecture_from_str,
+    default=Architectures.from_host().name,
+    show_default=True,
+)
+
+bad_bytes_option = click.option(
     # TODO
 )
 
 
-@cli.command()
-@file_or_stdin_input
-def assemble(input_file: BinaryIO):
+@cli.command("assemble")
+@file_or_stdin_input_option
+@platform_option
+@architecture_option
+def cli_disassemble(
+    input_file: BinaryIO, platform: Platform, architecture: Architecture
+):
     with input_file:
-        raw_asm_bytes = input_file.read()
+        asm_text: str = input_file.read().decode()
 
-    click.echo("Not yet implemented...")
+    # TODO: Other ctx arguments.
+    ctx = Context(architecture=architecture, platform=platform)
+
+    asm_bytes = assemble(ctx=ctx, assembly=asm_text)
+    click.echo(asm_bytes, nl=False)
 
 
-@cli.command()
-@file_or_stdin_input
-def disassemble(input_file: BinaryIO):
+@cli.command("disassemble")
+@file_or_stdin_input_option
+def cli_assemble(input_file: BinaryIO):
     # TODO
     click.echo("Not yet implemented...")
 
 
-@cli.command()
-@file_or_stdin_input
-def format(input_file: BinaryIO):
+@cli.command("format")
+@file_or_stdin_input_option
+def cli_format(input_file: BinaryIO):
     # TODO
     click.echo("Not yet implemented...")
 
 
-@cli.command()
-@file_or_stdin_input
-def execute(input_file: BinaryIO):
+@cli.command("execute")
+@file_or_stdin_input_option
+def cli_execute(input_file: BinaryIO):
     # TODO
     click.echo("Not yet implemented...")
 
 
-@cli.command()
-@file_or_stdin_input
-def encode(input_file: BinaryIO):
+@cli.command("encode")
+@file_or_stdin_input_option
+def cli_encode(input_file: BinaryIO):
     # TODO
     click.echo("Not yet implemented...")
 
 
-@cli.command()
-def payload():
+@cli.command("payload")
+def cli_payload():
     # TODO
-    click.echo("Not yet implemented...")
-
-
-@cli.command()
-@file_or_stdin_input
-def emulate(input_file: BinaryIO):
-    # TODO: Incorporate Unicorn emulation.
     click.echo("Not yet implemented...")
 
 
