@@ -7,3 +7,11 @@ class Int3Error(Exception):
 
 class Int3MissingEntityError(Exception):
     """Exception type for missing entities."""
+
+
+class Int3WrappedKeystoneError(Exception):
+    """A thin wrapper around KsError."""
+
+
+class Int3WrappedCapstoneError(Exception):
+    """A thin wrapper around CsError."""

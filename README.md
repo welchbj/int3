@@ -2,7 +2,14 @@
 
 ## Synopsis
 
-`int3` is a Python library and command-line tool for generating and encoding binary payloads.by writing them word-by-word to the stack. Its initial release is focused on Windows 32-bit and 64-bit shellcoding.
+`int3` is a Python library and command-line tool for generating, transforming, and encoding shellcode payloads:
+
+```sh
+echo "int3" | int3 assemble | xxd
+00000000: cc                                       .
+```
+
+This library's initial release is focused on Windows 32-bit and 64-bit environments.
 
 ## Installation
 

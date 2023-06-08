@@ -1,12 +1,16 @@
-from keystone import Ks
+from keystone import Ks, KsError
 
 from int3.context import Context
+from int3.errors import Int3WrappedKeystoneError
 
 
 def assemble(ctx: Context, assembly: str) -> bytes:
-    ks = Ks(arch=ctx.architecture.keystone_arch, mode=ctx.architecture.keystone_mode)
+    try:
+        ks = Ks(
+            arch=ctx.architecture.keystone_arch, mode=ctx.architecture.keystone_mode
+        )
+        encoding, _ = ks.asm(assembly, addr=ctx.vma, as_bytes=True)
+    except KsError as e:
+        raise Int3WrappedKeystoneError(str(e)) from e
 
-    # TODO: Standardize error abstraction layer.
-
-    encoding, _ = ks.asm(assembly, addr=ctx.vma, as_bytes=True)
     return encoding

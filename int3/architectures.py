@@ -2,6 +2,7 @@ import platform
 from dataclasses import dataclass
 from enum import Enum, auto
 
+from capstone import CS_ARCH_X86, CS_MODE_32, CS_MODE_64
 from keystone import KS_ARCH_X86, KS_MODE_32, KS_MODE_64
 
 from int3.errors import Int3MissingEntityError
@@ -27,7 +28,8 @@ class Architecture:
     keystone_arch: int
     keystone_mode: int
 
-    # TODO: Capstone fields.
+    capstone_arch: int
+    capstone_mode: int
 
 
 class Architectures(Enum):
@@ -38,6 +40,8 @@ class Architectures(Enum):
         stack_growth=StackGrowth.Down,
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
+        capstone_arch=CS_ARCH_X86,
+        capstone_mode=CS_MODE_32,
     )
     x86_64 = Architecture(
         name="x86_64",
@@ -46,6 +50,8 @@ class Architectures(Enum):
         stack_growth=StackGrowth.Down,
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_64,
+        capstone_arch=CS_ARCH_X86,
+        capstone_mode=CS_MODE_64,
     )
 
     @staticmethod

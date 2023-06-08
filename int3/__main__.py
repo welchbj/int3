@@ -3,7 +3,7 @@ from typing import BinaryIO
 
 import click
 
-from int3.assembly import assemble
+from int3.assembly import assemble, disassemble
 from int3.architectures import Architecture, Architectures
 from int3.context import Context
 from int3.platforms import Platform, Platforms
@@ -63,9 +63,7 @@ bad_bytes_option = click.option(
 @file_or_stdin_input_option
 @platform_option
 @architecture_option
-def cli_disassemble(
-    input_file: BinaryIO, platform: Platform, architecture: Architecture
-):
+def cli_assemble(input_file: BinaryIO, platform: Platform, architecture: Architecture):
     with input_file:
         asm_text: str = input_file.read().decode()
 
@@ -78,9 +76,19 @@ def cli_disassemble(
 
 @cli.command("disassemble")
 @file_or_stdin_input_option
-def cli_assemble(input_file: BinaryIO):
-    # TODO
-    click.echo("Not yet implemented...")
+@platform_option
+@architecture_option
+def cli_disassemble(
+    input_file: BinaryIO, platform: Platform, architecture: Architecture
+):
+    with input_file:
+        machine_code: bytes = input_file.read()
+
+    # TODO: Other ctx arguments.
+    ctx = Context(architecture=architecture, platform=platform)
+
+    asm_text = disassemble(ctx=ctx, machine_code=machine_code)
+    click.echo(asm_text)
 
 
 @cli.command("format")

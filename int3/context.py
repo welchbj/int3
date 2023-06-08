@@ -11,3 +11,4 @@ class Context:
 
     bad_bytes: bytes = b""
     vma: int = 0
+    usable_stack: bool = True
