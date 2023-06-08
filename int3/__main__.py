@@ -6,6 +6,7 @@ import click
 from int3.assembly import assemble, disassemble
 from int3.architectures import Architecture, Architectures
 from int3.context import Context
+from int3.execution import execute
 from int3.platforms import Platform, Platforms
 
 
@@ -101,8 +102,10 @@ def cli_format(input_file: BinaryIO):
 @cli.command("execute")
 @file_or_stdin_input_option
 def cli_execute(input_file: BinaryIO):
-    # TODO
-    click.echo("Not yet implemented...")
+    with input_file:
+        machine_code: bytes = input_file.read()
+
+    execute(machine_code=machine_code)
 
 
 @cli.command("encode")
