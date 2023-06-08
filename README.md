@@ -73,6 +73,7 @@ poetry publish --build
 
 Many helpful resources were used in the development of this tool, including:
 
+* [Capstone Python documentation](https://www.capstone-engine.org/lang_python.html)
 * [Phrack - Writing ia32 alphanumeric shellcodes](http://phrack.org/issues/57/15.html)
 * [MazeGen's x86 reference](http://ref.x86asm.net/coder32.html)
 * [NASM](https://www.nasm.us/)
