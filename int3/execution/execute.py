@@ -1,6 +1,5 @@
 from typing import NoReturn
 
-from int3.context import Context
 from int3.errors import Int3MissingEntityError
 from int3.platforms import Platforms
 
