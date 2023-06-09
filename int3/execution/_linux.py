@@ -1,6 +1,7 @@
 import ctypes
 import os
 import signal
+import sys
 from typing import NoReturn
 
 PROT_READ = 0x1
@@ -47,3 +48,5 @@ def execute_linux(machine_code: bytes) -> NoReturn:
     # redirection of the execution flow there.
     _libc.signal(signal.SIGUSR1, rwx_addr)
     os.kill(os.getpid(), signal.SIGUSR1)
+
+    sys.exit(0)

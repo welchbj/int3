@@ -1,3 +1,5 @@
+from typing import cast
+
 from keystone import Ks, KsError
 
 from int3.context import Context
@@ -13,4 +15,4 @@ def assemble(ctx: Context, assembly: str) -> bytes:
     except KsError as e:
         raise Int3WrappedKeystoneError(str(e)) from e
 
-    return encoding
+    return cast(bytes, encoding)
