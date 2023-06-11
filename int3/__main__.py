@@ -3,8 +3,8 @@ from typing import BinaryIO
 
 import click
 
-from int3.assembly import assemble, disassemble
 from int3.architectures import Architecture, Architectures
+from int3.assembly import assemble, disassemble
 from int3.context import Context
 from int3.execution import execute
 from int3.platforms import Platform, Platforms

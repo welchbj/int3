@@ -4,6 +4,8 @@ from enum import Enum
 
 from int3.errors import Int3MissingEntityError
 
+__all__ = ["Platform", "Platforms"]
+
 
 @dataclass(frozen=True)
 class Platform:

@@ -1,35 +1,49 @@
 from dataclasses import dataclass
 
-from int3.register import Register
+from int3.registers import Immediate, IntImmediate, x86Registers
 
-from .emission import Emission
-from .emission_set import EmissionSet
-from .emitter import Emitter
+from .architecture_emitter import ArchitectureEmitter
 
 
-@dataclass
-class x86Emitter(Emitter):
-    """An emitter for 32-bit x86 assembly."""
-
-    # TODO: Should the below (start of an) interface be placed in something like an
-    #       ArchitectureEmitter ABC?
-
-    def mov(self, dst: Register, src: Register) -> EmissionSet:
+class x86Emitter(ArchitectureEmitter[x86Registers]):
+    def mov(self, dst: x86Registers, src: x86Registers):
         # TODO
         pass
 
-    def load(self, dst: Register, src_ptr: Register, offset: int = 0) -> EmissionSet:
+    def load(
+        self, dst: x86Registers, src_ptr: x86Registers, offset: int = 0
+    ) -> x86Registers:
+        # TODO
+        return "eax"
+
+    def clear(self, reg: x86Registers):
         # TODO
         pass
 
-    def clear(self, reg: Register) -> EmissionSet:
+    def push(self, value: x86Registers | Immediate):
         # TODO
         pass
 
-    def push(self, value: Register | int) -> EmissionSet:
+    def pop(self, result: x86Registers | None = None) -> x86Registers:
+        # TODO
+        return "eax"
+
+    def add(self, dst: x86Registers, operand: x86Registers | IntImmediate):
         # TODO
         pass
 
-    def pop(self, result: Register) -> EmissionSet:
+    def sub(self, dst: x86Registers, operand: x86Registers | IntImmediate):
+        # TODO
+        pass
+
+    def xor(self, dst: x86Registers, operand: x86Registers | IntImmediate):
+        # TODO
+        pass
+
+    def neg(self, dst: x86Registers):
+        # TODO
+        pass
+
+    def call(self, target: x86Registers):
         # TODO
         pass

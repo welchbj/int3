@@ -1,15 +1,14 @@
 from dataclasses import dataclass, field
 
 from int3.context import Context
+from int3.assembly import assemble
 
 
 @dataclass
 class Emitter:
     ctx: Context
 
-    ledger: bytes = field(init=False, default=b"")
+    assembly: str = field(init=False, default="")
 
     def __bytes__(self) -> bytes:
-        return self.ledger
-
-    # TODO: Context manager for locking registers, etc.
+        return assemble(ctx=self.ctx, assembly=self.assembly)

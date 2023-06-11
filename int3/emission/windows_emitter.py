@@ -1,41 +1,30 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from typing import Generic
 
-from int3.architectures import Architectures
-from int3.errors import Int3UnsupportedArchitecture, Int3UnsupportedPlatform
-from int3.platforms import Platforms
-from int3.register import Register
+from int3.registers import (
+    Registers,
+    x86_64Registers,
+    x86Registers,
+)
 
-from .emitter import Emitter
-from .emission import Emission
+from .architecture_emitter import ArchitectureEmitter
 from .x86_emitter import x86Emitter
-from .x86_64_emitter import x86_64Emitter
+from .x86_64emitter import x86_64Emitter
 
 
 @dataclass
-class WindowsEmitter(Emitter):
-    asm_emitter: x86Emitter | x86_64Emitter = field(init=False)
+class WindowsEmitter(ArchitectureEmitter[Registers], Generic[Registers]):
+    """An emitter for Windows targets (generic with respect to 32- vs 64-bit)."""
 
-    def __post_init__(self):
-        if self.ctx.platform is not Platforms.Windows:
-            raise Int3UnsupportedPlatform(
-                f"{self.__class__.__qualname__} only supports the Windows platform"
-            )
-
-        match arch := self.ctx.architecture:
-            case Architectures.x86.value:
-                self.asm_emitter = x86Emitter(ctx=self.ctx)
-            case Architectures.x86_64.value:
-                self.asm_emitter = x86_64Emitter(ctx=self.ctx)
-            case _:
-                raise Int3UnsupportedArchitecture(
-                    f"{self.__class__.__qualname__} does not support architecture "
-                    f"{arch}"
-                )
-
-    # TODO: Other primitive utilities.
-
-    def resolve_function(
-        self, func_name: str, result: Register, use_hash: bool = True
-    ) -> Emission:
+    def resolve_dll(self, name: str, dst: Registers | None = None) -> Registers:
         # TODO
-        pass
+        print("resolve_dll called!")
+        return self.pop()
+
+
+class Windowsx86Emitter(x86Emitter, WindowsEmitter[x86Registers]):
+    ...
+
+
+class Windowsx86_64Emitter(x86_64Emitter, WindowsEmitter[x86_64Registers]):
+    ...
