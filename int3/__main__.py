@@ -7,6 +7,7 @@ from int3.architectures import Architecture, Architectures
 from int3.assembly import assemble, disassemble
 from int3.context import Context
 from int3.execution import execute
+from int3.format import FormatStyle, Formatter
 from int3.platforms import Platform, Platforms
 
 
@@ -16,6 +17,16 @@ def _platform_from_str(ctx, param, value: str):
 
 def _architecture_from_str(ctx, param, value: str):
     return Architectures.from_str(value)
+
+
+def _format_style_from_str(ctx, param, value: str):
+    return FormatStyle.from_str(value)
+
+
+def _parse_bad_bytes(ctx, param, value: str):
+    return Formatter(style_in=FormatStyle.Python, style_out=FormatStyle.Raw).format(
+        value.encode()
+    )
 
 
 @click.group
@@ -55,8 +66,31 @@ architecture_option = click.option(
     show_default=True,
 )
 
+format_in_option = click.option(
+    "--format-in",
+    help="The format of the input data.",
+    type=click.Choice(FormatStyle.names()),
+    callback=_format_style_from_str,
+    default=FormatStyle.Raw.name,
+    show_default=True,
+)
+
+format_out_option = click.option(
+    "--format-out",
+    help="The format of the output data.",
+    type=click.Choice(FormatStyle.names()),
+    callback=_format_style_from_str,
+    default=FormatStyle.Python.name,
+    show_default=True,
+)
+
 bad_bytes_option = click.option(
-    # TODO
+    "--bad-bytes",
+    "-b",
+    help="Bytes that should not appear in generated shellcodes.",
+    callback=_parse_bad_bytes,
+    default=b"",
+    show_default=True,
 )
 
 
@@ -68,9 +102,7 @@ def cli_assemble(input_file: BinaryIO, platform: Platform, architecture: Archite
     with input_file:
         asm_text: str = input_file.read().decode()
 
-    # TODO: Other ctx arguments.
     ctx = Context(architecture=architecture, platform=platform)
-
     asm_bytes = assemble(ctx=ctx, assembly=asm_text)
     click.echo(asm_bytes, nl=False)
 
@@ -85,18 +117,27 @@ def cli_disassemble(
     with input_file:
         machine_code: bytes = input_file.read()
 
-    # TODO: Other ctx arguments.
     ctx = Context(architecture=architecture, platform=platform)
-
     asm_text = disassemble(ctx=ctx, machine_code=machine_code)
     click.echo(asm_text)
 
 
 @cli.command("format")
 @file_or_stdin_input_option
-def cli_format(input_file: BinaryIO):
-    # TODO
-    click.echo("Not yet implemented...")
+@format_in_option
+@format_out_option
+def cli_format(input_file: BinaryIO, format_in: FormatStyle, format_out: FormatStyle):
+    with input_file:
+        data: bytes = input_file.read()
+
+    formatter = Formatter(style_in=format_in, style_out=format_out)
+
+    if format_out is FormatStyle.Python:
+        add_newline = True
+    else:
+        add_newline = False
+
+    click.echo(formatter.format(data), nl=add_newline)
 
 
 @cli.command("execute")
