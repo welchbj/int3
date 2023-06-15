@@ -49,7 +49,7 @@ class Formatter:
                 data = bytes([i for i in data if bytes([i]) not in b"\n\r\t "])
                 parsed_data = binascii.unhexlify(data)
             case FormatStyle.Python:
-                parsed_data = ast.literal_eval(repr(data))
+                parsed_data = ast.literal_eval(f"b'{data.decode()}'")
 
         match self.style_out:
             case FormatStyle.Raw:
