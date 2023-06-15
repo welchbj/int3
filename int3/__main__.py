@@ -1,5 +1,5 @@
 import sys
-from typing import BinaryIO
+from typing import BinaryIO, Type
 
 import click
 
@@ -8,6 +8,7 @@ from int3.assembly import assemble, disassemble
 from int3.context import Context
 from int3.execution import execute
 from int3.format import FormatStyle, Formatter
+from int3.payloads import Payload
 from int3.platforms import Platform, Platforms
 
 
@@ -17,6 +18,10 @@ def _platform_from_str(ctx, param, value: str):
 
 def _architecture_from_str(ctx, param, value: str):
     return Architectures.from_str(value)
+
+
+def _payload_cls_from_str(ctx, param, value: str):
+    return Payload.cls_from_str(value)
 
 
 def _format_style_from_str(ctx, param, value: str):
@@ -93,6 +98,15 @@ bad_bytes_option = click.option(
     show_default=True,
 )
 
+payload_option = click.option(
+    "--payload",
+    "payload_cls",
+    help="The payload type to use.",
+    callback=_payload_cls_from_str,
+    type=click.Choice([cls.name() for cls in Payload.payload_cls_list()]),
+    required=True,
+)
+
 
 @cli.command("assemble")
 @file_or_stdin_input_option
@@ -157,9 +171,19 @@ def cli_encode(input_file: BinaryIO):
 
 
 @cli.command("payload")
-def cli_payload():
-    # TODO
-    click.echo("Not yet implemented...")
+@file_or_stdin_input_option
+@bad_bytes_option
+@format_out_option
+@payload_option
+@platform_option
+@architecture_option
+def cli_payload(input_file: BinaryIO, bad_bytes: bytes, format_out: FormatStyle, payload_cls: Type[Payload], platform: Platform, architecture: Architecture):
+    # TODO: Populate arch/platform based on the payload.
+
+    ctx = Context(architecture=architecture, platform=platform, bad_bytes=bad_bytes)
+    payload = payload_cls(ctx=ctx)
+
+    click.echo(str(payload), nl=False)
 
 
 if __name__ == "__main__":

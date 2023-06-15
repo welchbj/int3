@@ -1,47 +1,49 @@
-from dataclasses import dataclass
-
+from int3.gadget import Gadget
 from int3.registers import Immediate, IntImmediate, x86_64Registers
 
 from .architecture_emitter import ArchitectureEmitter
 
 
 class x86_64Emitter(ArchitectureEmitter[x86_64Registers]):
-    def mov(self, dst: x86_64Registers, src: x86_64Registers):
-        # TODO
-        pass
 
-    def load(self, dst: x86_64Registers, src_ptr: x86_64Registers, offset: int = 0):
+    def mov(self, dst: x86_64Registers, src: x86_64Registers | IntImmediate) -> Gadget:
         # TODO
-        return "rax"
+        return Gadget("")
 
-    def clear(self, reg: x86_64Registers):
+    def load(self, dst: x86_64Registers, src_ptr: x86_64Registers, offset: int = 0) -> Gadget:
         # TODO
-        pass
+        return Gadget("")
 
-    def push(self, value: x86_64Registers | Immediate):
+    def push(self, value: x86_64Registers | Immediate) -> Gadget:
         # TODO
-        pass
+        return Gadget("")
 
-    def pop(self, result: x86_64Registers | None = None) -> x86_64Registers:
+    def pop(self, result: x86_64Registers | None = None) -> Gadget:
         # TODO
-        return "rax"
+        return Gadget("")
 
-    def add(self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate):
+    def add(self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate) -> Gadget:
         # TODO
-        pass
+        return Gadget("")
 
-    def sub(self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate):
+    def sub(self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate) -> Gadget:
         # TODO
-        pass
+        return Gadget("")
 
-    def xor(self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate):
+    def xor(self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate) -> Gadget:
         # TODO
-        pass
+        return Gadget("")
 
-    def neg(self, dst: x86_64Registers):
+    def neg(self, dst: x86_64Registers) -> Gadget:
         # TODO
-        pass
+        return Gadget("")
 
-    def call(self, target: x86_64Registers):
+    def call(self, target: x86_64Registers) -> Gadget:
         # TODO
-        pass
+        return Gadget("")
+
+    def breakpoint(self) -> Gadget:
+        return Gadget("int3")
+
+    # TODO: Shifts?
+

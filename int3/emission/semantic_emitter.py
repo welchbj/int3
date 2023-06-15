@@ -1,53 +1,51 @@
-from abc import ABC, abstractmethod
 from typing import Generic
 
 from int3.gadget import Gadget
-from int3.registers import Registers, Immediate, IntImmediate
+from int3.registers import Registers, IntImmediate, Immediate
 
-from .emitter import Emitter
+from .architecture_emitter import ArchitectureEmitter
 
 
-class ArchitectureEmitter(Emitter, ABC, Generic[Registers]):
+class SemanticEmitter(ArchitectureEmitter[Registers], Generic[Registers]):
 
-    @abstractmethod
     def mov(self, dst: Registers, src: Registers | IntImmediate) -> Gadget:
-        ...
+        # TODO
+        return Gadget("")
 
-    @abstractmethod
     def load(self, dst: Registers, src_ptr: Registers, offset: int = 0) -> Gadget:
-        ...
+        # TODO
+        return Gadget("")
 
-    @abstractmethod
     def push(self, value: Registers | Immediate) -> Gadget:
-        ...
+        # TODO
+        return Gadget("")
 
-    @abstractmethod
     def pop(self, result: Registers | None = None) -> Gadget:
-        ...
+        # TODO
+        return Gadget("")
 
-    @abstractmethod
     def add(self, dst: Registers, operand: Registers | IntImmediate) -> Gadget:
-        ...
+        # TODO
+        return Gadget("")
 
-    @abstractmethod
     def sub(self, dst: Registers, operand: Registers | IntImmediate) -> Gadget:
-        ...
+        # TODO
+        return Gadget("")
 
-    @abstractmethod
     def xor(self, dst: Registers, operand: Registers | IntImmediate) -> Gadget:
-        ...
+        # TODO
+        return Gadget("")
 
-    @abstractmethod
     def neg(self, dst: Registers) -> Gadget:
-        ...
+        # TODO
+        return Gadget("")
 
-    @abstractmethod
     def call(self, target: Registers) -> Gadget:
-        ...
+        # TODO
+        return Gadget("")
 
-    @abstractmethod
     def breakpoint(self) -> Gadget:
-        ...
+        return super().breakpoint()
 
     # TODO: Shifts?
 

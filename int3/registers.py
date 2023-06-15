@@ -4,15 +4,16 @@ IntImmediate: TypeAlias = int
 BytesImmediate: TypeAlias = bytes
 Immediate: TypeAlias = int | bytes
 
-# Annotate general purpose registers per architecture.
-x86Registers = Literal["eax", "ebx", "ecx", "edx", "esi", "edi", "edi", "ebp", "esp"]
-x86_64Registers = Literal[
+# Registers annotated per architecture.
+x86GpRegisters = Literal["eax", "ebx", "ecx", "edx", "esi", "edi", "edi", "ebp"]
+x86Registers = Literal[x86GpRegisters, "eip", "esp"]
+
+x86_64GpRegisters = Literal[
     "rax",
     "rbx",
     "rcx",
     "rdx",
     "rbp",
-    "rsp",
     "rsi",
     "rdi",
     "r8",
@@ -24,7 +25,10 @@ x86_64Registers = Literal[
     "r14",
     "r15",
 ]
+x86_64Registers = Literal[x86_64GpRegisters, "rip", "rsp"]
+
 
 # TODO: Add 8-, 16-, and 32-bit width variants where applicable.
+
 
 Registers = TypeVar("Registers", x86Registers, x86_64Registers)

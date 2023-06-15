@@ -5,8 +5,8 @@
 `int3` is a Python library and command-line tool for generating, transforming, and encoding shellcode payloads:
 
 ```sh
-echo "int3" | int3 assemble | xxd
-00000000: cc                                       .
+echo -n "int3" | int3 assemble | int3 format
+b"\xcc"
 ```
 
 This library's initial release is focused on Windows 32-bit and 64-bit environments.
