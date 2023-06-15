@@ -1,13 +1,12 @@
 from typing import Generic
 
 from int3.gadget import Gadget
-from int3.registers import Registers, IntImmediate, Immediate
+from int3.registers import Immediate, IntImmediate, Registers
 
 from .architecture_emitter import ArchitectureEmitter
 
 
 class SemanticEmitter(ArchitectureEmitter[Registers], Generic[Registers]):
-
     def mov(self, dst: Registers, src: Registers | IntImmediate) -> Gadget:
         # TODO
         return Gadget("")

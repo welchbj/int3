@@ -5,12 +5,13 @@ from .architecture_emitter import ArchitectureEmitter
 
 
 class x86_64Emitter(ArchitectureEmitter[x86_64Registers]):
-
     def mov(self, dst: x86_64Registers, src: x86_64Registers | IntImmediate) -> Gadget:
         # TODO
         return Gadget("")
 
-    def load(self, dst: x86_64Registers, src_ptr: x86_64Registers, offset: int = 0) -> Gadget:
+    def load(
+        self, dst: x86_64Registers, src_ptr: x86_64Registers, offset: int = 0
+    ) -> Gadget:
         # TODO
         return Gadget("")
 
@@ -22,15 +23,21 @@ class x86_64Emitter(ArchitectureEmitter[x86_64Registers]):
         # TODO
         return Gadget("")
 
-    def add(self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate) -> Gadget:
+    def add(
+        self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate
+    ) -> Gadget:
         # TODO
         return Gadget("")
 
-    def sub(self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate) -> Gadget:
+    def sub(
+        self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate
+    ) -> Gadget:
         # TODO
         return Gadget("")
 
-    def xor(self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate) -> Gadget:
+    def xor(
+        self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate
+    ) -> Gadget:
         # TODO
         return Gadget("")
 
@@ -46,4 +53,3 @@ class x86_64Emitter(ArchitectureEmitter[x86_64Registers]):
         return Gadget("int3")
 
     # TODO: Shifts?
-

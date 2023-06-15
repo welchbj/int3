@@ -3,7 +3,7 @@ from typing import cast
 from keystone import Ks, KsError
 
 from int3.context import Context
-from int3.errors import Int3WrappedKeystoneError, Int3AssemblyError
+from int3.errors import Int3WrappedKeystoneError
 
 
 def assemble(ctx: Context, assembly: str) -> bytes:

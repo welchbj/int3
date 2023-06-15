@@ -5,8 +5,8 @@ import binascii
 from dataclasses import dataclass
 from enum import Enum, auto
 
-from int3.errors import Int3MissingEntityError
 from int3._utils import grouper
+from int3.errors import Int3MissingEntityError
 
 
 class FormatStyle(Enum):
@@ -49,7 +49,7 @@ class Formatter:
                 data = bytes([i for i in data if bytes([i]) not in b"\n\r\t "])
                 parsed_data = binascii.unhexlify(data)
             case FormatStyle.Python:
-                parsed_data = ast.literal_eval(data.decode())
+                parsed_data = ast.literal_eval(repr(data))
 
         match self.style_out:
             case FormatStyle.Raw:

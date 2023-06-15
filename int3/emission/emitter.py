@@ -4,7 +4,6 @@ from enum import Enum, auto
 from int3.context import Context
 from int3.gadget import Gadget
 
-
 # XXX
 # Situations we should be capable of working around:
 # - When a bad byte is in an operation, we can use other equivalent operations.

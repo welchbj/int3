@@ -177,7 +177,14 @@ def cli_encode(input_file: BinaryIO):
 @payload_option
 @platform_option
 @architecture_option
-def cli_payload(input_file: BinaryIO, bad_bytes: bytes, format_out: FormatStyle, payload_cls: Type[Payload], platform: Platform, architecture: Architecture):
+def cli_payload(
+    input_file: BinaryIO,
+    bad_bytes: bytes,
+    format_out: FormatStyle,
+    payload_cls: Type[Payload],
+    platform: Platform,
+    architecture: Architecture,
+):
     # TODO: Populate arch/platform based on the payload.
 
     ctx = Context(architecture=architecture, platform=platform, bad_bytes=bad_bytes)

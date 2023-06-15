@@ -5,7 +5,6 @@ from .architecture_emitter import ArchitectureEmitter
 
 
 class x86Emitter(ArchitectureEmitter[x86Registers]):
-
     def mov(self, dst: x86Registers, src: x86Registers | IntImmediate) -> Gadget:
         return Gadget(f"mov {dst}, {src}")
 

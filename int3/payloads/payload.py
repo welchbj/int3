@@ -7,13 +7,11 @@ from typing import Type
 from int3.context import Context
 from int3.errors import Int3MissingEntityError
 
-
 _PAYLOAD_MAP: dict[str, Type[Payload]] = {}
 
 
 @dataclass
 class Payload(ABC):
-
     ctx: Context
 
     # TODO: How to have per-payload arguments?

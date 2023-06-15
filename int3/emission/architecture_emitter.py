@@ -2,13 +2,12 @@ from abc import ABC, abstractmethod
 from typing import Generic
 
 from int3.gadget import Gadget
-from int3.registers import Registers, Immediate, IntImmediate
+from int3.registers import Immediate, IntImmediate, Registers
 
 from .emitter import Emitter
 
 
 class ArchitectureEmitter(Emitter, ABC, Generic[Registers]):
-
     @abstractmethod
     def mov(self, dst: Registers, src: Registers | IntImmediate) -> Gadget:
         ...

@@ -1,15 +1,13 @@
 from dataclasses import dataclass, field
-from typing import cast
 
 from int3.builder import Builder
-from int3.emission import Emitter, Windowsx86Emitter, WindowsEmitter
+from int3.emission import WindowsEmitter, Windowsx86Emitter
 
 from .payload import Payload
 
 
 @dataclass
 class MessageBoxPayload(Payload):
-
     emitter: WindowsEmitter = field(init=False)
 
     def __post_init__(self):
