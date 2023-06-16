@@ -5,51 +5,51 @@ from .architecture_emitter import ArchitectureEmitter
 
 
 class x86_64Emitter(ArchitectureEmitter[x86_64Registers]):
-    def mov(self, dst: x86_64Registers, src: x86_64Registers | IntImmediate) -> Gadget:
+    def literal_mov(self, dst: x86_64Registers, src: x86_64Registers | IntImmediate) -> Gadget:
         # TODO
         return Gadget("")
 
-    def load(
+    def literal_load(
         self, dst: x86_64Registers, src_ptr: x86_64Registers, offset: int = 0
     ) -> Gadget:
         # TODO
         return Gadget("")
 
-    def push(self, value: x86_64Registers | Immediate) -> Gadget:
+    def literal_push(self, value: x86_64Registers | Immediate) -> Gadget:
         # TODO
         return Gadget("")
 
-    def pop(self, result: x86_64Registers | None = None) -> Gadget:
+    def literal_pop(self, result: x86_64Registers | None = None) -> Gadget:
         # TODO
         return Gadget("")
 
-    def add(
+    def literal_add(
         self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate
     ) -> Gadget:
         # TODO
         return Gadget("")
 
-    def sub(
+    def literal_sub(
         self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate
     ) -> Gadget:
         # TODO
         return Gadget("")
 
-    def xor(
+    def literal_xor(
         self, dst: x86_64Registers, operand: x86_64Registers | IntImmediate
     ) -> Gadget:
         # TODO
         return Gadget("")
 
-    def neg(self, dst: x86_64Registers) -> Gadget:
+    def literal_neg(self, dst: x86_64Registers) -> Gadget:
         # TODO
         return Gadget("")
 
-    def call(self, target: x86_64Registers) -> Gadget:
+    def literal_call(self, target: x86_64Registers) -> Gadget:
         # TODO
         return Gadget("")
 
-    def breakpoint(self) -> Gadget:
+    def literal_breakpoint(self) -> Gadget:
         return Gadget("int3")
 
     # TODO: Shifts?

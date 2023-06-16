@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Generic
 
 from int3.registers import Registers, x86_64Registers, x86Registers
 
@@ -9,7 +8,7 @@ from .x86_emitter import x86Emitter
 
 
 @dataclass
-class WindowsEmitter(SemanticEmitter[Registers], Generic[Registers]):
+class WindowsEmitter(SemanticEmitter[Registers]):
     """An emitter for Windows targets (generic with respect to 32- vs 64-bit)."""
 
     # TODO

@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from typing import cast
 
 from int3.builder import Builder
 from int3.emission import WindowsEmitter, Windowsx86Emitter
@@ -20,6 +21,9 @@ class MessageBoxPayload(Payload):
 
     def __str__(self) -> str:
         builder = Builder()
+
+        # XXX
+        self.emitter = cast(Windowsx86Emitter, self.emitter)
 
         builder += self.emitter.mov("eax", "ebx")
         builder += self.emitter.push("ebx")
