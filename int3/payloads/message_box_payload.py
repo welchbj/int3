@@ -25,6 +25,7 @@ class MessageBoxPayload(Payload):
         # XXX
         self.emitter = cast(Windowsx86Emitter, self.emitter)
 
+        builder += self.emitter.mov("ecx", 0x41414141)
         builder += self.emitter.mov("eax", "ebx")
         builder += self.emitter.push("ebx")
 
