@@ -26,34 +26,66 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         return Gadget("__invalid__")
 
     def load(self, dst: Registers, src_ptr: Registers, offset: int = 0) -> Gadget:
+        # See if naive solution works.
+        if (gadget := self.literal_load(dst, src_ptr, offset)).is_okay(self.ctx):
+            return gadget
+
         # TODO
         return Gadget("__invalid__")
 
     def push(self, value: Registers | Immediate) -> Gadget:
+        # See if naive solution works.
+        if (gadget := self.literal_push(value)).is_okay(self.ctx):
+            return gadget
+
         # TODO
         return Gadget("__invalid__")
 
     def pop(self, result: Registers | None = None) -> Gadget:
+        # See if naive solution works.
+        if (gadget := self.literal_pop(result)).is_okay(self.ctx):
+            return gadget
+
         # TODO
         return Gadget("__invalid__")
 
     def add(self, dst: Registers, operand: Registers | IntImmediate) -> Gadget:
+        # See if naive solution works.
+        if (gadget := self.literal_add(dst, operand)).is_okay(self.ctx):
+            return gadget
+
         # TODO
         return Gadget("__invalid__")
 
     def sub(self, dst: Registers, operand: Registers | IntImmediate) -> Gadget:
+        # See if naive solution works.
+        if (gadget := self.literal_sub(dst, operand)).is_okay(self.ctx):
+            return gadget
+
         # TODO
         return Gadget("__invalid__")
 
     def xor(self, dst: Registers, operand: Registers | IntImmediate) -> Gadget:
+        # See if naive solution works.
+        if (gadget := self.literal_xor(dst, operand)).is_okay(self.ctx):
+            return gadget
+
         # TODO
         return Gadget("__invalid__")
 
     def neg(self, dst: Registers) -> Gadget:
+        # See if naive solution works.
+        if (gadget := self.literal_neg(dst)).is_okay(self.ctx):
+            return gadget
+
         # TODO
         return Gadget("__invalid__")
 
     def call(self, target: Registers) -> Gadget:
+        # See if naive solution works.
+        if (gadget := self.literal_call(target)).is_okay(self.ctx):
+            return gadget
+
         # TODO
         return Gadget("__invalid__")
 
@@ -61,6 +93,10 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         return self.literal_breakpoint()
 
     # TODO: Shifts?
+
+    def alloc_stack_frame(self, size: IntImmediate) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
 
     def label(self, name: str) -> Gadget:
         return self.literal_label(name)

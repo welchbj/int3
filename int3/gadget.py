@@ -2,21 +2,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from int3.assembly import assemble
 from int3.context import Context
+from int3.errors import Int3WrappedKeystoneError
 
 
 @dataclass(frozen=True)
 class Gadget:
     assembly: str
 
-    # TODO: Determine if we need the below.
-    template: str = "@@"
-    parameters: list[str] = field(default_factory=list)
-
     def is_okay(self, ctx: Context) -> bool:
         """Returns whether this gadget is okay for the provided context."""
-        # TODO
-        return False
+        try:
+            assembled_bytes = self.assembled(ctx)
+        except Int3WrappedKeystoneError as e:
+            # XXX: How will we address jumps that can't be assembled without more context?
+            return False
+        else:
+            return not any(b in assembled_bytes for b in ctx.bad_bytes)
+
+    def assembled(self, ctx: Context) -> bytes:
+        return assemble(ctx=ctx, assembly=self.assembly)
 
     def __str__(self) -> str:
         return self.assembly
