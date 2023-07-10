@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from enum import Enum, auto
 
 from int3.context import Context
 from int3.gadget import Gadget
+from int3.registers import IntImmediate
 
 # XXX
 # Situations we should be capable of working around:
@@ -15,16 +15,9 @@ from int3.gadget import Gadget
 #   -- Perhaps we can try adding in nops?
 
 
-class EmissionStrategy(Enum):
-    CodeSize = auto()
-    AssemblerSpeed = auto()
-
-
 @dataclass
 class Emitter:
     ctx: Context
-
-    strategy: EmissionStrategy = EmissionStrategy.CodeSize
 
     def choose(self, *gadgets: Gadget | str):
         """Choose gadget based on bad byte constraints and the emission strategy."""
