@@ -6,13 +6,14 @@ from .architecture_emitter import ArchitectureEmitter
 
 class x86Emitter(ArchitectureEmitter[x86Registers]):
     def literal_mov(self, dst: x86Registers, src: x86Registers | IntImmediate) -> Gadget:
-        return Gadget(f"mov {dst}, {src}")
+        src_str = hex(src) if isinstance(src, IntImmediate) else src
+        return Gadget(f"mov {dst}, {src_str}")
 
     def literal_load(self, dst: x86Registers, src_ptr: x86Registers, offset: int = 0) -> Gadget:
         if offset == 0:
             load_addr = f"[{src_ptr}]"
         else:
-            load_addr = f"[{src_ptr}+{offset}]"
+            load_addr = f"[{src_ptr}+{hex(offset)}]"
 
         return Gadget(f"mov {dst}, {load_addr}")
 
@@ -20,7 +21,8 @@ class x86Emitter(ArchitectureEmitter[x86Registers]):
         if isinstance(value, bytes):
             raise NotImplementedError("bytes immediates not yet supported")
 
-        return Gadget(f"push {value}")
+        value_str = hex(value) if isinstance(value, IntImmediate) else value
+        return Gadget(f"push {value_str}")
 
     def literal_pop(self, result: x86Registers | None = None) -> Gadget:
         if result is None:
@@ -30,13 +32,16 @@ class x86Emitter(ArchitectureEmitter[x86Registers]):
         return Gadget(f"pop {result}")
 
     def literal_add(self, dst: x86Registers, operand: x86Registers | IntImmediate) -> Gadget:
-        return Gadget(f"add {dst}, {operand}")
+        operand_str = hex(operand) if isinstance(operand, IntImmediate) else operand
+        return Gadget(f"add {dst}, {operand_str}")
 
     def literal_sub(self, dst: x86Registers, operand: x86Registers | IntImmediate) -> Gadget:
-        return Gadget(f"sub {dst}, {operand}")
+        operand_str = hex(operand) if isinstance(operand, IntImmediate) else operand
+        return Gadget(f"sub {dst}, {operand_str}")
 
     def literal_xor(self, dst: x86Registers, operand: x86Registers | IntImmediate) -> Gadget:
-        return Gadget(f"xor {dst}, {operand}")
+        operand_str = hex(operand) if isinstance(operand, IntImmediate) else operand
+        return Gadget(f"xor {dst}, {operand_str}")
 
     def literal_neg(self, dst: x86Registers) -> Gadget:
         return Gadget(f"neg {dst}")
