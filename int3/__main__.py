@@ -170,15 +170,16 @@ def cli_encode(input_file: BinaryIO):
     click.echo("Not yet implemented...")
 
 
+# TODO: Each payload should probably be its own command, rather than the below system.
+
+
 @cli.command("payload")
-@file_or_stdin_input_option
 @bad_bytes_option
 @format_out_option
 @payload_option
 @platform_option
 @architecture_option
 def cli_payload(
-    input_file: BinaryIO,
     bad_bytes: bytes,
     format_out: FormatStyle,
     payload_cls: Type[Payload],
@@ -189,6 +190,8 @@ def cli_payload(
 
     ctx = Context(architecture=architecture, platform=platform, bad_bytes=bad_bytes)
     payload = payload_cls(ctx=ctx)
+
+    # TODO: Handle format_out option.
 
     click.echo(str(payload), nl=False)
 

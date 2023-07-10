@@ -11,7 +11,7 @@ from .x86_emitter import x86Emitter
 class WindowsEmitter(SemanticEmitter[Registers]):
     """An emitter for Windows targets (generic with respect to 32- vs 64-bit)."""
 
-    # TODO
+    # TODO: Additional Windows-specific functionality (like function hash comparisons).
 
 
 class Windowsx86Emitter(x86Emitter, WindowsEmitter[x86Registers]):
