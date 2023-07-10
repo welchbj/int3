@@ -11,6 +11,8 @@ class Context:
     architecture: Architecture
     platform: Platform
 
+    # TODO: Allow for controlling factor width here.
+
     bad_bytes: bytes = b""
     vma: int = 0
     usable_stack: bool = True
