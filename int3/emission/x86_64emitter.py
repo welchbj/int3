@@ -5,7 +5,9 @@ from .architecture_emitter import ArchitectureEmitter
 
 
 class x86_64Emitter(ArchitectureEmitter[x86_64Registers]):
-    def literal_mov(self, dst: x86_64Registers, src: x86_64Registers | IntImmediate) -> Gadget:
+    def literal_mov(
+        self, dst: x86_64Registers, src: x86_64Registers | IntImmediate
+    ) -> Gadget:
         # TODO
         return Gadget("")
 

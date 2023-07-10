@@ -13,7 +13,9 @@ class ArchitectureEmitter(Emitter, ABC, Generic[Registers]):
         ...
 
     @abstractmethod
-    def literal_load(self, dst: Registers, src_ptr: Registers, offset: int = 0) -> Gadget:
+    def literal_load(
+        self, dst: Registers, src_ptr: Registers, offset: int = 0
+    ) -> Gadget:
         ...
 
     @abstractmethod
