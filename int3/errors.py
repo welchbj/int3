@@ -9,11 +9,11 @@ class Int3MissingEntityError(Int3Error):
     """Exception type for missing entities."""
 
 
-class Int3UnsupportedArchitecture(Int3Error):
+class Int3UnsupportedArchitecture(Int3MissingEntityError):
     """Exception type for unsupported architectures."""
 
 
-class Int3UnsupportedPlatform(Int3Error):
+class Int3UnsupportedPlatform(Int3MissingEntityError):
     """Exception type for unsupported platforms."""
 
 
@@ -27,3 +27,15 @@ class Int3AssemblyError(Int3Error):
 
 class Int3WrappedCapstoneError(Int3Error):
     """A thin wrapper around CsError."""
+
+
+class Int3ArgumentError(Int3Error):
+    """Exception type for invalid arguments."""
+
+
+class Int3InsufficientWidthError(Int3ArgumentError):
+    """Exception type for arguments that cannot be represented with given constraints."""
+
+
+class Int3SatError(Int3Error):
+    """Exception type for satisfiability errors."""

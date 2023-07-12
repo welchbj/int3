@@ -1,11 +1,15 @@
 import platform
+import struct
 from dataclasses import dataclass
 from enum import Enum, auto
+from typing import cast
 
 from capstone import CS_ARCH_X86, CS_MODE_32, CS_MODE_64
 from keystone import KS_ARCH_X86, KS_MODE_32, KS_MODE_64
 
-from int3.errors import Int3MissingEntityError
+from int3.errors import (Int3ArgumentError, Int3InsufficientWidthError,
+                         Int3MissingEntityError)
+from int3.registers import IntImmediate
 
 __all__ = ["Endian", "StackGrowth", "Architecture", "Architectures"]
 
@@ -20,6 +24,19 @@ class StackGrowth(Enum):
     Up = auto()
 
 
+_width_to_format_str_map = {
+    0x8: "b",
+    0x10: "h",
+    0x20: "l",
+    0x40: "q",
+}
+
+_endian_to_format_str_map = {
+    Endian.Big: ">",
+    Endian.Little: "<",
+}
+
+
 @dataclass(frozen=True)
 class Architecture:
     name: str
@@ -32,6 +49,58 @@ class Architecture:
 
     capstone_arch: int
     capstone_mode: int
+
+    def is_okay_value(self, imm: IntImmediate) -> bool:
+        """Tests whether a value can be represented on this architecture."""
+        return imm.bit_length() <= self.bit_size
+
+    def _make_struct_format_str(self, width: int | None = None, signed: bool = False):
+        if width is None:
+            width = self.bit_size
+        elif width > self.bit_size:
+            raise Int3InsufficientWidthError(
+                f"Architecture {self.__class__.__name__} cannot represent width {width}"
+            )
+
+        endian_format = _endian_to_format_str_map.get(self.endian, None)
+        if endian_format is None:
+            raise Int3ArgumentError(f"Invalid endianness: {self.endian}")
+
+        width_format = _width_to_format_str_map.get(width, None)
+        if width_format is None:
+            raise Int3InsufficientWidthError(f"Invalid width: {width}")
+
+        if not signed:
+            width_format = width_format.upper()
+
+        return f"{endian_format}{width_format}"
+
+    def pack(self, value: int, width: int | None = None) -> bytes:
+        if not self.is_okay_value(value):
+            raise Int3InsufficientWidthError(
+                f"Architecture {self.__class__.__name__} cannot hold value {value}"
+            )
+
+        signed = value < 0
+
+        format_str = self._make_struct_format_str(width=width, signed=signed)
+        try:
+            return struct.pack(format_str, value)
+        except struct.error as e:
+            raise Int3InsufficientWidthError(
+                f"Unable to pack {value} using fmt string {format_str}"
+            ) from e
+
+    def unpack(
+        self, data: bytes, width: int | None = None, signed: bool = False
+    ) -> int:
+        format_str = self._make_struct_format_str(width=width, signed=signed)
+        try:
+            return cast(int, struct.unpack(format_str, data)[0])
+        except struct.error as e:
+            raise Int3InsufficientWidthError(
+                f"Unable to unpack {len(data)} bytes using fmt string {format_str}"
+            ) from e
 
 
 class Architectures(Enum):

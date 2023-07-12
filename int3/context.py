@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from int3.architectures import Architecture
 from int3.platforms import Platform
+from int3.registers import IntImmediate
 
 __all__ = ["Context"]
 
@@ -11,8 +12,14 @@ class Context:
     architecture: Architecture
     platform: Platform
 
-    # TODO: Allow for controlling factor width here.
-
     bad_bytes: bytes = b""
     vma: int = 0
     usable_stack: bool = True
+
+    def is_okay_immediate(self, imm: IntImmediate) -> bool:
+        """Check whether a specified immediate is invalid for use.
+
+        For example, immediates with bad bytes will return False.
+
+        """
+        return any(b in self.architecture.pack(imm) for b in self.bad_bytes)

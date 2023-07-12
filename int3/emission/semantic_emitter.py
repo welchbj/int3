@@ -1,3 +1,4 @@
+from int3.factor import FactorOperation, factor
 from int3.gadget import Gadget
 from int3.registers import Immediate, IntImmediate, Registers
 
@@ -12,7 +13,15 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
         # When a bad byte is in the immediate operand, we can try to break apart
         # the operand into multiple operations of the same type.
-        # TODO
+        if isinstance(src, IntImmediate) and not self.ctx.is_okay_immediate(src):
+            # TODO: Determine which operations are forbidden based on the current
+            #       context.
+
+            # XXX
+            result = factor(target=src, ctx=self.ctx)
+            print(result)
+
+            # TODO: Turn the result into gadgets.
 
         # When a bad byte is in the register operand, we can piece together
         # operations on multiple available registers.
