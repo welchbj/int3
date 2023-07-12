@@ -22,4 +22,4 @@ class Context:
         For example, immediates with bad bytes will return False.
 
         """
-        return any(b in self.architecture.pack(imm) for b in self.bad_bytes)
+        return not any(b in self.architecture.pack(imm) for b in self.bad_bytes)
