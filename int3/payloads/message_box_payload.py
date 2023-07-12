@@ -9,12 +9,6 @@ from .payload import Payload
 
 @dataclass
 class MessageBoxPayload(Payload):
-    emitter: WindowsEmitter = field(init=False)
-
-    def __post_init__(self):
-        # TODO: Set emitter based on the ctx's architecture.
-        self.emitter = Windowsx86Emitter(ctx=self.ctx)
-
     @classmethod
     def name(cls) -> str:
         return "windows/message_box"
@@ -22,11 +16,10 @@ class MessageBoxPayload(Payload):
     def __str__(self) -> str:
         builder = Builder()
 
-        # XXX
-        self.emitter = cast(Windowsx86Emitter, self.emitter)
+        emitter = Windowsx86Emitter(ctx=self.ctx)
 
-        builder += self.emitter.mov("ecx", 0x41414141)
-        builder += self.emitter.mov("eax", "ebx")
-        builder += self.emitter.push("ebx")
+        builder += emitter.mov("ecx", 0x41414141)
+        builder += emitter.mov("eax", "ebx")
+        builder += emitter.push("ebx")
 
         return str(builder)
