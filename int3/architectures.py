@@ -7,8 +7,11 @@ from typing import cast
 from capstone import CS_ARCH_X86, CS_MODE_32, CS_MODE_64
 from keystone import KS_ARCH_X86, KS_MODE_32, KS_MODE_64
 
-from int3.errors import (Int3ArgumentError, Int3InsufficientWidthError,
-                         Int3MissingEntityError)
+from int3.errors import (
+    Int3ArgumentError,
+    Int3InsufficientWidthError,
+    Int3MissingEntityError,
+)
 from int3.registers import IntImmediate
 
 __all__ = ["Endian", "StackGrowth", "Architecture", "Architectures"]
