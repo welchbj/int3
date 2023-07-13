@@ -1,8 +1,7 @@
-from dataclasses import dataclass, field
-from typing import cast
+from dataclasses import dataclass
 
 from int3.builder import Builder
-from int3.emission import WindowsEmitter, Windowsx86Emitter
+from int3.emission import Windowsx86Emitter
 
 from .payload import Payload
 
