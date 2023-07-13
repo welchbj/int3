@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 
-from int3.architectures import Architecture
-from int3.platforms import Platform
+from int3.architectures import Architecture, Architectures
+from int3.platforms import Platform, Platforms
 from int3.registers import IntImmediate
 
 __all__ = ["Context"]
@@ -15,6 +17,20 @@ class Context:
     bad_bytes: bytes = b""
     vma: int = 0
     usable_stack: bool = True
+
+    @staticmethod
+    def from_host(
+        bad_bytes: bytes = b"",
+        vma: int = 0,
+        usable_stack: bool = True,
+    ) -> Context:
+        return Context(
+            architecture=Architectures.from_host(),
+            platform=Platforms.from_host(),
+            bad_bytes=bad_bytes,
+            vma=vma,
+            usable_stack=usable_stack,
+        )
 
     def is_okay_immediate(self, imm: IntImmediate) -> bool:
         """Check whether a specified immediate is invalid for use.
