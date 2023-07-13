@@ -73,6 +73,11 @@ def factor(
     will be selected by the SAT engine.
 
     """
+    if max_depth < 1:
+        raise Int3ArgumentError(
+            f"max_depth must be a positive int ({max_depth} is not)"
+        )
+
     forbidden_ops_iter = tuple() if forbidden_ops is None else tuple(forbidden_ops)
 
     # Init is implied to always be allowed, since we have to start with some
