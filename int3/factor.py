@@ -105,16 +105,16 @@ def factor(
             f"but we are using a width of {width}"
         )
 
-    if start is None:
-        start_with_bvv = False
-        start_bv = BitVec("start", width)
-    else:
-        start_with_bvv = True
-        start_bv = BitVecVal(start, width)
-
     for depth in range(1, max_depth + 1):
         for op_product in itertools.product(allowed_ops, repeat=depth):
             solver = Solver()
+
+            if start is None:
+                start_with_bvv = False
+                start_bv = BitVec("start", width)
+            else:
+                start_with_bvv = True
+                start_bv = BitVecVal(start, width)
 
             bv_list = [] if start_with_bvv else [start_bv]
             bv_list.extend(BitVec(f"s{i}", width) for i in range(depth))
@@ -143,16 +143,19 @@ def factor(
             # We got a sat result!
             model = solver.model()
 
-            factor_clauses = [
-                FactorClause(FactorOperation.Init, model[start_bv].as_long())
-            ]
+            if start_with_bvv:
+                start_value = start_bv.as_long()
+            else:
+                start_value = model[start_bv].as_long()
+
+            factor_clauses = [FactorClause(FactorOperation.Init, start_value)]
             for var, op in zip(bv_list[1:], op_product):
                 factor_clauses.append(FactorClause(op, model[var].as_long()))
 
             return FactorResult(clauses=tuple(factor_clauses))
     else:
         raise Int3SatError(
-            f"Unable to solve for target value {target} at depth {depth}"
+            f"Unable to solve for target value {target} up to depth {depth}"
         )
 
 
