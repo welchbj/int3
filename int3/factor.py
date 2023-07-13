@@ -1,12 +1,12 @@
 import itertools
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import Sequence
+from typing import Any, Sequence
 
 from z3 import BitVec, BitVecVal, Extract, Solver, sat
 
 from int3.context import Context
-from int3.errors import Int3ArgumentError
+from int3.errors import Int3ArgumentError, Int3MissingEntityError, Int3SatError
 
 
 class FactorOperation(Enum):
@@ -22,10 +22,31 @@ class FactorClause:
     operation: FactorOperation
     operand: int
 
+    def __str__(self) -> str:
+        s = ""
+
+        match self.operation:
+            case FactorOperation.Init:
+                pass
+            case FactorOperation.Add:
+                s += "+ "
+            case FactorOperation.Sub:
+                s += "- "
+            case FactorOperation.Xor:
+                s += "^ "
+            case _:
+                raise Int3MissingEntityError(f"Unexpected factor op: {self.operation}")
+
+        s += hex(self.operand)
+        return s
+
 
 @dataclass(frozen=True)
 class FactorResult:
     clauses: tuple[FactorClause, ...]
+
+    def __str__(self) -> str:
+        return " ".join(str(c) for c in self.clauses)
 
 
 def factor(
@@ -80,16 +101,59 @@ def factor(
         )
 
     if start is None:
-        start_var = BitVec("start", width)
+        start_with_bvv = False
+        start_bv = BitVec("start", width)
     else:
-        start_var = BitVecVal(start, width)
-
-    solver = Solver()
+        start_with_bvv = True
+        start_bv = BitVecVal(start, width)
 
     for depth in range(1, max_depth + 1):
         for op_product in itertools.product(allowed_ops, repeat=depth):
-            print(op_product)
+            solver = Solver()
 
-    if solver.check() != sat:
-        # TODO
-        pass
+            bv_list = [] if start_with_bvv else [start_bv]
+            bv_list.extend(BitVec(f"s{i}", width) for i in range(depth))
+
+            for bvv in bv_list:
+                _add_bad_byte_constraints(solver, bvv, ctx, width)
+
+            solver_clause = bv_list[0]
+
+            for bvv, op in zip(bv_list[1:], op_product):
+                match op:
+                    case FactorOperation.Add:
+                        solver_clause += bvv
+                    case FactorOperation.Sub:
+                        solver_clause -= bvv
+                    case FactorOperation.Xor:
+                        solver_clause ^= bvv
+                    case _:
+                        raise Int3MissingEntityError(f"Unsupported factor op: {op}")
+
+            solver.add(solver_clause == target)
+
+            if solver.check() != sat:
+                continue
+
+            # We got a sat result!
+            model = solver.model()
+
+            factor_clauses = [
+                FactorClause(FactorOperation.Init, model[start_bv].as_long())
+            ]
+            for var, op in zip(bv_list[1:], op_product):
+                factor_clauses.append(FactorClause(op, model[var].as_long()))
+
+            return FactorResult(clauses=tuple(factor_clauses))
+    else:
+        raise Int3SatError(
+            f"Unable to solve for target value {target} at depth {depth}"
+        )
+
+
+def _add_bad_byte_constraints(
+    solver: Solver, var: Any, ctx: Context, width: int, byte_width: int = 8
+):
+    for bad_byte in ctx.bad_bytes:
+        for i in range(0, width, byte_width):
+            solver.add(Extract(i + 7, i, var) != bad_byte)
