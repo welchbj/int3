@@ -78,6 +78,12 @@ def factor(
             f"max_depth must be a positive int ({max_depth} is not)"
         )
 
+    # Check if a bad byte was provided in the start value.
+    if start is not None and not ctx.is_okay_immediate(start, width=width):
+        raise Int3ArgumentError(
+            f"Specified start value {hex(start)} contains at least one bad byte"
+        )
+
     forbidden_ops_iter = tuple() if forbidden_ops is None else tuple(forbidden_ops)
 
     # Init is implied to always be allowed, since we have to start with some
@@ -116,15 +122,16 @@ def factor(
                 start_with_bvv = True
                 start_bv = BitVecVal(start, width)
 
-            bv_list = [] if start_with_bvv else [start_bv]
-            bv_list.extend(BitVec(f"s{i}", width) for i in range(depth))
+            var_list = [start_bv]
+            var_list.extend(BitVec(f"s{i}", width) for i in range(depth))
 
+            bv_list = var_list[1:] if start_with_bvv else var_list
             for bvv in bv_list:
                 _add_bad_byte_constraints(solver, bvv, ctx, width)
 
-            solver_clause = bv_list[0]
+            solver_clause = var_list[0]
 
-            for bvv, op in zip(bv_list[1:], op_product):
+            for bvv, op in zip(var_list[1:], op_product):
                 match op:
                     case FactorOperation.Add:
                         solver_clause += bvv
@@ -149,7 +156,7 @@ def factor(
                 start_value = model[start_bv].as_long()
 
             factor_clauses = [FactorClause(FactorOperation.Init, start_value)]
-            for var, op in zip(bv_list[1:], op_product):
+            for var, op in zip(var_list[1:], op_product):
                 factor_clauses.append(FactorClause(op, model[var].as_long()))
 
             return FactorResult(clauses=tuple(factor_clauses))

@@ -38,7 +38,7 @@ def test_allowed_and_forbidden_ops():
         target=0x41414141,
         ctx=Context.from_host(bad_bytes=b"\x41"),
         width=0x20,
-        allowed_ops=[FactorOperation.Sub]
+        allowed_ops=[FactorOperation.Sub],
     )
 
     assert eval(str(factor_result)) & 0xFFFFFFFF == 0x41414141
@@ -51,20 +51,27 @@ def test_allowed_and_forbidden_ops():
 def test_specified_start_value():
     factor_result = factor(
         target=0x41414141,
-        start=0x42424242,
+        start=0x40404040,
         ctx=Context.from_host(bad_bytes=b"\x41\x42"),
         width=0x20,
-        allowed_ops=[FactorOperation.Xor]
+        allowed_ops=[FactorOperation.Xor],
     )
 
     assert eval(str(factor_result)) & 0xFFFFFFFF == 0x41414141
 
     first_clause = factor_result.clauses[0]
     assert first_clause.operation == FactorOperation.Init
-    assert first_clause.operand == 0x42424242
+    assert first_clause.operand == 0x40404040
 
 
-# TODO: Bad bytes in start value?
+def test_start_value_has_bad_bytes():
+    with pytest.raises(Int3ArgumentError):
+        factor(
+            target=0x41414141,
+            start=0x12005678,
+            width=0x20,
+            ctx=Context.from_host(bad_bytes=b"\x00"),
+        )
 
 
 def test_invalid_max_depth():

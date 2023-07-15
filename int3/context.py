@@ -32,10 +32,10 @@ class Context:
             usable_stack=usable_stack,
         )
 
-    def is_okay_immediate(self, imm: IntImmediate) -> bool:
+    def is_okay_immediate(self, imm: IntImmediate, width: int | None = None) -> bool:
         """Check whether a specified immediate is invalid for use.
 
         For example, immediates with bad bytes will return False.
 
         """
-        return not any(b in self.architecture.pack(imm) for b in self.bad_bytes)
+        return not any(b in self.architecture.pack(imm, width=width) for b in self.bad_bytes)
