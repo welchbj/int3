@@ -1,8 +1,8 @@
 import pytest
 
 from int3.context import Context
-from int3.errors import Int3SatError, Int3ArgumentError
-from int3.factor import factor, FactorOperation
+from int3.errors import Int3ArgumentError, Int3SatError
+from int3.factor import FactorOperation, factor
 
 
 def test_target_with_invalid_width():
