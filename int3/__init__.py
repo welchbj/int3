@@ -5,6 +5,6 @@ from .emission import *  # noqa
 from .encoding import *  # noqa
 from .execution import *  # noqa
 from .factor import *  # noqa
-from .gadget import *  # noqa
+from .gadgets import *  # noqa
 from .payloads import *  # noqa
 from .platforms import *  # noqa

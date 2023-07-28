@@ -1,4 +1,4 @@
-from int3.gadget import Gadget
+from int3.gadgets import Gadget
 from int3.registers import Immediate, IntImmediate, x86Registers
 
 from .architecture_emitter import ArchitectureEmitter

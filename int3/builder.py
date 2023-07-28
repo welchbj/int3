@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from int3.gadget import Gadget
+from int3.gadgets import Gadget
 
 
 @dataclass
