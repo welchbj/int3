@@ -10,6 +10,11 @@ from int3.execution import execute
 from int3.format import FormatStyle, Formatter
 from int3.payloads import Payload
 from int3.platforms import Platform, Platforms
+from int3.strategy import Strategy
+
+
+def _strategy_from_str(ctx, param, value: str):
+    return Strategy.from_str(value)
 
 
 def _platform_from_str(ctx, param, value: str):
@@ -68,6 +73,16 @@ architecture_option = click.option(
     type=click.Choice(Architectures.names()),
     callback=_architecture_from_str,
     default=Architectures.from_host().name,
+    show_default=True,
+)
+
+strategy_option = click.option(
+    "--strategy",
+    "-s",
+    help="Code generation strategy.",
+    type=click.Choice(Strategy.names()),
+    callback=_strategy_from_str,
+    default=Strategy.CodeSize.name,
     show_default=True,
 )
 
@@ -179,16 +194,23 @@ def cli_encode(input_file: BinaryIO):
 @payload_option
 @platform_option
 @architecture_option
+@strategy_option
 def cli_payload(
     bad_bytes: bytes,
     format_out: FormatStyle,
     payload_cls: Type[Payload],
     platform: Platform,
     architecture: Architecture,
+    strategy: Strategy,
 ):
     # TODO: Populate arch/platform based on the payload.
 
-    ctx = Context(architecture=architecture, platform=platform, bad_bytes=bad_bytes)
+    ctx = Context(
+        architecture=architecture,
+        platform=platform,
+        strategy=strategy,
+        bad_bytes=bad_bytes,
+    )
     payload = payload_cls(ctx=ctx)
 
     # TODO: Handle format_out option.

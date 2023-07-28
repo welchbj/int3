@@ -1,32 +1,33 @@
+import functools
 from dataclasses import dataclass
+from typing import Iterable
 
 from int3.context import Context
-from int3.gadget import Gadget
+from int3.errors import Int3SatError
+from int3.gadgets import Gadget
 from int3.registers import IntImmediate
-
-# XXX
-# Situations we should be capable of working around:
-# - When a bad byte is in an operation, we can use other equivalent operations.
-# - When a bad byte is in an immediate, we can use z3 to work around this.
-#   -- We need to tell z3 which mathematical operators are available.
-# - When a register operand is free, we can iterate over available registers.
-#
-# - It seems like our current strategy won't support bad bytes in jump offsets.
-#   -- Perhaps we can try adding in nops?
+from int3.strategy import Strategy
 
 
 @dataclass
 class Emitter:
     ctx: Context
 
-    def choose(self, *gadgets: Gadget | str):
+    def choose(self, gadget_iter: Iterable[Gadget]) -> Gadget:
         """Choose gadget based on bad byte constraints and the emission strategy."""
-        for gadget in gadgets:
-            if isinstance(gadget, str):
-                gadget = Gadget(gadget)
+        filtered_gadgets = []
 
-            if gadget.is_okay(self.ctx):
-                # TODO
-                pass
+        for gadget in gadget_iter:
+            if not gadget.is_okay(self.ctx):
+                continue
 
-        # TODO
+            if self.ctx.strategy == Strategy.GenerationSpeed:
+                return gadget
+            else:
+                filtered_gadgets.append(gadget)
+
+        if not filtered_gadgets:
+            raise Int3SatError("Unable to identify any potential gadgets")
+
+        assembled_len_wrapper = functools.partial(Gadget.assembled_len, ctx=self.ctx)
+        return min(filtered_gadgets, key=assembled_len_wrapper)

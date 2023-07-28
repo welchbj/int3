@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from int3.architectures import Architecture, Architectures
 from int3.platforms import Platform, Platforms
 from int3.registers import IntImmediate
+from int3.strategy import Strategy
 
 __all__ = ["Context"]
 
@@ -14,6 +15,7 @@ class Context:
     architecture: Architecture
     platform: Platform
 
+    strategy: Strategy = Strategy.CodeSize
     bad_bytes: bytes = b""
     vma: int = 0
     usable_stack: bool = True
@@ -38,4 +40,6 @@ class Context:
         For example, immediates with bad bytes will return False.
 
         """
-        return not any(b in self.architecture.pack(imm, width=width) for b in self.bad_bytes)
+        return not any(
+            b in self.architecture.pack(imm, width=width) for b in self.bad_bytes
+        )
