@@ -6,13 +6,14 @@ from dataclasses import dataclass
 from enum import Enum, auto
 
 from int3._utils import grouper
-from int3.errors import Int3MissingEntityError
+from int3.errors import Int3MissingEntityError, Int3UnsupportedFormatError
 
 
 class FormatStyle(Enum):
     Raw = auto()
     Hex = auto()
     Python = auto()
+    Assembly = auto()
 
     @staticmethod
     def from_str(format_style_name: str) -> FormatStyle:
@@ -50,6 +51,10 @@ class Formatter:
                 parsed_data = binascii.unhexlify(data)
             case FormatStyle.Python:
                 parsed_data = ast.literal_eval(f"b'{data.decode()}'")
+            case FormatStyle.Assembly:
+                raise Int3UnsupportedFormatError(
+                    "Assembly format style is not supported in this interface"
+                )
 
         match self.style_out:
             case FormatStyle.Raw:
@@ -58,6 +63,10 @@ class Formatter:
                 return self._format_as_hex(parsed_data)
             case FormatStyle.Python:
                 return self._format_as_python(parsed_data)
+            case FormatStyle.Assembly:
+                raise Int3UnsupportedFormatError(
+                    "Assembly format style is not supported in this interface"
+                )
 
     def _format_as_hex(self, data: bytes) -> bytes:
         chars_per_byte = 2  # Example: ff

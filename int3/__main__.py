@@ -211,11 +211,17 @@ def cli_payload(
         strategy=strategy,
         bad_bytes=bad_bytes,
     )
+
     payload = payload_cls(ctx=ctx)
+    assembly = str(payload)
 
-    # TODO: Handle format_out option.
+    if format_out == FormatStyle.Assembly:
+        click.echo(assembly, nl=False)
+    else:
+        assembled_bytes = assemble(ctx=ctx, assembly=assembly)
 
-    click.echo(str(payload), nl=False)
+        formatter = Formatter(style_in=FormatStyle.Raw, style_out=format_out)
+        click.echo(formatter.format(assembled_bytes))
 
 
 if __name__ == "__main__":

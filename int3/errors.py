@@ -37,5 +37,9 @@ class Int3InsufficientWidthError(Int3ArgumentError):
     """Exception type for arguments that cannot be represented with given constraints."""
 
 
+class Int3UnsupportedFormatError(Int3ArgumentError):
+    """Exception type for formats not supported in some functionality."""
+
+
 class Int3SatError(Int3Error):
     """Exception type for satisfiability errors."""
