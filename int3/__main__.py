@@ -7,6 +7,7 @@ import click
 from int3.architectures import Architecture, Architectures
 from int3.assembly import assemble, disassemble
 from int3.context import Context
+from int3.errors import Int3Error
 from int3.execution import execute
 from int3.format import FormatStyle, Formatter
 from int3.payloads import Payload
@@ -150,6 +151,34 @@ def cli_assemble(input_file: BinaryIO, platform: Platform, architecture: Archite
     ctx = Context(architecture=architecture, platform=platform)
     asm_bytes = assemble(ctx=ctx, assembly=asm_text)
     click.echo(asm_bytes, nl=False)
+
+
+@cli.command("assemble_repl")
+@platform_option
+@architecture_option
+@debug_option
+def cli_assemble_repl(platform: Platform, architecture: Architecture, debug: bool):
+    _setup_logging(debug)
+
+    # Attempt to import readline to provide history capability to input().
+    try:
+        import readline  # noqa
+    except ImportError:
+        pass
+
+    formatter = Formatter(style_in=FormatStyle.Raw, style_out=FormatStyle.Python)
+    ctx = Context(architecture=architecture, platform=platform)
+
+    while True:
+        try:
+            asm_text = input(">>> ")
+            asm_bytes = assemble(ctx=ctx, assembly=asm_text)
+            click.echo(formatter.format(asm_bytes))
+        except Int3Error as e:
+            click.echo(f"Error: {e}")
+        except KeyboardInterrupt:
+            click.echo("Quitting!")
+            break
 
 
 @cli.command("disassemble")
