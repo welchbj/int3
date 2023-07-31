@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from typing import ClassVar
 
@@ -18,7 +19,9 @@ class Gadget:
         """Returns whether this gadget is okay for the provided context."""
         try:
             assembled_bytes = self.assembled(ctx)
-        except Int3WrappedKeystoneError:
+        except Int3WrappedKeystoneError as e:
+            logging.debug(f"keystone assembly failed: {e}")
+
             # XXX: How will we address jumps that can't be assembled without more context?
             return False
         else:

@@ -1,3 +1,4 @@
+import logging
 import sys
 from typing import BinaryIO, Type
 
@@ -37,6 +38,11 @@ def _parse_bad_bytes(ctx, param, value: str):
     return Formatter(style_in=FormatStyle.Python, style_out=FormatStyle.Raw).format(
         value.encode()
     )
+
+
+def _setup_logging(debug: bool):
+    level = logging.DEBUG if debug else logging.INFO
+    logging.basicConfig(format="[%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)", level=level)
 
 
 @click.group
@@ -122,12 +128,22 @@ payload_option = click.option(
     required=True,
 )
 
+debug_option = click.option(
+    "--debug",
+    is_flag=True,
+    default=False,
+    help="Enable debug logging to stderr.",
+)
+
 
 @cli.command("assemble")
 @file_or_stdin_input_option
 @platform_option
 @architecture_option
-def cli_assemble(input_file: BinaryIO, platform: Platform, architecture: Architecture):
+@debug_option
+def cli_assemble(input_file: BinaryIO, platform: Platform, architecture: Architecture, debug: bool):
+    _setup_logging(debug)
+
     with input_file:
         asm_text: str = input_file.read().decode()
 
@@ -140,9 +156,12 @@ def cli_assemble(input_file: BinaryIO, platform: Platform, architecture: Archite
 @file_or_stdin_input_option
 @platform_option
 @architecture_option
+@debug_option
 def cli_disassemble(
-    input_file: BinaryIO, platform: Platform, architecture: Architecture
+    input_file: BinaryIO, platform: Platform, architecture: Architecture, debug: bool
 ):
+    _setup_logging(debug)
+
     with input_file:
         machine_code: bytes = input_file.read()
 
@@ -155,7 +174,10 @@ def cli_disassemble(
 @file_or_stdin_input_option
 @format_in_option
 @format_out_option
-def cli_format(input_file: BinaryIO, format_in: FormatStyle, format_out: FormatStyle):
+@debug_option
+def cli_format(input_file: BinaryIO, format_in: FormatStyle, format_out: FormatStyle, debug: bool):
+    _setup_logging(debug)
+
     with input_file:
         data: bytes = input_file.read()
 
@@ -171,7 +193,10 @@ def cli_format(input_file: BinaryIO, format_in: FormatStyle, format_out: FormatS
 
 @cli.command("execute")
 @file_or_stdin_input_option
-def cli_execute(input_file: BinaryIO):
+@debug_option
+def cli_execute(input_file: BinaryIO, debug: bool):
+    _setup_logging(debug)
+
     with input_file:
         machine_code: bytes = input_file.read()
 
@@ -180,7 +205,10 @@ def cli_execute(input_file: BinaryIO):
 
 @cli.command("encode")
 @file_or_stdin_input_option
-def cli_encode(input_file: BinaryIO):
+@debug_option
+def cli_encode(input_file: BinaryIO, debug: bool):
+    _setup_logging(debug)
+
     # TODO
     click.echo("Not yet implemented...")
 
@@ -195,6 +223,7 @@ def cli_encode(input_file: BinaryIO):
 @platform_option
 @architecture_option
 @strategy_option
+@debug_option
 def cli_payload(
     bad_bytes: bytes,
     format_out: FormatStyle,
@@ -202,7 +231,10 @@ def cli_payload(
     platform: Platform,
     architecture: Architecture,
     strategy: Strategy,
+    debug: bool,
 ):
+    _setup_logging(debug)
+
     # TODO: Populate arch/platform based on the payload.
 
     ctx = Context(
