@@ -1,6 +1,5 @@
 from typing import Literal, TypeVar
 
-
 #
 # x86 registers.
 #

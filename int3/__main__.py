@@ -43,7 +43,9 @@ def _parse_bad_bytes(ctx, param, value: str):
 
 def _setup_logging(debug: bool):
     level = logging.DEBUG if debug else logging.INFO
-    logging.basicConfig(format="[%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)", level=level)
+    logging.basicConfig(
+        format="[%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)", level=level
+    )
 
 
 @click.group
@@ -142,7 +144,9 @@ debug_option = click.option(
 @platform_option
 @architecture_option
 @debug_option
-def cli_assemble(input_file: BinaryIO, platform: Platform, architecture: Architecture, debug: bool):
+def cli_assemble(
+    input_file: BinaryIO, platform: Platform, architecture: Architecture, debug: bool
+):
     _setup_logging(debug)
 
     with input_file:
@@ -204,7 +208,9 @@ def cli_disassemble(
 @format_in_option
 @format_out_option
 @debug_option
-def cli_format(input_file: BinaryIO, format_in: FormatStyle, format_out: FormatStyle, debug: bool):
+def cli_format(
+    input_file: BinaryIO, format_in: FormatStyle, format_out: FormatStyle, debug: bool
+):
     _setup_logging(debug)
 
     with input_file:

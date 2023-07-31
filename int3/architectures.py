@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import cast
 
-from capstone import CS_ARCH_X86, CS_MODE_32, CS_MODE_64, CS_ARCH_ARM, CS_MODE_ARM
-from keystone import KS_ARCH_X86, KS_MODE_32, KS_MODE_64, KS_ARCH_ARM, KS_MODE_ARM
+from capstone import CS_ARCH_ARM, CS_ARCH_X86, CS_MODE_32, CS_MODE_64, CS_MODE_ARM
+from keystone import KS_ARCH_ARM, KS_ARCH_X86, KS_MODE_32, KS_MODE_64, KS_MODE_ARM
 
 from int3.errors import (
     Int3ArgumentError,

@@ -6,9 +6,7 @@ from .architecture_emitter import ArchitectureEmitter
 
 
 class IntelEmitterMixin(ArchitectureEmitter[Registers]):
-    def literal_mov(
-        self, dst: Registers, src: Registers | IntImmediate
-    ) -> Gadget:
+    def literal_mov(self, dst: Registers, src: Registers | IntImmediate) -> Gadget:
         src_str = hex(src) if isinstance(src, IntImmediate) else src
         return Gadget(f"mov {dst}, {src_str}")
 
@@ -32,21 +30,15 @@ class IntelEmitterMixin(ArchitectureEmitter[Registers]):
     def literal_pop(self, result: Registers) -> Gadget:
         return Gadget(f"pop {result}")
 
-    def literal_add(
-        self, dst: Registers, operand: Registers | IntImmediate
-    ) -> Gadget:
+    def literal_add(self, dst: Registers, operand: Registers | IntImmediate) -> Gadget:
         operand_str = hex(operand) if isinstance(operand, IntImmediate) else operand
         return Gadget(f"add {dst}, {operand_str}")
 
-    def literal_sub(
-        self, dst: Registers, operand: Registers | IntImmediate
-    ) -> Gadget:
+    def literal_sub(self, dst: Registers, operand: Registers | IntImmediate) -> Gadget:
         operand_str = hex(operand) if isinstance(operand, IntImmediate) else operand
         return Gadget(f"sub {dst}, {operand_str}")
 
-    def literal_xor(
-        self, dst: Registers, operand: Registers | IntImmediate
-    ) -> Gadget:
+    def literal_xor(self, dst: Registers, operand: Registers | IntImmediate) -> Gadget:
         operand_str = hex(operand) if isinstance(operand, IntImmediate) else operand
         return Gadget(f"xor {dst}, {operand_str}")
 

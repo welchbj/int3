@@ -41,7 +41,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
     def _find_mov_immediate_width(self, dst: Registers, imm: IntImmediate) -> int:
         """Determine the bit width the imm would take up in a mov operation into dst."""
         # TODO
-        1/0
+        1 / 0
 
         # Increment the size of our immediate until it occupies the same bit width
         # as the provided imm value. The gradual growth in the size of the assembly
@@ -99,9 +99,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
     def pop(self, result: Registers | None = None) -> Registers:
         if result is None:
-            raise NotImplementedError(
-                "Dynamic register selection not yet implemented"
-            )
+            raise NotImplementedError("Dynamic register selection not yet implemented")
 
         # See if naive solution works.
         if (gadget := self.literal_pop(result)).is_okay(self.ctx):
