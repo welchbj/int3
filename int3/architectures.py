@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import cast
 
-from capstone import CS_ARCH_X86, CS_MODE_32, CS_MODE_64
-from keystone import KS_ARCH_X86, KS_MODE_32, KS_MODE_64
+from capstone import CS_ARCH_X86, CS_MODE_32, CS_MODE_64, CS_ARCH_ARM, CS_MODE_ARM
+from keystone import KS_ARCH_X86, KS_MODE_32, KS_MODE_64, KS_ARCH_ARM, KS_MODE_ARM
 
 from int3.errors import (
     Int3ArgumentError,
@@ -14,7 +14,7 @@ from int3.errors import (
 )
 from int3.immediates import IntImmediate
 
-__all__ = ["Endian", "StackGrowth", "Architecture", "Architectures"]
+__all__ = ["Endian", "Architecture", "Architectures"]
 
 
 class Endian(Enum):
@@ -22,9 +22,9 @@ class Endian(Enum):
     Little = auto()
 
 
-class StackGrowth(Enum):
-    Down = auto()
-    Up = auto()
+class InstructionWidth(Enum):
+    Variable = auto()
+    Fixed = auto()
 
 
 _width_to_format_str_map = {
@@ -45,7 +45,7 @@ class Architecture:
     name: str
     bit_size: int
     endian: Endian
-    stack_growth: StackGrowth
+    instruction_width: InstructionWidth
 
     keystone_arch: int
     keystone_mode: int
@@ -107,11 +107,14 @@ class Architecture:
 
 
 class Architectures(Enum):
+    # Reference:
+    # https://github.com/keystone-engine/keystone/blob/master/bindings/python/sample.py
+
     x86 = Architecture(
         name="x86",
         bit_size=32,
         endian=Endian.Little,
-        stack_growth=StackGrowth.Down,
+        instruction_width=InstructionWidth.Variable,
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
@@ -121,15 +124,30 @@ class Architectures(Enum):
         name="x86_64",
         bit_size=64,
         endian=Endian.Little,
-        stack_growth=StackGrowth.Down,
+        instruction_width=InstructionWidth.Variable,
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_64,
     )
+    # TODO: Arm 32-bit immediates are not currently properly handled in SAT logic.
+    Arm = Architecture(
+        name="arm",
+        bit_size=32,
+        endian=Endian.Little,
+        instruction_width=InstructionWidth.Fixed,
+        keystone_arch=KS_ARCH_ARM,
+        keystone_mode=KS_MODE_ARM,
+        capstone_arch=CS_ARCH_ARM,
+        capstone_mode=CS_MODE_ARM,
+    )
 
     @staticmethod
     def from_host() -> Architecture:
+        # References:
+        # https://stackoverflow.com/a/45125525
+        # https://en.wikipedia.org/wiki/Uname
+
         match (machine := platform.machine()):
             case "i386":
                 return Architectures.from_str("x86")
