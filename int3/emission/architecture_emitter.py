@@ -23,7 +23,7 @@ class ArchitectureEmitter(Emitter, ABC, Generic[Registers]):
         ...
 
     @abstractmethod
-    def literal_pop(self, result: Registers | None = None) -> Gadget:
+    def literal_pop(self, result: Registers) -> Gadget:
         ...
 
     @abstractmethod

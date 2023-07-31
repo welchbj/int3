@@ -1,6 +1,6 @@
 from typing import Iterator
 
-from int3.errors import Int3MissingEntityError
+from int3.errors import Int3MissingEntityError, Int3SatError
 from int3.factor import FactorOperation, FactorResult, factor
 from int3.gadgets import Gadget, MultiGadget
 from int3.registers import Immediate, IntImmediate, Registers
@@ -34,8 +34,8 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
         return MultiGadget(*factor_gadgets)
 
-    def mov(self, dst: Registers, src: Registers | IntImmediate) -> Gadget:
-        return self.choose(self._mov_iter(dst, src))
+    def mov(self, dst: Registers, src: Registers | IntImmediate):
+        self.choose_and_emit(self._mov_iter(dst, src))
 
     def _mov_iter(
         self, dst: Registers, src: Registers | IntImmediate
@@ -64,78 +64,84 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         # TODO
         yield Gadget("__invalid__")
 
-    def load(self, dst: Registers, src_ptr: Registers, offset: int = 0) -> Gadget:
+    def load(self, dst: Registers, src_ptr: Registers, offset: int = 0):
         # See if naive solution works.
         if (gadget := self.literal_load(dst, src_ptr, offset)).is_okay(self.ctx):
-            return gadget
+            return self.emit(gadget)
 
         # TODO
-        return Gadget("__invalid__")
+        raise Int3SatError("load() unable to find suitable gadget")
 
-    def push(self, value: Registers | Immediate) -> Gadget:
+    def push(self, value: Registers | Immediate):
         # See if naive solution works.
         if (gadget := self.literal_push(value)).is_okay(self.ctx):
-            return gadget
+            return self.emit(gadget)
 
         # TODO
-        return Gadget("__invalid__")
+        raise Int3SatError("push() unable to find suitable gadget")
 
-    def pop(self, result: Registers | None = None) -> Gadget:
+    def pop(self, result: Registers | None = None) -> Registers:
+        if result is None:
+            raise NotImplementedError(
+                "Dynamic register selection not yet implemented"
+            )
+
         # See if naive solution works.
         if (gadget := self.literal_pop(result)).is_okay(self.ctx):
-            return gadget
+            self.emit(gadget)
+            return result
 
         # TODO
-        return Gadget("__invalid__")
+        raise Int3SatError("pop() unable to find suitable gadget")
 
-    def add(self, dst: Registers, operand: Registers | IntImmediate) -> Gadget:
+    def add(self, dst: Registers, operand: Registers | IntImmediate):
         # See if naive solution works.
         if (gadget := self.literal_add(dst, operand)).is_okay(self.ctx):
-            return gadget
+            return self.emit(gadget)
 
         # TODO
-        return Gadget("__invalid__")
+        raise Int3SatError("add() unable to find suitable gadget")
 
-    def sub(self, dst: Registers, operand: Registers | IntImmediate) -> Gadget:
+    def sub(self, dst: Registers, operand: Registers | IntImmediate):
         # See if naive solution works.
         if (gadget := self.literal_sub(dst, operand)).is_okay(self.ctx):
             return gadget
 
         # TODO
-        return Gadget("__invalid__")
+        raise Int3SatError("sub() unable to find suitable gadget")
 
-    def xor(self, dst: Registers, operand: Registers | IntImmediate) -> Gadget:
+    def xor(self, dst: Registers, operand: Registers | IntImmediate):
         # See if naive solution works.
         if (gadget := self.literal_xor(dst, operand)).is_okay(self.ctx):
             return gadget
 
         # TODO
-        return Gadget("__invalid__")
+        raise Int3SatError("xor() unable to find suitable gadget")
 
-    def neg(self, dst: Registers) -> Gadget:
+    def neg(self, dst: Registers):
         # See if naive solution works.
         if (gadget := self.literal_neg(dst)).is_okay(self.ctx):
             return gadget
 
         # TODO
-        return Gadget("__invalid__")
+        raise Int3SatError("neg() unable to find suitable gadget")
 
-    def call(self, target: Registers) -> Gadget:
+    def call(self, target: Registers):
         # See if naive solution works.
         if (gadget := self.literal_call(target)).is_okay(self.ctx):
             return gadget
 
         # TODO
-        return Gadget("__invalid__")
+        raise Int3SatError("call() unable to find suitable gadget")
 
-    def breakpoint(self) -> Gadget:
-        return self.literal_breakpoint()
+    def breakpoint(self):
+        return self.emit(self.literal_breakpoint())
 
     # TODO: Shifts?
 
-    def alloc_stack_frame(self, size: IntImmediate) -> Gadget:
+    def alloc_stack_frame(self, size: IntImmediate):
         # TODO
-        return Gadget("__invalid__")
+        raise Int3SatError("alloc_stack_frame() unable to find suitable gadget")
 
-    def label(self, name: str) -> Gadget:
-        return self.literal_label(name)
+    def label(self, name: str):
+        return self.emit(self.literal_label(name))
