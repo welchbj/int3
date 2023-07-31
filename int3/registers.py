@@ -1,13 +1,16 @@
-from typing import Literal, TypeAlias, TypeVar
+from typing import Literal, TypeVar
 
-IntImmediate: TypeAlias = int
-BytesImmediate: TypeAlias = bytes
-Immediate: TypeAlias = int | bytes
 
-# Registers annotated per architecture.
+#
+# x86 registers.
+#
 x86GpRegisters = Literal["eax", "ebx", "ecx", "edx", "esi", "edi", "edi", "ebp"]
 x86Registers = Literal[x86GpRegisters, "eip", "esp"]
 
+
+#
+# x86_64 registers.
+#
 x86_64GpRegisters = Literal[
     "rax",
     "rbx",
@@ -27,8 +30,10 @@ x86_64GpRegisters = Literal[
 ]
 x86_64Registers = Literal[x86_64GpRegisters, "rip", "rsp"]
 
-
 # TODO: Add 8-, 16-, and 32-bit width variants where applicable.
 
 
+#
+# Generic type variable for sets of registers.
+#
 Registers = TypeVar("Registers", x86Registers, x86_64Registers)

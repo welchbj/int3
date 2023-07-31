@@ -3,7 +3,8 @@ from typing import Iterator
 from int3.errors import Int3MissingEntityError, Int3SatError
 from int3.factor import FactorOperation, FactorResult, factor
 from int3.gadgets import Gadget, MultiGadget
-from int3.registers import Immediate, IntImmediate, Registers
+from int3.immediates import Immediate, IntImmediate
+from int3.registers import Registers
 
 from .architecture_emitter import ArchitectureEmitter
 
@@ -20,6 +21,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
                     # TODO: This could also be something like xor chained with add.
                     gadget = self.literal_mov(dst, factor_clause.operand)
                 case FactorOperation.Add:
+                    # TODO: Add (and the remaining operations) don't work for 64-bit operands
+                    #       in x86_64, which must be first moved to a register to then be
+                    #       added.
                     gadget = self.literal_add(dst, factor_clause.operand)
                 case FactorOperation.Sub:
                     gadget = self.literal_sub(dst, factor_clause.operand)
@@ -33,6 +37,18 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
             factor_gadgets.append(gadget)
 
         return MultiGadget(*factor_gadgets)
+
+    def _find_mov_immediate_width(self, dst: Registers, imm: IntImmediate) -> int:
+        """Determine the bit width the imm would take up in a mov operation into dst."""
+        # TODO
+        1/0
+
+        # Increment the size of our immediate until it occupies the same bit width
+        # as the provided imm value. The gradual growth in the size of the assembly
+        # represents the "immediate width" of imm.
+        # TODO
+
+        return -1
 
     def mov(self, dst: Registers, src: Registers | IntImmediate):
         self.choose_and_emit(self._mov_iter(dst, src))
@@ -50,7 +66,8 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
             # TODO: Determine which operations are forbidden based on the current
             #       context, and apply those constraints in the factor() call below.
 
-            factor_result = factor(target=src, ctx=self.ctx)
+            width = self._find_mov_immediate_width(dst=dst, imm=src)
+            factor_result = factor(target=src, ctx=self.ctx, width=width)
             yield self._gadget_from_factor_result(dst=dst, factor_result=factor_result)
 
         # When a bad byte is in the register operand, we can piece together

@@ -12,7 +12,7 @@ from int3.errors import (
     Int3InsufficientWidthError,
     Int3MissingEntityError,
 )
-from int3.registers import IntImmediate
+from int3.immediates import IntImmediate
 
 __all__ = ["Endian", "StackGrowth", "Architecture", "Architectures"]
 

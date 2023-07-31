@@ -6,5 +6,6 @@ from .encoding import *  # noqa
 from .execution import *  # noqa
 from .factor import *  # noqa
 from .gadgets import *  # noqa
+from .immediates import *  # noqa
 from .payloads import *  # noqa
 from .platforms import *  # noqa

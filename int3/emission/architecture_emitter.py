@@ -2,7 +2,8 @@ from abc import ABC, abstractmethod
 from typing import Generic
 
 from int3.gadgets import Gadget
-from int3.registers import Immediate, IntImmediate, Registers
+from int3.immediates import Immediate, IntImmediate
+from int3.registers import Registers
 
 from .emitter import Emitter
 

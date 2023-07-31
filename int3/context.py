@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from int3.architectures import Architecture, Architectures
 from int3.platforms import Platform, Platforms
-from int3.registers import IntImmediate
+from int3.immediates import IntImmediate
 from int3.strategy import Strategy
 
 __all__ = ["Context"]
