@@ -38,6 +38,9 @@ class Payload(ABC):
     def name(cls) -> str:
         """The shorthand name of this payload."""
 
+    # TODO: Specify permitted architectures and platforms in a class-level
+    #       property.
+
     @abstractmethod
     def __str__(self) -> str:
         """Generate the payload's logic as assembly code."""
