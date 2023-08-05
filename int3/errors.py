@@ -41,5 +41,9 @@ class Int3UnsupportedFormatError(Int3ArgumentError):
     """Exception type for formats not supported in some functionality."""
 
 
+class Int3LockedRegisterError(Int3ArgumentError):
+    """Exception type for attempting to use a locked register."""
+
+
 class Int3SatError(Int3Error):
     """Exception type for satisfiability errors."""

@@ -1,27 +1,28 @@
+from __future__ import annotations
+
 import logging
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Iterator, get_args
+from typing import Generic, Iterator, get_args
 
 from int3.architectures import InstructionWidth
-from int3.errors import Int3MissingEntityError, Int3SatError
+from int3.errors import Int3ArgumentError, Int3LockedRegisterError, Int3MissingEntityError, Int3SatError
 from int3.factor import FactorOperation, FactorResult, factor
 from int3.gadgets import Gadget, MultiGadget
-from int3.immediates import Immediate, IntImmediate
+from int3.immediates import BytesImmediate, Immediate, IntImmediate
 from int3.registers import Registers
 
 from .architecture_emitter import ArchitectureEmitter
 
 
-@dataclass
-class BoundRegisterScope:
-    # TODO
-    pass
+@dataclass(frozen=True)
+class BoundRegisterScope(Generic[Registers]):
+    regs: set[Registers] = field(default_factory=set)
 
 
 @dataclass
 class SemanticEmitter(ArchitectureEmitter[Registers]):
-    # TODO: Implement this properly with free_gp_registers.
-    bound_register_scopes: list[BoundRegisterScope] = field(init=False, default_factory=list)
+    bound_register_scopes: list[BoundRegisterScope[Registers]] = field(init=False, default_factory=list)
 
     gp_registers: tuple[Registers, ...] = field(init=False, default_factory=tuple)
 
@@ -35,8 +36,31 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
     @property
     def free_gp_registers(self) -> tuple[Registers, ...]:
-        # TODO: Find the difference with the currently-bound set of registers.
-        return self.gp_registers
+        return tuple(reg for reg in self.gp_registers if reg not in self.locked_gp_registers)
+
+    @property
+    def locked_gp_registers(self) -> set[Registers]:
+        return set().union(*[scope.regs for scope in self.bound_register_scopes])
+
+    @contextmanager
+    def locked(self, *regs: Registers) -> Iterator[SemanticEmitter]:
+        # Identify duplicates in regs.
+        regs_set = set(regs)
+        if len(regs_set) != len(regs):
+            raise Int3ArgumentError(f"Register set {regs} contains duplicates")
+
+        # Identify any registers-to-lock that aren't actually free.
+        locked_regs = regs_set & self.locked_gp_registers
+        if locked_regs:
+            raise Int3LockedRegisterError(
+                f"Registers are already locked: ', ".join(locked_regs)
+            )
+
+        # Of note, the below approach is not thread-safe.
+
+        self.bound_register_scopes.append(BoundRegisterScope(regs_set))
+        yield self
+        self.bound_register_scopes.pop()
 
     def _gadget_from_factor_result(
         self, dst: Registers, factor_result: FactorResult
@@ -104,12 +128,15 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
         raise Int3SatError("Unable to find free gp register that meets constraints")
 
-    def mov(self, dst: Registers, src: Registers | IntImmediate):
+    def mov(self, dst: Registers, src: Registers | Immediate):
         self.choose_and_emit(self._mov_iter(dst, src))
 
     def _mov_iter(
-        self, dst: Registers, src: Registers | IntImmediate
+        self, dst: Registers, src: Registers | Immediate
     ) -> Iterator[Gadget]:
+        if isinstance(src, BytesImmediate):
+            raise NotImplementedError("Bytes immediate for mov() not yet implemented")
+
         # See if naive solution works.
         if (gadget := self.literal_mov(dst, src)).is_okay(self.ctx):
             yield gadget
@@ -219,6 +246,10 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         return self.emit(self.literal_breakpoint())
 
     # TODO: Shifts?
+
+    def memcpy(self, dst: Registers, src: Registers, n: int):
+        # TODO
+        raise Int3SatError("memcpy() unable to find suitable gadget")
 
     def alloc_stack_frame(self, size: IntImmediate):
         # TODO

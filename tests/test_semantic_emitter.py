@@ -2,20 +2,67 @@
 # architecture under test, but the intent here is for architecture-agnostic
 # tests that challenge the SemanticEmitter's logic.
 
+import pytest
+
+from int3.context import Context
+from int3.emission import Linuxx86_64Emitter
+from int3.errors import Int3ArgumentError, Int3LockedRegisterError
+
+
+def test_duplicate_registers_in_lock():
+    ctx = Context.from_host()
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    with pytest.raises(Int3ArgumentError):
+        with emitter.locked("rax", "rax"):
+            pass
+
+    with pytest.raises(Int3ArgumentError):
+        with emitter.locked("rax", "rbx", "rcx", "rdx", "rbx"):
+            pass
+
+    assert len(emitter.locked_gp_registers) == 0
+
+
+def test_duplicated_register_locks_in_nested_contexts():
+    ctx = Context.from_host()
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    with emitter.locked("r12"):
+        assert len(emitter.locked_gp_registers) == 1
+        assert "r12" in emitter.locked_gp_registers
+
+        with emitter.locked("r11"):
+            assert len(emitter.locked_gp_registers) == 2
+            assert "r11" in emitter.locked_gp_registers
+
+        with pytest.raises(Int3LockedRegisterError):
+            with emitter.locked("r12"):
+                pass
+
+        assert len(emitter.locked_gp_registers) == 1
+        assert "r12" in emitter.locked_gp_registers
+
+
 # TODO: Check desired results.
 # TODO: Check no bad bytes present
 
 
+def test_forced_gp_register_selection():
+    # TODO
+    pass
+
+
 def test_short_circuit_xor():
     # TODO
-    assert False
+    pass
 
 
 def test_requires_factoring_force_sub():
     # TODO
-    assert False
+    pass
 
 
 def test_requires_factoring_force_xor():
     # TODO
-    assert False
+    pass
