@@ -14,6 +14,7 @@ from .x86_emitter import x86Emitter
 
 @dataclass(frozen=True)
 class SyscallMap(Generic[Registers]):
+    result: Registers
     num: Registers
     arg0: Registers
     arg1: Registers
@@ -21,7 +22,6 @@ class SyscallMap(Generic[Registers]):
     arg3: Registers
     arg4: Registers
     arg5: Registers
-    result: Registers
 
 
 @dataclass
@@ -29,10 +29,12 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
     """An emitter for Linux targets (generic with respect to architecture)."""
 
     @abstractmethod
-    def syscall(self, num: int, *args: Registers | Immediate):
+    def make_syscall_map(self) -> SyscallMap[Registers]:
         ...
 
-    def syscall_helper(self, syscall_map: SyscallMap[Registers], num: int, *args: Registers | Immediate):
+    def syscall(self, num: int, *args: Registers | Immediate):
+        syscall_map = self.make_syscall_map()
+
         num_args = len(args)
 
         do_arg0 = num_args > 0
@@ -69,7 +71,7 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
 
                                 with self.locked(syscall_map.num):
                                     self.mov(syscall_map.num, num)
-                                    self.literal_syscall()
+                                    self.emit(self.literal_syscall())
 
     def open(self):
         # TODO
@@ -106,24 +108,28 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
 
 class Linuxx86Emitter(x86Emitter, LinuxEmitter[x86Registers]):
 
-    def syscall(self, num: int, *args: x86Registers | Immediate):
-        # TODO
-        raise Int3SatError("syscall() unable to find a suitable gadget")
-
+    def make_syscall_map(self) -> SyscallMap[x86Registers]:
+        return SyscallMap[x86Registers](
+            result="eax",
+            num="eax",
+            arg0="ebx",
+            arg1="ecx",
+            arg2="edx",
+            arg3="esi",
+            arg4="edi",
+            arg5="ebp",
+        )
 
 class Linuxx86_64Emitter(x86_64Emitter, LinuxEmitter[x86_64Registers]):
 
-    # TODO: Be able to set the result in a specified registered.
-
-    def syscall(self, num: int, *args: x86_64Registers | Immediate):
-        syscall_map = SyscallMap[x86_64Registers](
+    def make_syscall_map(self) -> SyscallMap[x86_64Registers]:
+        return SyscallMap[x86_64Registers](
+            result="rax",
             num="rax",
             arg0="rdi",
             arg1="rsi",
             arg2="rdx",
-            arg3="rcx",
+            arg3="r10",
             arg4="r8",
             arg5="r9",
-            result="rax",
         )
-        self.syscall_helper(syscall_map, num, *args)
