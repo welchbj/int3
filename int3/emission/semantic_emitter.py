@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Iterator, get_args
 
@@ -113,6 +114,10 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         if (gadget := self.literal_mov(dst, src)).is_okay(self.ctx):
             yield gadget
 
+        # See if a simple XOR works.
+        if src == 0:
+            yield self.literal_xor(dst=dst, operand=dst)
+
         # When a bad byte is in the immediate operand, we can try to break apart
         # the operand into multiple operations of the same type.
         if isinstance(src, IntImmediate) and not self.ctx.is_okay_immediate(src):
@@ -127,7 +132,11 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
                 width = self._find_mov_immediate_width(dst=dst, imm=src)
 
             factor_result = factor(target=src, ctx=self.ctx, width=width)
-            yield self._gadget_from_factor_result(dst=dst, factor_result=factor_result)
+
+            try:
+                yield self._gadget_from_factor_result(dst=dst, factor_result=factor_result)
+            except Int3SatError:
+                logging.debug(f"Unable convert factor result [{factor_result}] into usable gadgets")
 
         # When a bad byte is in the register operand, we can piece together
         # operations on multiple available registers.
