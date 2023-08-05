@@ -34,7 +34,7 @@ class Int3ArgumentError(Int3Error):
 
 
 class Int3InsufficientWidthError(Int3ArgumentError):
-    """Exception type for arguments that cannot be represented with given constraints."""
+    """Exception type for arguments that can't be represented with given constraints."""
 
 
 class Int3UnsupportedFormatError(Int3ArgumentError):

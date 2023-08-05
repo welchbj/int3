@@ -41,7 +41,9 @@ class Context:
         For example, immediates with bad bytes will return False.
 
         """
-        # TODO: Each architecture should support encoding constraints as SAT expressions.
+
+        # TODO: Each architecture should support encoding constraints as SAT
+        #       expressions.
 
         return not any(
             b in self.architecture.pack(imm, width=width) for b in self.bad_bytes

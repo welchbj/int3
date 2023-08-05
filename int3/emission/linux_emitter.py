@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Generic, Iterator
+from typing import Generic
 
 from int3.errors import Int3SatError
-from int3.immediates import Immediate
+from int3.immediates import BytesImmediate, Immediate
 from int3.registers import Registers, x86_64Registers, x86Registers
 
 from .semantic_emitter import SemanticEmitter
@@ -89,7 +89,7 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
         # TODO
         raise Int3SatError("write() unable to find a suitable gadget")
 
-    def echo(self):
+    def echo(self, buf: Registers | BytesImmediate, fd: int = 0):
         # TODO
         raise Int3SatError("echo() unable to find a suitable gadget")
 
@@ -107,7 +107,6 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
 
 
 class Linuxx86Emitter(x86Emitter, LinuxEmitter[x86Registers]):
-
     def make_syscall_map(self) -> SyscallMap[x86Registers]:
         return SyscallMap[x86Registers](
             result="eax",
@@ -120,8 +119,8 @@ class Linuxx86Emitter(x86Emitter, LinuxEmitter[x86Registers]):
             arg5="ebp",
         )
 
-class Linuxx86_64Emitter(x86_64Emitter, LinuxEmitter[x86_64Registers]):
 
+class Linuxx86_64Emitter(x86_64Emitter, LinuxEmitter[x86_64Registers]):
     def make_syscall_map(self) -> SyscallMap[x86_64Registers]:
         return SyscallMap[x86_64Registers](
             result="rax",

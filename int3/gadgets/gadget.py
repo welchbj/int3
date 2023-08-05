@@ -23,7 +23,8 @@ class Gadget:
             logging.debug(f"keystone assembly failed: {e}")
             logging.debug(f"Problematic assembly:\n\n{self.assembly}\n")
 
-            # XXX: How will we address jumps that can't be assembled without more context?
+            # XXX: How will we address jumps that can't be assembled without more
+            #      context?
             return False
         else:
             return not any(b in assembled_bytes for b in ctx.bad_bytes)
