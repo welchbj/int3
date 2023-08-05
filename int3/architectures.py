@@ -14,7 +14,7 @@ from int3.errors import (
 )
 from int3.immediates import IntImmediate
 
-__all__ = ["Endian", "Architecture", "Architectures"]
+__all__ = ["Endian", "InstructionWidth", "Architecture", "Architectures"]
 
 
 class Endian(Enum):
