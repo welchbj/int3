@@ -45,5 +45,9 @@ class Int3LockedRegisterError(Int3ArgumentError):
     """Exception type for attempting to use a locked register."""
 
 
+class Int3AmbiguousContextError(Int3ArgumentError):
+    """Exception type for ambiguous sets of arguments."""
+
+
 class Int3SatError(Int3Error):
     """Exception type for satisfiability errors."""

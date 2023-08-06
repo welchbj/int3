@@ -2,10 +2,10 @@ import platform
 import struct
 from dataclasses import dataclass
 from enum import Enum, auto
-from typing import cast
+from typing import Generic, cast, get_args
 
-from capstone import CS_ARCH_ARM, CS_ARCH_X86, CS_MODE_32, CS_MODE_64, CS_MODE_ARM
-from keystone import KS_ARCH_ARM, KS_ARCH_X86, KS_MODE_32, KS_MODE_64, KS_MODE_ARM
+from capstone import CS_ARCH_X86, CS_MODE_32, CS_MODE_64
+from keystone import KS_ARCH_X86, KS_MODE_32, KS_MODE_64
 
 from int3.errors import (
     Int3ArgumentError,
@@ -13,6 +13,7 @@ from int3.errors import (
     Int3MissingEntityError,
 )
 from int3.immediates import IntImmediate
+from int3.registers import Registers, GpRegisters, x86_64GpRegisters, x86_64Registers, x86GpRegisters, x86Registers
 
 __all__ = ["Endian", "InstructionWidth", "Architecture", "Architectures"]
 
@@ -41,11 +42,14 @@ _endian_to_format_str_map = {
 
 
 @dataclass(frozen=True)
-class Architecture:
+class Architecture(Generic[Registers, GpRegisters]):
     name: str
     bit_size: int
     endian: Endian
     instruction_width: InstructionWidth
+
+    regs: tuple[Registers, ...]
+    gp_regs: tuple[GpRegisters, ...]
 
     keystone_arch: int
     keystone_mode: int
@@ -110,36 +114,29 @@ class Architectures(Enum):
     # Reference:
     # https://github.com/keystone-engine/keystone/blob/master/bindings/python/sample.py
 
-    x86 = Architecture(
+    x86 = Architecture[x86Registers, x86GpRegisters](
         name="x86",
         bit_size=32,
         endian=Endian.Little,
         instruction_width=InstructionWidth.Variable,
+        regs=get_args(x86Registers),
+        gp_regs=get_args(x86GpRegisters),
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_32,
     )
-    x86_64 = Architecture(
+    x86_64 = Architecture[x86_64Registers, x86_64GpRegisters](
         name="x86_64",
         bit_size=64,
         endian=Endian.Little,
         instruction_width=InstructionWidth.Variable,
+        regs=get_args(x86_64Registers),
+        gp_regs=get_args(x86_64GpRegisters),
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_64,
-    )
-    # TODO: Arm 32-bit immediates are not currently properly handled in SAT logic.
-    Arm = Architecture(
-        name="arm",
-        bit_size=32,
-        endian=Endian.Little,
-        instruction_width=InstructionWidth.Fixed,
-        keystone_arch=KS_ARCH_ARM,
-        keystone_mode=KS_MODE_ARM,
-        capstone_arch=CS_ARCH_ARM,
-        capstone_mode=CS_MODE_ARM,
     )
 
     @staticmethod
@@ -169,7 +166,7 @@ class Architectures(Enum):
         return list(_ARCHITECTURE_MAP.keys())
 
 
-_ARCHITECTURE_MAP = {
+_ARCHITECTURE_MAP: dict[str, Architecture] = {
     architecture_enum.value.name: architecture_enum.value
     for architecture_enum in Architectures
 }

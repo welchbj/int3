@@ -1,5 +1,6 @@
 from typing import Literal, TypeVar
 
+
 #
 # x86 registers.
 #
@@ -36,3 +37,4 @@ x86_64Registers = Literal[x86_64GpRegisters, "rip", "rsp"]
 # Generic type variable for sets of registers.
 #
 Registers = TypeVar("Registers", x86Registers, x86_64Registers)
+GpRegisters = TypeVar("GpRegisters", x86GpRegisters, x86_64GpRegisters)

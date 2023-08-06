@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Generic, Iterator, get_args
+from typing import Generic, Iterator
 
 from int3.architectures import InstructionWidth
 from int3.errors import (
@@ -31,20 +31,10 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         init=False, default_factory=list
     )
 
-    gp_registers: tuple[Registers, ...] = field(init=False, default_factory=tuple)
-
-    def __post_init__(self):
-        # TODO: This currently returns *all* registers for an architecture.
-        #       Need to find a good way of reducing to just the gp registers.
-        #
-        # TODO: Should potentially do some searching logic to find the literal
-        #       generic type, to not be reliant upon inheritance order.
-        self.gp_registers = get_args(get_args(self.__orig_bases__[1])[0])
-
     @property
     def free_gp_registers(self) -> tuple[Registers, ...]:
         return tuple(
-            reg for reg in self.gp_registers if reg not in self.locked_gp_registers
+            reg for reg in self.ctx.architecture.gp_regs if reg not in self.locked_gp_registers
         )
 
     @property

@@ -9,3 +9,5 @@ from .gadgets import *  # noqa
 from .immediates import *  # noqa
 from .payloads import *  # noqa
 from .platforms import *  # noqa
+from .registers import *  # noqa
+from .syscalls import *  # noqa

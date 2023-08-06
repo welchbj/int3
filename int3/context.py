@@ -7,8 +7,6 @@ from int3.immediates import IntImmediate
 from int3.platforms import Platform, Platforms
 from int3.strategy import Strategy
 
-__all__ = ["Context"]
-
 
 @dataclass(frozen=True)
 class Context:

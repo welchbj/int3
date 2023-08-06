@@ -1,27 +1,15 @@
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Generic
 
 from int3.errors import Int3SatError
 from int3.immediates import BytesImmediate, Immediate
 from int3.registers import Registers, x86_64Registers, x86Registers
+from int3.syscalls import SyscallConvention
 
 from .semantic_emitter import SemanticEmitter
 from .x86_64emitter import x86_64Emitter
 from .x86_emitter import x86Emitter
-
-
-@dataclass(frozen=True)
-class SyscallMap(Generic[Registers]):
-    result: Registers
-    num: Registers
-    arg0: Registers
-    arg1: Registers
-    arg2: Registers
-    arg3: Registers
-    arg4: Registers
-    arg5: Registers
 
 
 @dataclass
@@ -29,11 +17,11 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
     """An emitter for Linux targets (generic with respect to architecture)."""
 
     @abstractmethod
-    def make_syscall_map(self) -> SyscallMap[Registers]:
+    def make_syscall_convention(self) -> SyscallConvention[Registers]:
         ...
 
     def syscall(self, num: int, *args: Registers | Immediate):
-        syscall_map = self.make_syscall_map()
+        syscall_con = self.make_syscall_convention()
 
         num_args = len(args)
 
@@ -44,33 +32,33 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
         do_arg4 = num_args > 4
         do_arg5 = num_args > 5
 
-        arg0_cm = self.locked(syscall_map.arg0) if do_arg0 else nullcontext()
-        arg1_cm = self.locked(syscall_map.arg1) if do_arg1 else nullcontext()
-        arg2_cm = self.locked(syscall_map.arg2) if do_arg2 else nullcontext()
-        arg3_cm = self.locked(syscall_map.arg3) if do_arg3 else nullcontext()
-        arg4_cm = self.locked(syscall_map.arg4) if do_arg4 else nullcontext()
-        arg5_cm = self.locked(syscall_map.arg5) if do_arg5 else nullcontext()
+        arg0_cm = self.locked(syscall_con.arg0) if do_arg0 else nullcontext()
+        arg1_cm = self.locked(syscall_con.arg1) if do_arg1 else nullcontext()
+        arg2_cm = self.locked(syscall_con.arg2) if do_arg2 else nullcontext()
+        arg3_cm = self.locked(syscall_con.arg3) if do_arg3 else nullcontext()
+        arg4_cm = self.locked(syscall_con.arg4) if do_arg4 else nullcontext()
+        arg5_cm = self.locked(syscall_con.arg5) if do_arg5 else nullcontext()
 
         with arg0_cm:
-            self.mov(syscall_map.arg0, args[0]) if do_arg0 else None
+            self.mov(syscall_con.arg0, args[0]) if do_arg0 else None
 
             with arg1_cm:
-                self.mov(syscall_map.arg1, args[1]) if do_arg1 else None
+                self.mov(syscall_con.arg1, args[1]) if do_arg1 else None
 
                 with arg2_cm:
-                    self.mov(syscall_map.arg2, args[2]) if do_arg2 else None
+                    self.mov(syscall_con.arg2, args[2]) if do_arg2 else None
 
                     with arg3_cm:
-                        self.mov(syscall_map.arg3, args[3]) if do_arg3 else None
+                        self.mov(syscall_con.arg3, args[3]) if do_arg3 else None
 
                         with arg4_cm:
-                            self.mov(syscall_map.arg4, args[4]) if do_arg4 else None
+                            self.mov(syscall_con.arg4, args[4]) if do_arg4 else None
 
                             with arg5_cm:
-                                self.mov(syscall_map.arg5, args[5]) if do_arg4 else None
+                                self.mov(syscall_con.arg5, args[5]) if do_arg4 else None
 
-                                with self.locked(syscall_map.num):
-                                    self.mov(syscall_map.num, num)
+                                with self.locked(syscall_con.num):
+                                    self.mov(syscall_con.num, num)
                                     self.emit(self.literal_syscall())
 
     def open(self):
@@ -107,8 +95,8 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
 
 
 class Linuxx86Emitter(x86Emitter, LinuxEmitter[x86Registers]):
-    def make_syscall_map(self) -> SyscallMap[x86Registers]:
-        return SyscallMap[x86Registers](
+    def make_syscall_convention(self) -> SyscallConvention[x86Registers]:
+        return SyscallConvention[x86Registers](
             result="eax",
             num="eax",
             arg0="ebx",
@@ -121,8 +109,8 @@ class Linuxx86Emitter(x86Emitter, LinuxEmitter[x86Registers]):
 
 
 class Linuxx86_64Emitter(x86_64Emitter, LinuxEmitter[x86_64Registers]):
-    def make_syscall_map(self) -> SyscallMap[x86_64Registers]:
-        return SyscallMap[x86_64Registers](
+    def make_syscall_convention(self) -> SyscallConvention[x86_64Registers]:
+        return SyscallConvention[x86_64Registers](
             result="rax",
             num="rax",
             arg0="rdi",
