@@ -17,7 +17,6 @@ class Context:
     bad_bytes: bytes = b""
     vma: int = 0
     usable_stack: bool = True
-    byte_width: int = 8
 
     @staticmethod
     def from_host(
@@ -32,10 +31,6 @@ class Context:
             vma=vma,
             usable_stack=usable_stack,
         )
-
-    @property
-    def arch_width_in_bytes(self) -> int:
-        return self.architecture.bit_size // self.byte_width
 
     def is_okay_int_immediate(
         self, imm: IntImmediate, width: int | None = None
@@ -59,6 +54,6 @@ class Context:
 
         valid_bytes = list(set(range(0x100)) - set(self.bad_bytes))
         return self.architecture.unpack(
-            bytes([valid_bytes[0] for _ in range(width // self.byte_width)]),
+            bytes([valid_bytes[0] for _ in range(width // self.architecture.BITS_IN_A_BYTE)]),
             width=width,
         )
