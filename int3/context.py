@@ -54,6 +54,11 @@ class Context:
 
         valid_bytes = list(set(range(0x100)) - set(self.bad_bytes))
         return self.architecture.unpack(
-            bytes([valid_bytes[0] for _ in range(width // self.architecture.BITS_IN_A_BYTE)]),
+            bytes(
+                [
+                    valid_bytes[0]
+                    for _ in range(width // self.architecture.BITS_IN_A_BYTE)
+                ]
+            ),
             width=width,
         )

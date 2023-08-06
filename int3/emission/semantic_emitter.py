@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import functools
 import itertools
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Generic, Iterator
+from io import BytesIO
+from typing import Any, Generic, Iterable, Iterator, Protocol
 
 from int3.architectures import InstructionWidth
 from int3.errors import (
@@ -19,6 +21,11 @@ from int3.immediates import BytesImmediate, Immediate, IntImmediate
 from int3.registers import Registers
 
 from .architecture_emitter import ArchitectureEmitter
+
+
+class UnboundGadgetFunc(Protocol):
+    def __call__(self, reg: Any) -> Iterator[Gadget]:
+        ...
 
 
 @dataclass(frozen=True)
@@ -78,7 +85,8 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
                 continue
 
             imm = factor_clause.operand
-            intermediate_dst = self._find_literal_mov_dst(src=imm)
+            with self.locked(dst):
+                intermediate_dst = self._find_literal_mov_dst(src=imm)
             mov_gadget = self.literal_mov(dst=intermediate_dst, src=imm)
 
             match factor_clause.operation:
@@ -122,7 +130,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         )
 
         num_bytes = len(packed_imm) + max(null_run_left, null_run_right)
-        return num_bytes * self.ctx.byte_width
+        return num_bytes * self.ctx.architecture.BITS_IN_A_BYTE
 
     def _find_literal_mov_dst(self, src: Registers | IntImmediate) -> Registers:
         """Find a general-purpose destination register for a move."""
@@ -131,6 +139,21 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
                 return gp_register
 
         raise Int3SatError("Unable to find free gp register that meets constraints")
+
+    def _find_free_gp_reg_for(
+        self, *gadget_funcs: UnboundGadgetFunc
+    ) -> Iterator[Registers]:
+        """Find a stream of free gp registers that can be used in all provided funcs."""
+
+        def _has_at_least_one_okay_gadget(gadgets: Iterable[Gadget]) -> bool:
+            return any(gadget.is_okay(self.ctx) for gadget in gadgets)
+
+        for reg in self.free_gp_registers:
+            if all(
+                _has_at_least_one_okay_gadget(gadget_func(reg))
+                for gadget_func in gadget_funcs
+            ):
+                yield reg
 
     def mov(self, dst: Registers, src: Registers | IntImmediate):
         self.choose_and_emit(self._mov_iter(dst, src))
@@ -148,7 +171,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
         # When a bad byte is in the immediate operand, we can try to break apart
         # the operand into multiple operations of the same type.
-        if isinstance(src, IntImmediate) and not self.ctx.is_okay_immediate(src):
+        if isinstance(src, IntImmediate) and not self.ctx.is_okay_int_immediate(src):
             # TODO: Determine which operations are forbidden based on the current
             #       context, and apply those constraints in the factor() call below.
 
@@ -214,16 +237,43 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         if not self.ctx.usable_stack:
             raise Int3SatError("Current context does not allow for stack use")
 
+        # Separate code path for handling bytes immediates.
+        if isinstance(value, BytesImmediate):
+            yield from self._push_bytes_imm_iter(value)
+            return
+
+        # We are now dealing with only register or int immediate operands.
+
         # See if naive solution works.
-        if not isinstance(value, BytesImmediate) and (
-            gadget := self.literal_push(value)
-        ).is_okay(self.ctx):
+        if (gadget := self.literal_push(value)).is_okay(self.ctx):
             yield gadget
 
-        # TODO: Need to find a gadget for pushing a register to the stack.
-        # TODO: Also requires that the target register works for movs.
+        # TODO: Other approaches.
 
-        # TODO: Split up buf into several integers.
+    def _push_bytes_imm_iter(self, value: BytesImmediate) -> Iterator[Gadget]:
+        arch = self.ctx.architecture
+
+        util_reg = self.choose(
+            self._find_free_gp_reg_for(functools.partial(self._push_iter))
+        )
+
+        value_f = BytesIO(value)
+        reader = functools.partial(value_f.read, arch.byte_size)
+
+        int_imm_list = [
+            arch.unpack(arch.pad(int_imm_bytes)) for int_imm_bytes in iter(reader, b"")
+        ]
+
+        gadgets = []
+        for int_imm in reversed(int_imm_list):
+            gadgets.append(
+                MultiGadget(
+                    self.choose(self._mov_iter(dst=util_reg, src=int_imm)),
+                    self.choose(self._push_iter(value=util_reg)),
+                )
+            )
+
+        yield MultiGadget(*gadgets)
 
     def push_into(self, buf: BytesImmediate, dst: Registers | None = None) -> Registers:
         sp = self.ctx.architecture.sp_reg

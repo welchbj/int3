@@ -97,7 +97,9 @@ class Architecture(Generic[Registers, GpRegisters]):
 
         return f"{endian_format}{width_format}"
 
-    def pad(self, value: bytes, width: int | None = None, fill_byte: bytes = b"\x00") -> bytes:
+    def pad(
+        self, value: bytes, width: int | None = None, fill_byte: bytes = b"\x00"
+    ) -> bytes:
         if width is None:
             width = self.bit_size
 
