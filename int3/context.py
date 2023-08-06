@@ -33,7 +33,13 @@ class Context:
             usable_stack=usable_stack,
         )
 
-    def is_okay_immediate(self, imm: IntImmediate, width: int | None = None) -> bool:
+    @property
+    def arch_width_in_bytes(self) -> int:
+        return self.architecture.bit_size // self.byte_width
+
+    def is_okay_int_immediate(
+        self, imm: IntImmediate, width: int | None = None
+    ) -> bool:
         """Check whether a specified immediate is invalid for use.
 
         For example, immediates with bad bytes will return False.
@@ -45,4 +51,14 @@ class Context:
 
         return not any(
             b in self.architecture.pack(imm, width=width) for b in self.bad_bytes
+        )
+
+    def make_okay_int_immediate(self, width: int | None = None) -> int:
+        if width is None:
+            width = self.architecture.bit_size
+
+        valid_bytes = list(set(range(0x100)) - set(self.bad_bytes))
+        return self.architecture.unpack(
+            bytes([valid_bytes[0] for _ in range(width // self.byte_width)]),
+            width=width,
         )

@@ -79,7 +79,7 @@ def factor(
         )
 
     # Check if a bad byte was provided in the start value.
-    if start is not None and not ctx.is_okay_immediate(start, width=width):
+    if start is not None and not ctx.is_okay_int_immediate(start, width=width):
         raise Int3ArgumentError(
             f"Specified start value {hex(start)} contains at least one bad byte"
         )
