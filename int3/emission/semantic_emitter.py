@@ -251,7 +251,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
     # TODO: Shifts?
 
-    def memcpy(self, dst: Registers, src: Registers, n: int):
+    def memcpy(self, dst: Registers, src: Registers | BytesImmediate, n: int | None = None):
         # TODO
         raise Int3SatError("memcpy() unable to find suitable gadget")
 
