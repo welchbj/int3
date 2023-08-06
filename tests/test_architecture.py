@@ -1,7 +1,7 @@
 import pytest
 
 from int3.architectures import Architectures
-from int3.errors import Int3ArgumentError
+from int3.errors import Int3ArgumentError, Int3InsufficientWidthError
 
 
 def test_packing():
@@ -31,7 +31,7 @@ def test_unpacking():
     assert x86_64.unpack(b"\xef\xbe\xad\xde", width=0x20, signed=False) == 0xDEADBEEF
 
 
-def test_invalid_values():
+def test_invalid_pack_unpack_values():
     x86 = Architectures.x86.value
 
     with pytest.raises(Int3ArgumentError):
@@ -44,9 +44,28 @@ def test_invalid_values():
         x86.unpack(b"\xff")
 
 
-def test_invalid_widths():
+def test_invalid_pack_widths():
     x86 = Architectures.x86.value
 
     for width in (-0x10, -1, 0, 1, 0x11, 0x18, 0x40):
         with pytest.raises(Int3ArgumentError):
             x86.pack(0x41, width=width)
+
+
+def test_pad():
+    x86 = Architectures.x86.value
+    x86_64 = Architectures.x86_64.value
+
+    assert x86.pad(b"", width=0x8) == b"\x00"
+    assert x86.pad(b"", width=0x10, fill_byte=b"B") == b"BB"
+    assert x86.pad(b"AAAA") == b"AAAA"
+
+    assert x86.pad(b"A") == b"A\x00\x00\x00"
+    assert x86_64.pad(b"A") == b"A\x00\x00\x00\x00\x00\x00\x00"
+
+
+def test_invalid_pad_widths():
+    x86 = Architectures.x86.value
+
+    with pytest.raises(Int3InsufficientWidthError):
+        x86.pad(b"X"*5)

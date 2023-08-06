@@ -1,8 +1,8 @@
 import platform
 import struct
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Generic, cast, get_args
+from typing import ClassVar, Generic, cast, get_args
 
 from capstone import CS_ARCH_X86, CS_MODE_32, CS_MODE_64
 from keystone import KS_ARCH_X86, KS_MODE_32, KS_MODE_64
@@ -65,6 +65,13 @@ class Architecture(Generic[Registers, GpRegisters]):
     capstone_arch: int
     capstone_mode: int
 
+    byte_size: int = field(init=False)
+
+    BITS_IN_A_BYTE: ClassVar[int] = 8
+
+    def __post_init__(self):
+        object.__setattr__(self, "byte_size", self.bit_size // self.BITS_IN_A_BYTE)
+
     def is_okay_value(self, imm: IntImmediate) -> bool:
         """Tests whether a value can be represented on this architecture."""
         return imm.bit_length() <= self.bit_size
@@ -89,6 +96,24 @@ class Architecture(Generic[Registers, GpRegisters]):
             width_format = width_format.upper()
 
         return f"{endian_format}{width_format}"
+
+    def pad(self, value: bytes, width: int | None = None, fill_byte: bytes = b"\x00") -> bytes:
+        if width is None:
+            width = self.bit_size
+
+        byte_width = width // self.BITS_IN_A_BYTE
+
+        if len(value) > byte_width:
+            raise Int3InsufficientWidthError(
+                f"Value {value} already exceeds width of TODO"
+            )
+        elif len(value) == byte_width:
+            return value
+
+        if self.endian == Endian.Little:
+            return value.ljust(byte_width, fill_byte)
+        else:
+            return value.rjust(byte_width, fill_byte)
 
     def pack(self, value: int, width: int | None = None) -> bytes:
         if not self.is_okay_value(value):
