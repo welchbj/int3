@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import logging
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -131,13 +132,12 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
         raise Int3SatError("Unable to find free gp register that meets constraints")
 
-    def mov(self, dst: Registers, src: Registers | Immediate):
+    def mov(self, dst: Registers, src: Registers | IntImmediate):
         self.choose_and_emit(self._mov_iter(dst, src))
 
-    def _mov_iter(self, dst: Registers, src: Registers | Immediate) -> Iterator[Gadget]:
-        if isinstance(src, BytesImmediate):
-            raise NotImplementedError("Bytes immediate for mov() not yet implemented")
-
+    def _mov_iter(
+        self, dst: Registers, src: Registers | IntImmediate
+    ) -> Iterator[Gadget]:
         # See if naive solution works.
         if (gadget := self.literal_mov(dst, src)).is_okay(self.ctx):
             yield gadget
@@ -180,6 +180,25 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         # TODO
         # TODO: Bad byte "\xc1" is a good test here.
 
+    def store(self, dst: Registers, src: Registers | Immediate):
+        self.choose_and_emit(
+            self._store_iter(
+                dst,
+                src,
+            )
+        )
+
+    def _store_iter(
+        self, dst: Registers, src: Registers | Immediate
+    ) -> Iterator[Gadget]:
+        # See if naive solution works.
+        if not isinstance(src, BytesImmediate) and (
+            gadget := self.literal_store(dst, src)
+        ).is_okay(self.ctx):
+            yield gadget
+
+        # TODO
+
     def load(self, dst: Registers, src_ptr: Registers, offset: int = 0):
         # See if naive solution works.
         if (gadget := self.literal_load(dst, src_ptr, offset)).is_okay(self.ctx):
@@ -189,12 +208,43 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         raise Int3SatError("load() unable to find suitable gadget")
 
     def push(self, value: Registers | Immediate):
-        # See if naive solution works.
-        if (gadget := self.literal_push(value)).is_okay(self.ctx):
-            return self.emit(gadget)
+        self.choose_and_emit(self._push_iter(value))
 
-        # TODO
-        raise Int3SatError("push() unable to find suitable gadget")
+    def _push_iter(self, value: Registers | Immediate) -> Iterator[Gadget]:
+        if not self.ctx.usable_stack:
+            raise Int3SatError("Current context does not allow for stack use")
+
+        # See if naive solution works.
+        if not isinstance(value, BytesImmediate) and (
+            gadget := self.literal_push(value)
+        ).is_okay(self.ctx):
+            yield gadget
+
+        # TODO: Need to find a gadget for pushing a register to the stack.
+        # TODO: Also requires that the target register works for movs.
+
+        # TODO: Split up buf into several integers.
+
+    def push_into(self, buf: BytesImmediate, dst: Registers | None = None) -> Registers:
+        sp = self.ctx.architecture.sp_reg
+
+        if dst is None:
+            if not self.free_gp_registers:
+                raise Int3LockedRegisterError(
+                    "No remaining free general purpose registers"
+                )
+
+            dst = self._find_literal_mov_dst(src=sp)
+
+        gadget_choices = [
+            MultiGadget(push_gadget, mov_gadget)
+            for push_gadget, mov_gadget in itertools.product(
+                self._push_iter(buf), self._mov_iter(dst, sp)
+            )
+        ]
+
+        self.choose_and_emit(gadget_choices)
+        return dst
 
     def pop(self, result: Registers | None = None) -> Registers:
         if result is None:

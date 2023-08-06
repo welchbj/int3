@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Generic
 
 from int3.gadgets import Gadget
-from int3.immediates import Immediate, IntImmediate
+from int3.immediates import IntImmediate
 from int3.registers import Registers
 
 from .emitter import Emitter
@@ -20,7 +20,13 @@ class ArchitectureEmitter(Emitter, ABC, Generic[Registers]):
         ...
 
     @abstractmethod
-    def literal_push(self, value: Registers | Immediate) -> Gadget:
+    def literal_store(
+        self, dst: Registers, src: Registers | IntImmediate, offset: int = 0
+    ) -> Gadget:
+        ...
+
+    @abstractmethod
+    def literal_push(self, value: Registers | IntImmediate) -> Gadget:
         ...
 
     @abstractmethod

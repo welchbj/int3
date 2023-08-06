@@ -1,5 +1,5 @@
 from int3.gadgets import Gadget
-from int3.immediates import Immediate, IntImmediate
+from int3.immediates import IntImmediate
 from int3.registers import Registers
 
 from .architecture_emitter import ArchitectureEmitter
@@ -20,10 +20,17 @@ class IntelEmitterMixin(ArchitectureEmitter[Registers]):
 
         return Gadget(f"mov {dst}, {load_addr}")
 
-    def literal_push(self, value: Registers | Immediate) -> Gadget:
-        if isinstance(value, bytes):
-            raise NotImplementedError("bytes immediates not yet supported")
+    def literal_store(
+        self, dst: Registers, src: Registers | IntImmediate, offset: int = 0
+    ) -> Gadget:
+        if offset == 0:
+            store_addr = f"[{dst}]"
+        else:
+            store_addr = f"[{dst}+{hex(offset)}]"
 
+        return Gadget(f"mov {store_addr}, {src}")
+
+    def literal_push(self, value: Registers | IntImmediate) -> Gadget:
         value_str = hex(value) if isinstance(value, IntImmediate) else value
         return Gadget(f"push {value_str}")
 
