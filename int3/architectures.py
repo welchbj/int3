@@ -57,6 +57,7 @@ class Architecture(Generic[Registers, GpRegisters]):
 
     regs: tuple[Registers, ...]
     gp_regs: tuple[GpRegisters, ...]
+    sp_reg: Registers
 
     keystone_arch: int
     keystone_mode: int
@@ -128,6 +129,7 @@ class Architectures(Enum):
         instruction_width=InstructionWidth.Variable,
         regs=get_args(x86Registers),
         gp_regs=get_args(x86GpRegisters),
+        sp_reg="esp",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
@@ -140,6 +142,7 @@ class Architectures(Enum):
         instruction_width=InstructionWidth.Variable,
         regs=get_args(x86_64Registers),
         gp_regs=get_args(x86_64GpRegisters),
+        sp_reg="rsp",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
