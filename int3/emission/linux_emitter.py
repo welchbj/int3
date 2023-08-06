@@ -1,9 +1,8 @@
 from abc import ABC, abstractmethod
 from contextlib import nullcontext
-from dataclasses import dataclass
 
 from int3.errors import Int3SatError
-from int3.immediates import BytesImmediate, Immediate
+from int3.immediates import BytesImmediate, Immediate, IntImmediate
 from int3.registers import Registers, x86_64Registers, x86Registers
 from int3.syscalls import SyscallConvention
 
@@ -12,7 +11,6 @@ from .x86_64emitter import x86_64Emitter
 from .x86_emitter import x86Emitter
 
 
-@dataclass
 class LinuxEmitter(SemanticEmitter[Registers], ABC):
     """An emitter for Linux targets (generic with respect to architecture)."""
 
@@ -61,37 +59,41 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
                                     self.mov(syscall_con.num, num)
                                     self.emit(self.literal_syscall())
 
-    def open(self):
+    def open(self, pathname: Registers | BytesImmediate, flags: Registers | IntImmediate):
         # TODO
         raise Int3SatError("open() unable to find a suitable gadget")
 
-    def close(self):
+    def close(self, fd: Registers | IntImmediate):
         # TODO
         raise Int3SatError("close() unable to find a suitable gadget")
 
-    def read(self):
+    def read(self, fd: Registers | IntImmediate, buf: Registers | BytesImmediate, count: Registers | IntImmediate):
         # TODO
         raise Int3SatError("read() unable to find a suitable gadget")
 
-    def write(self):
+    def write(self, fd: Registers | IntImmediate, buf: Registers | BytesImmediate, count: Registers | IntImmediate):
         # TODO
         raise Int3SatError("write() unable to find a suitable gadget")
 
-    def echo(self, buf: Registers | BytesImmediate, fd: int = 0):
-        # TODO
-        raise Int3SatError("echo() unable to find a suitable gadget")
-
-    def socket(self):
+    def socket(self, domain: Registers | IntImmediate, type: Registers | IntImmediate, protocol: Registers | IntImmediate):
         # TODO
         raise Int3SatError("socket() unable to find a suitable gadget")
 
-    def connect(self):
+    def connect(self, fd: Registers | IntImmediate, addr: Registers | BytesImmediate, addrlen: Registers | IntImmediate):
         # TODO
         raise Int3SatError("connect() unable to find a suitable gadget")
 
-    def mmap(self):
+    def mmap(self, addr: Registers | IntImmediate, length: Registers | IntImmediate, prot: Registers | IntImmediate, flags: Registers | IntImmediate, fd: Registers | IntImmediate, offset: Registers | IntImmediate):
         # TODO
         raise Int3SatError("mmap() unable to find a suitable gadget")
+
+    # TODO: Higher-level networking interface.
+
+    def echo(self, buf: bytes, fd: int = 0, null_terminate: bool = True):
+        if null_terminate and not buf.endswith(b"\x00"):
+            buf += b"\x00"
+
+        return self.write(fd=fd, buf=buf, count=len(buf))
 
 
 class Linuxx86Emitter(x86Emitter, LinuxEmitter[x86Registers]):
