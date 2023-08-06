@@ -8,6 +8,7 @@ from int3.errors import Int3MissingEntityError
 class Strategy(Enum):
     GenerationSpeed = auto()
     CodeSize = auto()
+    Random = auto()
 
     @staticmethod
     def from_str(format_style_name: str) -> Strategy:
