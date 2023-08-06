@@ -59,7 +59,9 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
                                     self.mov(syscall_con.num, num)
                                     self.emit(self.literal_syscall())
 
-    def open(self, pathname: Registers | BytesImmediate, flags: Registers | IntImmediate):
+    def open(
+        self, pathname: Registers | BytesImmediate, flags: Registers | IntImmediate
+    ):
         # TODO
         raise Int3SatError("open() unable to find a suitable gadget")
 
@@ -67,23 +69,51 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
         # TODO
         raise Int3SatError("close() unable to find a suitable gadget")
 
-    def read(self, fd: Registers | IntImmediate, buf: Registers | BytesImmediate, count: Registers | IntImmediate):
+    def read(
+        self,
+        fd: Registers | IntImmediate,
+        buf: Registers | BytesImmediate,
+        count: Registers | IntImmediate,
+    ):
         # TODO
         raise Int3SatError("read() unable to find a suitable gadget")
 
-    def write(self, fd: Registers | IntImmediate, buf: Registers | BytesImmediate, count: Registers | IntImmediate):
+    def write(
+        self,
+        fd: Registers | IntImmediate,
+        buf: Registers | BytesImmediate,
+        count: Registers | IntImmediate,
+    ):
         # TODO
         raise Int3SatError("write() unable to find a suitable gadget")
 
-    def socket(self, domain: Registers | IntImmediate, type: Registers | IntImmediate, protocol: Registers | IntImmediate):
+    def socket(
+        self,
+        domain: Registers | IntImmediate,
+        type: Registers | IntImmediate,
+        protocol: Registers | IntImmediate,
+    ):
         # TODO
         raise Int3SatError("socket() unable to find a suitable gadget")
 
-    def connect(self, fd: Registers | IntImmediate, addr: Registers | BytesImmediate, addrlen: Registers | IntImmediate):
+    def connect(
+        self,
+        fd: Registers | IntImmediate,
+        addr: Registers | BytesImmediate,
+        addrlen: Registers | IntImmediate,
+    ):
         # TODO
         raise Int3SatError("connect() unable to find a suitable gadget")
 
-    def mmap(self, addr: Registers | IntImmediate, length: Registers | IntImmediate, prot: Registers | IntImmediate, flags: Registers | IntImmediate, fd: Registers | IntImmediate, offset: Registers | IntImmediate):
+    def mmap(
+        self,
+        addr: Registers | IntImmediate,
+        length: Registers | IntImmediate,
+        prot: Registers | IntImmediate,
+        flags: Registers | IntImmediate,
+        fd: Registers | IntImmediate,
+        offset: Registers | IntImmediate,
+    ):
         # TODO
         raise Int3SatError("mmap() unable to find a suitable gadget")
 

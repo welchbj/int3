@@ -13,7 +13,14 @@ from int3.errors import (
     Int3MissingEntityError,
 )
 from int3.immediates import IntImmediate
-from int3.registers import Registers, GpRegisters, x86_64GpRegisters, x86_64Registers, x86GpRegisters, x86Registers
+from int3.registers import (
+    GpRegisters,
+    Registers,
+    x86_64GpRegisters,
+    x86_64Registers,
+    x86GpRegisters,
+    x86Registers,
+)
 
 __all__ = ["Endian", "InstructionWidth", "Architecture", "Architectures"]
 

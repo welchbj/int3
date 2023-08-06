@@ -34,7 +34,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
     @property
     def free_gp_registers(self) -> tuple[Registers, ...]:
         return tuple(
-            reg for reg in self.ctx.architecture.gp_regs if reg not in self.locked_gp_registers
+            reg
+            for reg in self.ctx.architecture.gp_regs
+            if reg not in self.locked_gp_registers
         )
 
     @property
@@ -251,7 +253,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
     # TODO: Shifts?
 
-    def memcpy(self, dst: Registers, src: Registers | BytesImmediate, n: int | None = None):
+    def memcpy(
+        self, dst: Registers, src: Registers | BytesImmediate, n: int | None = None
+    ):
         # TODO
         raise Int3SatError("memcpy() unable to find suitable gadget")
 
