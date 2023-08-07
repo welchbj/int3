@@ -193,4 +193,4 @@ def _add_bad_byte_constraints(
 ):
     for bad_byte in ctx.bad_bytes:
         for i in range(0, width, byte_width):
-            solver.add(Extract(i + 7, i, var) != bad_byte)
+            solver.add(Extract(i + byte_width - 1, i, var) != bad_byte)
