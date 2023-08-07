@@ -65,6 +65,14 @@ Assuming [Poetry credentials are properly setup](https://python-poetry.org/docs/
 poetry publish --build
 ```
 
+### Debugging
+
+Testing shellcode payloads compatible with the host platform and architecture can be done with GDB (assuming the payload has a breakpoint embdedded within it):
+
+```sh
+x=$(mktemp) ; python3 -m int3 payload --payload linux/reverse_shell --strategy CodeSize --bad-bytes "\x41\x42\x43\x00\x01\x02" --format-out Raw > $x ; gdb -ex "handle SIGUSR1 nostop" -ex "run" --args python -m int3 execute --input $x
+```
+
 ## License
 
 `int3` is intended for educational purposes and events such as CTFs only. It should never be used to target machines and/or networks without explicit prior consent. This code is released under the [MIT license](https://opensource.org/licenses/MIT), as per the [`LICENSE.txt`](./LICENSE.txt) file.
