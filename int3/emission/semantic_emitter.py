@@ -161,6 +161,8 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
     def _mov_iter(
         self, dst: Registers, src: Registers | IntImmediate
     ) -> Iterator[Gadget]:
+        arch = self.ctx.architecture
+
         # See if naive solution works.
         if (gadget := self.literal_mov(dst, src)).is_okay(self.ctx):
             yield gadget
@@ -175,14 +177,17 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
             # TODO: Determine which operations are forbidden based on the current
             #       context, and apply those constraints in the factor() call below.
 
-            if self.ctx.architecture.instruction_width == InstructionWidth.Fixed:
+            if arch.instruction_width == InstructionWidth.Fixed:
                 # TODO: This is likely not correct (e.g., arm encoded immediates have
                 #       a shorter length than the max register width).
-                width = self.ctx.architecture.bit_size
+                width = arch.bit_size
             else:
                 width = self._find_mov_immediate_width(dst=dst, imm=src)
 
-            factor_result = factor(target=src, ctx=self.ctx, width=width)
+            allow_overflow = width == arch.bit_size
+            factor_result = factor(
+                target=src, ctx=self.ctx, width=width, allow_overflow=allow_overflow
+            )
 
             try:
                 yield self._gadget_from_factor_result(

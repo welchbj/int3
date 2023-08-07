@@ -3,7 +3,16 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from typing import Any, Sequence
 
-from z3 import BitVec, BitVecVal, Extract, Solver, sat
+from z3 import (
+    BitVec,
+    BitVecVal,
+    BVAddNoOverflow,
+    BVSubNoOverflow,
+    BVSubNoUnderflow,
+    Extract,
+    Solver,
+    sat,
+)
 
 from int3.context import Context
 from int3.errors import Int3ArgumentError, Int3MissingEntityError, Int3SatError
@@ -52,6 +61,7 @@ class FactorResult:
 def factor(
     target: int,
     ctx: Context,
+    allow_overflow: bool = True,
     width: int | None = None,
     max_depth: int = 2,
     allowed_ops: Sequence[FactorOperation] | None = None,
@@ -62,7 +72,8 @@ def factor(
 
     The following arguments are available:
         target: TODO
-        context: TODO
+        ctx: TODO
+        allow_overflow: TODO
         width: TODO
         max_depth: TODO
         allowed_ops: TODO
@@ -134,8 +145,19 @@ def factor(
             for bvv, op in zip(var_list[1:], op_product):
                 match op:
                     case FactorOperation.Add:
+                        if not allow_overflow:
+                            solver.add(
+                                BVAddNoOverflow(solver_clause, bvv, signed=False)
+                            )
+
                         solver_clause += bvv
                     case FactorOperation.Sub:
+                        if not allow_overflow:
+                            solver.add(BVSubNoOverflow(solver_clause, bvv))
+                            solver.add(
+                                BVSubNoUnderflow(solver_clause, bvv, signed=False)
+                            )
+
                         solver_clause -= bvv
                     case FactorOperation.Xor:
                         solver_clause ^= bvv
