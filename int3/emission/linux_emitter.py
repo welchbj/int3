@@ -31,14 +31,14 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
                 self.locked(syscall_reg) if num_args > arg_idx else nullcontext()
             )
 
-            with wrapped_cm:
-                if arg_is_used:
-                    arg = args[arg_idx]
-                    if isinstance(arg, BytesImmediate):
-                        self.push_into(dst=syscall_reg, buf=arg)
-                    else:
-                        self.mov(dst=syscall_reg, src=arg)
+            if arg_is_used:
+                arg = args[arg_idx]
+                if isinstance(arg, BytesImmediate):
+                    self.push_into(dst=syscall_reg, buf=arg)
+                else:
+                    self.mov(dst=syscall_reg, src=arg)
 
+            with wrapped_cm:
                 yield
 
         with _maybe_mov_or_push_syscall_arg(0):
