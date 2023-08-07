@@ -8,7 +8,6 @@ from int3.errors import Int3SatError
 from int3.gadgets import Gadget
 from int3.strategy import Strategy
 
-
 T = TypeVar("T")
 
 
