@@ -107,7 +107,7 @@ class Architecture(Generic[Registers, GpRegisters]):
 
         if len(value) > byte_width:
             raise Int3InsufficientWidthError(
-                f"Value {value} already exceeds width of TODO"
+                f"Value {value!r} already exceeds width of {byte_width}"
             )
         elif len(value) == byte_width:
             return value
