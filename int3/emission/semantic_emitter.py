@@ -73,20 +73,15 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         self.bound_register_scopes.pop()
 
     def _gadget_from_factor_result(
-        self, dst: Registers, factor_result: FactorResult
+        self, dst: Registers, intermediate_dst: Registers, factor_result: FactorResult
     ) -> Gadget:
         factor_gadgets = []
         for factor_clause in factor_result.clauses:
             if factor_clause.operation == FactorOperation.Init:
-                # TODO: It's possible that mov is not possible due to bad byte
-                #       constraints.
-                # TODO: This could also be something like xor chained with add.
                 factor_gadgets.append(self.literal_mov(dst, factor_clause.operand))
                 continue
 
             imm = factor_clause.operand
-            with self.locked(dst):
-                intermediate_dst = self._find_literal_mov_dst(src=imm)
             mov_gadget = self.literal_mov(dst=intermediate_dst, src=imm)
 
             match factor_clause.operation:
@@ -174,8 +169,25 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         # When a bad byte is in the immediate operand, we can try to break apart
         # the operand into multiple operations of the same type.
         if isinstance(src, IntImmediate) and not self.ctx.is_okay_int_immediate(src):
-            # TODO: Determine which operations are forbidden based on the current
-            #       context, and apply those constraints in the factor() call below.
+            # Determine which operations are forbidden based on the current
+            # context, and apply those constraints in the factor() call below.
+
+            dummy_operand = self.ctx.make_okay_int_immediate()
+
+            # We will require a transitory register for the arthmetic operations;
+            # we determine that register here to use in our identification of which
+            # factor operations we have available.
+            with self.locked(dst):
+                intermediate_dst = self._find_literal_mov_dst(src=dummy_operand)
+
+            # Test if addition is permissable.
+            have_add = self.literal_add(dst, intermediate_dst).is_okay(self.ctx)
+
+            # Test if substraction is permissable.
+            have_sub = self.literal_sub(dst, intermediate_dst).is_okay(self.ctx)
+
+            # Test if XOR is permissable.
+            have_xor = self.literal_xor(dst, intermediate_dst).is_okay(self.ctx)
 
             if arch.instruction_width == InstructionWidth.Fixed:
                 # TODO: This is likely not correct (e.g., arm encoded immediates have
@@ -185,13 +197,22 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
                 width = self._find_mov_immediate_width(dst=dst, imm=src)
 
             allow_overflow = width == arch.bit_size
+
+            allowed_ops: list[FactorOperation] = []
+            if have_add:
+                allowed_ops.append(FactorOperation.Add)
+            if have_sub:
+                allowed_ops.append(FactorOperation.Sub)
+            if have_xor:
+                allowed_ops.append(FactorOperation.Xor)
+
             factor_result = factor(
                 target=src, ctx=self.ctx, width=width, allow_overflow=allow_overflow
             )
 
             try:
                 yield self._gadget_from_factor_result(
-                    dst=dst, factor_result=factor_result
+                    dst=dst, intermediate_dst=intermediate_dst, factor_result=factor_result
                 )
             except Int3SatError:
                 logging.debug(
