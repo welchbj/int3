@@ -4,8 +4,22 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import ClassVar, Generic, cast, get_args
 
-from capstone import CS_ARCH_X86, CS_MODE_32, CS_MODE_64
-from keystone import KS_ARCH_X86, KS_MODE_32, KS_MODE_64
+from capstone import (
+    CS_ARCH_MIPS,
+    CS_ARCH_X86,
+    CS_MODE_32,
+    CS_MODE_64,
+    CS_MODE_BIG_ENDIAN,
+    CS_MODE_MIPS32,
+)
+from keystone import (
+    KS_ARCH_MIPS,
+    KS_ARCH_X86,
+    KS_MODE_32,
+    KS_MODE_64,
+    KS_MODE_BIG_ENDIAN,
+    KS_MODE_MIPS32,
+)
 
 from int3.errors import (
     Int3ArgumentError,
@@ -15,6 +29,8 @@ from int3.errors import (
 from int3.immediates import IntImmediate
 from int3.registers import (
     GpRegisters,
+    MipsGpRegisters,
+    MipsRegisters,
     Registers,
     x86_64GpRegisters,
     x86_64Registers,
@@ -175,6 +191,19 @@ class Architectures(Enum):
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_64,
     )
+    Mips = Architecture[MipsRegisters, MipsGpRegisters](
+        name="mips",
+        bit_size=32,
+        endian=Endian.Big,
+        instruction_width=InstructionWidth.Fixed,
+        regs=get_args(MipsRegisters),
+        gp_regs=get_args(MipsGpRegisters),
+        sp_reg="$sp",
+        keystone_arch=KS_ARCH_MIPS,
+        keystone_mode=KS_MODE_MIPS32 + KS_MODE_BIG_ENDIAN,
+        capstone_arch=CS_ARCH_MIPS,
+        capstone_mode=CS_MODE_MIPS32 + CS_MODE_BIG_ENDIAN,
+    )
 
     @staticmethod
     def from_host() -> Architecture:
@@ -187,6 +216,9 @@ class Architectures(Enum):
                 return Architectures.from_str("x86")
             case "x86_64":
                 return Architectures.from_str("x86_64")
+            # TODO: How to differentiate between be and le?
+            case "mips":
+                return Architectures.from_str("Mips")
             case _:
                 raise Int3MissingEntityError(f"Unrecognized machine {machine}")
 
