@@ -212,7 +212,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
             try:
                 yield self._gadget_from_factor_result(
-                    dst=dst, intermediate_dst=intermediate_dst, factor_result=factor_result
+                    dst=dst,
+                    intermediate_dst=intermediate_dst,
+                    factor_result=factor_result,
                 )
             except Int3SatError:
                 logging.debug(
