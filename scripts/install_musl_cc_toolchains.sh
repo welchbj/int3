@@ -12,7 +12,7 @@ fi
 
 pushd $download_dir >/dev/null
 
-for url in $(curl -s $download_url | grep -- -cross | head -1); do
+for url in $(curl -s $download_url | grep -- -cross); do
     tarball_name=$(echo $url | cut -d'/' -f4)
 
     if [[ -f $tarball_name ]]; then
