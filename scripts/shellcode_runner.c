@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -24,7 +25,7 @@ int main(int argc, char **argv) {
 
     shellcode_t shellcode;
 
-    if (2 != argc ) {
+    if (2 != argc) {
         bail("Usage: shellcode_runner <filename>");
     }
 
@@ -34,9 +35,9 @@ int main(int argc, char **argv) {
     stat(filename, &st);
     size = st.st_size;
 
-    uint8_t *data = malloc(size);
+    uint8_t *data = mmap(NULL, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     if (NULL == data) {
-        bail("malloc() failed");
+        bail("mmap() failed");
     }
 
     int fd = open(filename, O_RDONLY);
@@ -46,7 +47,12 @@ int main(int argc, char **argv) {
 
     num_read = 0;
     while (1) {
-        n = read(fd,  data, size - num_read);
+        ssize_t remaining = size - num_read;
+        if (0 == remaining) {
+            break;
+        }
+
+        n = read(fd, data, remaining);
         if (n < 0) {
             bail("read() failed");
         }

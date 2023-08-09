@@ -42,7 +42,7 @@ TODO
 The following command will install requisite system dependencies:
 
 ```sh
-sudo apt-get install cmake
+sudo apt-get install cmake qemu-user
 ```
 
 Please note that this step must precede the Python dependency installation step.

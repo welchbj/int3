@@ -3,6 +3,9 @@
 # https://github.com/github/gitignore/blob/main/Python.gitignore
 #
 
+# Project-specific files
+shellcode_runner.elf
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
