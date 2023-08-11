@@ -68,4 +68,4 @@ def test_invalid_pad_widths():
     x86 = Architectures.x86.value
 
     with pytest.raises(Int3InsufficientWidthError):
-        x86.pad(b"X"*5)
+        x86.pad(b"X" * 5)
