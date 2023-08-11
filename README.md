@@ -47,6 +47,12 @@ sudo apt-get install cmake qemu-user
 
 Please note that this step must precede the Python dependency installation step.
 
+In order to run tests and build some utilities, a suite of cross-compilation toolchains is required. These can be downloaded from [`musl.cc`](https://musl.cc) by invoking the following script (it may take a while):
+
+```sh
+./scripts/install_musl_cc_toolchains.sh
+```
+
 #### Python Dependencies
 
 This project uses [Poetry](https://python-poetry.org) to manage its Python dependencies. Follow [the Poetry installation instructions](https://python-poetry.org/docs/#installing-with-the-official-installer) for its setup.
