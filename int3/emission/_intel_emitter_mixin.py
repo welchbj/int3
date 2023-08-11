@@ -57,3 +57,6 @@ class IntelEmitterMixin(ArchitectureEmitter[Registers]):
 
     def literal_breakpoint(self) -> Gadget:
         return Gadget("int3")
+
+    def literal_ret(self) -> Gadget:
+        return Gadget("ret")

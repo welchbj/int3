@@ -379,6 +379,14 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
     def breakpoint(self):
         return self.emit(self.literal_breakpoint())
 
+    def ret(self):
+        # See if naive solution works.
+        if (gadget := self.literal_ret()).is_okay(self.ctx):
+            return gadget
+
+        # TODO
+        raise Int3SatError("ret() unable to find suitable gadget")
+
     # TODO: Shifts?
 
     def memcpy(

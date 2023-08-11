@@ -57,6 +57,10 @@ class ArchitectureEmitter(Emitter, ABC, Generic[Registers]):
     def literal_breakpoint(self) -> Gadget:
         ...
 
+    @abstractmethod
+    def literal_ret(self) -> Gadget:
+        ...
+
     # TODO: Shifts?
 
     def literal_label(self, name: str) -> Gadget:
