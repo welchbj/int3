@@ -382,7 +382,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
     def ret(self):
         # See if naive solution works.
         if (gadget := self.literal_ret()).is_okay(self.ctx):
-            return gadget
+            return self.emit(gadget)
 
         # TODO
         raise Int3SatError("ret() unable to find suitable gadget")
