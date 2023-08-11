@@ -75,6 +75,9 @@ class Architecture(Generic[Registers, GpRegisters]):
     gp_regs: tuple[GpRegisters, ...]
     sp_reg: Registers
 
+    toolchain_triple: str
+    qemu_name: str
+
     keystone_arch: int
     keystone_mode: int
 
@@ -173,6 +176,8 @@ class Architectures(Enum):
         regs=get_args(x86Registers),
         gp_regs=get_args(x86GpRegisters),
         sp_reg="esp",
+        toolchain_triple="i686-linux-musl",
+        qemu_name="qemu-i386",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
@@ -186,6 +191,8 @@ class Architectures(Enum):
         regs=get_args(x86_64Registers),
         gp_regs=get_args(x86_64GpRegisters),
         sp_reg="rsp",
+        toolchain_triple="x86_64-linux-musl",
+        qemu_name="x86_64",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
@@ -199,6 +206,8 @@ class Architectures(Enum):
         regs=get_args(MipsRegisters),
         gp_regs=get_args(MipsGpRegisters),
         sp_reg="$sp",
+        toolchain_triple="mips-linux-musl",
+        qemu_name="mips",
         keystone_arch=KS_ARCH_MIPS,
         keystone_mode=KS_MODE_MIPS32 + KS_MODE_BIG_ENDIAN,
         capstone_arch=CS_ARCH_MIPS,
