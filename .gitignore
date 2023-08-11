@@ -5,6 +5,7 @@
 
 # Project-specific files
 shellcode_runner.elf
+shellcode.bin
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
