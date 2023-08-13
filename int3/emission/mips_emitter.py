@@ -1,12 +1,14 @@
 from int3.gadgets import Gadget, MultiGadget
 from int3.immediates import IntImmediate
-from int3.registers import Registers, MipsRegisters
+from int3.registers import MipsRegisters
 
 from .architecture_emitter import ArchitectureEmitter
 
 
 class MipsEmitter(ArchitectureEmitter[MipsRegisters]):
-    def literal_mov(self, dst: MipsRegisters, src: MipsRegisters | IntImmediate) -> Gadget:
+    def literal_mov(
+        self, dst: MipsRegisters, src: MipsRegisters | IntImmediate
+    ) -> Gadget:
         if isinstance(src, IntImmediate):
             return Gadget(f"li {dst}, {hex(src)}")
         else:

@@ -5,7 +5,7 @@ from contextlib import contextmanager, nullcontext
 from typing import Type
 
 from int3.architectures import Architecture, Architectures
-from int3.errors import Int3SatError
+from int3.errors import Int3MissingEntityError, Int3SatError
 from int3.gadgets import Gadget
 from int3.immediates import BytesImmediate, Immediate, IntImmediate
 from int3.registers import (
@@ -147,6 +147,10 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
                 return Linuxx86_64Emitter
             case Architectures.Mips.value:
                 return LinuxMipsEmitter
+            case _:
+                raise Int3MissingEntityError(
+                    f"No LinuxEmitter defined for arch {arch.name}"
+                )
 
 
 class Linuxx86Emitter(x86Emitter, LinuxEmitter[x86Registers]):
@@ -165,7 +169,7 @@ class Linuxx86Emitter(x86Emitter, LinuxEmitter[x86Registers]):
         )
 
     def syscall_gadget(self, imm: int = 0) -> Gadget:
-        return Gadget(f"syscall")
+        return Gadget("syscall")
 
 
 class Linuxx86_64Emitter(x86_64Emitter, LinuxEmitter[x86_64Registers]):
@@ -184,7 +188,7 @@ class Linuxx86_64Emitter(x86_64Emitter, LinuxEmitter[x86_64Registers]):
         )
 
     def syscall_gadget(self, imm: int = 0) -> Gadget:
-        return Gadget(f"syscall")
+        return Gadget("syscall")
 
 
 class LinuxMipsEmitter(MipsEmitter, LinuxEmitter[MipsRegisters]):
