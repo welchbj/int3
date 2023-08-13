@@ -12,6 +12,7 @@ from int3.errors import Int3WrappedKeystoneError
 @dataclass(frozen=True)
 class Gadget:
     assembly: str
+    stack_change: int = 0
 
     LEN_CANNOT_ASSEMBLE: ClassVar[int] = 0xFFFFFFFF
 

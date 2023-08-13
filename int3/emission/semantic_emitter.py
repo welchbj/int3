@@ -11,6 +11,7 @@ from typing import Any, Generic, Iterable, Iterator, Protocol
 from int3.architectures import InstructionWidth
 from int3.errors import (
     Int3ArgumentError,
+    Int3CorruptedStackScopeError,
     Int3LockedRegisterError,
     Int3MissingEntityError,
     Int3SatError,
@@ -21,6 +22,7 @@ from int3.immediates import BytesImmediate, Immediate, IntImmediate
 from int3.registers import Registers
 
 from .architecture_emitter import ArchitectureEmitter
+from .stack_scope import StackScope
 
 
 class UnboundGadgetFunc(Protocol):
@@ -52,7 +54,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         return set().union(*[scope.regs for scope in self.bound_register_scopes])
 
     @contextmanager
-    def locked(self, *regs: Registers) -> Iterator[SemanticEmitter]:
+    def locked(self, *regs: Registers) -> Iterator[BoundRegisterScope]:
         # Identify duplicates in regs.
         regs_set = set(regs)
         if len(regs_set) != len(regs):
@@ -68,9 +70,31 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
         # Of note, the below approach is not thread-safe.
 
-        self.bound_register_scopes.append(BoundRegisterScope(regs_set))
-        yield self
+        reg_scope = BoundRegisterScope(regs_set)
+        self.bound_register_scopes.append(reg_scope)
+        yield reg_scope
         self.bound_register_scopes.pop()
+
+    @contextmanager
+    def stack_scope(self, ret: bool = False) -> Iterator[StackScope]:
+        # Of note, the below approach is not thread-safe.
+
+        new_stack_scope = StackScope()
+        self.stack_scopes.append(new_stack_scope)
+        yield new_stack_scope
+
+        if new_stack_scope.is_corrupted:
+            raise Int3CorruptedStackScopeError(
+                "Stack scope is corrupted and not trackable"
+            )
+
+        if new_stack_scope.stack_change != 0:
+            self.sub(dst=self.arch.sp_reg, operand=new_stack_scope.stack_change)
+
+        self.stack_scopes.pop()
+
+        if ret:
+            self.ret()
 
     def _gadget_from_factor_result(
         self, dst: Registers, intermediate_dst: Registers, factor_result: FactorResult
@@ -347,7 +371,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
     def sub(self, dst: Registers, operand: Registers | IntImmediate):
         # See if naive solution works.
         if (gadget := self.literal_sub(dst, operand)).is_okay(self.ctx):
-            return gadget
+            return self.emit(gadget)
 
         # TODO
         raise Int3SatError("sub() unable to find suitable gadget")
@@ -355,7 +379,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
     def xor(self, dst: Registers, operand: Registers | IntImmediate):
         # See if naive solution works.
         if (gadget := self.literal_xor(dst, operand)).is_okay(self.ctx):
-            return gadget
+            return self.emit(gadget)
 
         # TODO
         raise Int3SatError("xor() unable to find suitable gadget")
@@ -363,7 +387,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
     def neg(self, dst: Registers):
         # See if naive solution works.
         if (gadget := self.literal_neg(dst)).is_okay(self.ctx):
-            return gadget
+            return self.emit(gadget)
 
         # TODO
         raise Int3SatError("neg() unable to find suitable gadget")
@@ -371,7 +395,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
     def call(self, target: Registers):
         # See if naive solution works.
         if (gadget := self.literal_call(target)).is_okay(self.ctx):
-            return gadget
+            return self.emit(gadget)
 
         # TODO
         raise Int3SatError("call() unable to find suitable gadget")

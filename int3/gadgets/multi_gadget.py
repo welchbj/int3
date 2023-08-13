@@ -10,4 +10,7 @@ class MultiGadget(Gadget):
     def __init__(self, *gadgets: Gadget):
         object.__setattr__(self, "gadgets", tuple(gadgets))
 
-        super().__init__(assembly="\n".join(str(g) for g in self.gadgets))
+        super().__init__(
+            assembly="\n".join(str(g) for g in self.gadgets),
+            stack_change=sum(g.stack_change for g in self.gadgets),
+        )

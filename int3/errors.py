@@ -25,6 +25,10 @@ class Int3AssemblyError(Int3Error):
     """Assembly errors that didn't originate from a keystone exception."""
 
 
+class Int3CorruptedStackScopeError(Int3AssemblyError):
+    """Assembly errors that result from untrackable stack scopes."""
+
+
 class Int3WrappedCapstoneError(Int3Error):
     """A thin wrapper around CsError."""
 

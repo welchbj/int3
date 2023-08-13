@@ -6,7 +6,11 @@ import pytest
 
 from int3.context import Context
 from int3.emission import Linuxx86_64Emitter
-from int3.errors import Int3ArgumentError, Int3LockedRegisterError
+from int3.errors import (
+    Int3ArgumentError,
+    Int3CorruptedStackScopeError,
+    Int3LockedRegisterError,
+)
 
 
 def test_duplicate_registers_in_lock():
@@ -44,18 +48,17 @@ def test_duplicated_register_locks_in_nested_contexts():
         assert "r12" in emitter.locked_gp_registers
 
 
-# TODO: Check desired results.
-# TODO: Check no bad bytes present
-
-
 def test_forced_gp_register_selection():
     # TODO
     pass
 
 
 def test_short_circuit_xor():
-    # TODO
-    pass
+    ctx = Context.from_host()
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    emitter.mov("rax", 0)
+    assert str(emitter).strip() == "xor rax, rax"
 
 
 def test_requires_factoring_force_sub():
@@ -66,3 +69,69 @@ def test_requires_factoring_force_sub():
 def test_requires_factoring_force_xor():
     # TODO
     pass
+
+
+def test_requires_factoring_force_add():
+    # TODO
+    pass
+
+
+# def test_requires_factoring_force_neg():
+#     # TODO
+#     pass
+
+
+def test_stack_scope_push_pop():
+    ctx = Context.from_host()
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    with emitter.stack_scope() as stack_scope_one:
+        assert emitter.current_stack_scope is stack_scope_one
+
+        emitter.push(0xDEAD)
+        assert stack_scope_one.stack_change == -8
+
+        with emitter.stack_scope() as stack_scope_two:
+            assert stack_scope_two is not stack_scope_one
+            assert emitter.current_stack_scope is stack_scope_two
+
+            for i in range(0x10):
+                emitter.push(0xBEEF)
+                assert stack_scope_two.stack_change == (i + 1) * -8
+
+        emitter.pop("rbx")
+        assert stack_scope_one.stack_change == 0
+
+    assert emitter.current_stack_scope.stack_change == 0
+
+
+def test_stack_scope_ret():
+    ctx = Context.from_host()
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    with emitter.stack_scope(ret=True):
+        pass
+
+    assert str(emitter).strip() == "ret"
+    assert emitter.current_stack_scope.stack_change == 8
+
+
+def test_stack_scope_literals():
+    ctx = Context.from_host()
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    with emitter.stack_scope() as stack_scope:
+        emitter.add("rsp", 0xDEAD)
+        assert stack_scope.stack_change == 0xDEAD
+
+    assert stack_scope.stack_change == 0
+
+
+def test_stack_scope_corrupted():
+    ctx = Context.from_host()
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    with pytest.raises(Int3CorruptedStackScopeError):
+        with emitter.stack_scope() as stack_scope:
+            emitter.mov("rsp", 0xCAFE)
+            assert stack_scope.is_corrupted
