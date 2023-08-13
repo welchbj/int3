@@ -44,7 +44,7 @@ def run_in_qemu(shellcode: bytes, arch: Architecture, strace: bool = True):
     with (
         tempfile.NamedTemporaryFile() as runner_bin,
         tempfile.NamedTemporaryFile() as qemu_log_file,
-        tempfile.NamedTemporaryFile("wb") as shellcode_file,
+        tempfile.NamedTemporaryFile("wb", buffering=False) as shellcode_file,
     ):
         shellcode_file.write(shellcode)
 
@@ -64,22 +64,17 @@ def run_in_qemu(shellcode: bytes, arch: Architecture, strace: bool = True):
         # XXX
         print(f"{output = }")
 
-    # TODO
 
-
-@pytest.mark.parametrize("arch", QEMU_ARCHES)
+@pytest.mark.parametrize("arch", QEMU_ARCHES, ids=lambda x: x.name)
 def test_linux_emitter_echo(arch: Architecture):
     ctx = Context(architecture=arch, platform=Platforms.Linux.value)
-
-    print(f"{arch = }")
-
     emitter = LinuxEmitter.get_emitter_cls_for_arch(arch)(ctx)
-    emitter.echo(b"TEST!!!")
-    emitter.ret()
+
+    with emitter.stack_scope(ret=True):
+        emitter.echo(b"TEST!!!")
 
     shellcode = assemble(ctx=ctx, assembly=str(emitter))
 
-    # XXX
     run_in_qemu(shellcode=shellcode, arch=arch)
 
 
