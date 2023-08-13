@@ -177,7 +177,7 @@ class Architectures(Enum):
         gp_regs=get_args(x86GpRegisters),
         sp_reg="esp",
         toolchain_triple="i686-linux-musl",
-        qemu_name="qemu-i386",
+        qemu_name="i386",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
