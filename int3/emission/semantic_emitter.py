@@ -163,6 +163,8 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         self, *gadget_funcs: UnboundGadgetFunc
     ) -> Iterator[Registers]:
         """Find a stream of free gp registers that can be used in all provided funcs."""
+        if not self.free_gp_registers:
+            raise Int3LockedRegisterError("No free gp registers")
 
         def _has_at_least_one_okay_gadget(gadgets: Iterable[Gadget]) -> bool:
             return any(gadget.is_okay(self.ctx) for gadget in gadgets)
@@ -350,15 +352,19 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
     def pop(self, result: Registers | None = None) -> Registers:
         if result is None:
-            raise NotImplementedError("Dynamic register selection not yet implemented")
+            result = self.choose(
+                self._find_free_gp_reg_for(functools.partial(self._pop_iter))
+            )
 
+        self.choose_and_emit(self._pop_iter(result))
+        return result
+
+    def _pop_iter(self, result: Registers) -> Iterator[Gadget]:
         # See if naive solution works.
         if (gadget := self.literal_pop(result)).is_okay(self.ctx):
-            self.emit(gadget)
-            return result
+            yield gadget
 
-        # TODO
-        raise Int3SatError("pop() unable to find suitable gadget")
+        # TODO: Other options.
 
     def add(self, dst: Registers, operand: Registers | IntImmediate):
         # See if naive solution works.

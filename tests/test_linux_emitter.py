@@ -32,6 +32,13 @@ QEMU_ARCHES = [
 ]
 
 
+def _name_getter(obj):
+    return getattr(obj, "name", None)
+
+
+qemu_arch_parametrize = pytest.mark.parametrize("arch", QEMU_ARCHES, ids=_name_getter)
+
+
 def compile_src(arch: Architecture, in_file: Path, out_file: Path, static: bool = True):
     cc_bin = f"{arch.toolchain_triple}-gcc"
     if (cc_path := shutil.which(cc_bin)) is None:
@@ -51,7 +58,7 @@ def run_in_qemu(shellcode: bytes, arch: Architecture, strace: bool = True):
 
     with (
         tempfile.NamedTemporaryFile() as runner_bin,
-        tempfile.NamedTemporaryFile() as qemu_log_file,
+        tempfile.NamedTemporaryFile("r") as qemu_log_file,
         tempfile.NamedTemporaryFile("wb", buffering=False) as shellcode_file,
     ):
         shellcode_file.write(shellcode)
@@ -72,7 +79,7 @@ def run_in_qemu(shellcode: bytes, arch: Architecture, strace: bool = True):
         return QemuResult(output, qemu_log_file.read())
 
 
-@pytest.mark.parametrize("arch", QEMU_ARCHES, ids=lambda x: x.name)
+@qemu_arch_parametrize
 def test_linux_emitter_echo(arch: Architecture):
     ctx = Context(architecture=arch, platform=Platforms.Linux.value)
     emitter = LinuxEmitter.get_emitter_cls_for_arch(arch)(ctx)

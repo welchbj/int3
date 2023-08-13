@@ -2,6 +2,8 @@
 # architecture under test, but the intent here is for architecture-agnostic
 # tests that challenge the SemanticEmitter's logic.
 
+import random
+
 import pytest
 
 from int3.context import Context
@@ -49,8 +51,20 @@ def test_duplicated_register_locks_in_nested_contexts():
 
 
 def test_forced_gp_register_selection():
-    # TODO
-    pass
+    ctx = Context.from_host()
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    gp_regs = emitter.arch.gp_regs
+    free_reg = random.choice(gp_regs)
+    all_but_one_gp_reg = set(gp_regs) - {free_reg}
+
+    with emitter.locked(*all_but_one_gp_reg):
+        assert emitter.free_gp_registers == (free_reg,)
+        assert emitter.pop() == free_reg
+
+        with emitter.locked(free_reg):
+            with pytest.raises(Int3LockedRegisterError):
+                emitter.pop()
 
 
 def test_short_circuit_xor():
@@ -62,8 +76,17 @@ def test_short_circuit_xor():
 
 
 def test_requires_factoring_force_sub():
-    # TODO
-    pass
+    # >>> add rax, rbx
+    # b"\x48\x01\xd8"
+    # >>> sub rax, rbx
+    # b"\x48\x29\xd8"
+    # >>> xor rax, rbx
+    # b"\x48\x31\xd8"
+    ctx = Context.from_host(bad_bytes=b"\x01\x31\x41")
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    emitter.mov("rax", 0x41414141)
+    assert str(emitter).strip() == "xor rax, rax"
 
 
 def test_requires_factoring_force_xor():
