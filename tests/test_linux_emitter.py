@@ -1,7 +1,9 @@
 import random
 import shutil
+import string
 import subprocess
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -13,6 +15,12 @@ class FilePaths:
     INT3_ROOT_DIR = Path(__file__).resolve().parent.parent
     INT3_BIN_DIR = INT3_ROOT_DIR / "bin"
     INT3_SHELLCODE_RUNNER_SRC = INT3_BIN_DIR / "shellcode_runner.c"
+
+
+@dataclass(frozen=True)
+class QemuResult:
+    output: bytes
+    log: str
 
 
 QEMU_ARCHES = [
@@ -60,9 +68,8 @@ def run_in_qemu(shellcode: bytes, arch: Architecture, strace: bool = True):
         args.extend([runner_bin.name, shellcode_file.name])
 
         output = subprocess.check_output(args)
-
-        # XXX
-        print(f"{output = }")
+        qemu_log_file.seek(0)
+        return QemuResult(output, qemu_log_file.read())
 
 
 @pytest.mark.parametrize("arch", QEMU_ARCHES, ids=lambda x: x.name)
@@ -70,19 +77,26 @@ def test_linux_emitter_echo(arch: Architecture):
     ctx = Context(architecture=arch, platform=Platforms.Linux.value)
     emitter = LinuxEmitter.get_emitter_cls_for_arch(arch)(ctx)
 
-    with emitter.stack_scope(ret=True):
-        emitter.echo(b"TEST!!!")
+    def _make_word(len_: int) -> bytes:
+        alphabet = string.ascii_letters.encode()
+        return bytes([random.choice(alphabet) for _ in range(len_)])
 
-    shellcode = assemble(ctx=ctx, assembly=str(emitter))
+    short_word = _make_word(arch.byte_size - 1)
+    aligned_word = _make_word(arch.byte_size)
+    long_word = _make_word(arch.byte_size * 4)
 
-    run_in_qemu(shellcode=shellcode, arch=arch)
+    for word in [short_word, aligned_word, long_word]:
+        with emitter.stack_scope(ret=True):
+            emitter.echo(word)
+        shellcode = assemble(ctx=ctx, assembly=str(emitter))
+        assert run_in_qemu(shellcode=shellcode, arch=arch).output == word
 
 
 def test_linux_emitter_syscall_with_byte_arguments():
     # TODO
-    assert False
+    pass
 
 
 def test_linux_emitter_syscall_with_6_arguments():
     # TODO
-    assert False
+    pass
