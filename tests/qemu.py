@@ -17,7 +17,6 @@ class FilePaths:
 
 @dataclass(frozen=True)
 class QemuResult:
-    output: bytes
     log: str
 
 
@@ -55,9 +54,11 @@ def run_in_qemu(shellcode: bytes, arch: Architecture, strace: bool = True):
         pytest.fail(f"No available qemu binary {qemu_bin}")
 
     with (
-        tempfile.NamedTemporaryFile() as runner_bin,
-        tempfile.NamedTemporaryFile("r") as qemu_log_file,
-        tempfile.NamedTemporaryFile("wb", buffering=False) as shellcode_file,
+        tempfile.NamedTemporaryFile(delete=False) as runner_bin,
+        tempfile.NamedTemporaryFile("r", delete=False) as qemu_log_file,
+        tempfile.NamedTemporaryFile(
+            "wb", delete=False, buffering=False
+        ) as shellcode_file,
     ):
         shellcode_file.write(shellcode)
 
@@ -72,6 +73,13 @@ def run_in_qemu(shellcode: bytes, arch: Architecture, strace: bool = True):
             args.append("-strace")
         args.extend([runner_bin.name, shellcode_file.name])
 
-        output = subprocess.check_output(args)
+        print("Debug this with:")
+        print(f"{qemu_path} -g 12345 {runner_bin.name} {shellcode_file.name}")
+        print(
+            f'gdb-multiarch -ex "file {runner_bin.name}" '
+            '-ex "gef-remote --qemu-user 127.0.0.1 12345" -ex "continue"'
+        )
+
+        subprocess.run(args, capture_output=True)
         qemu_log_file.seek(0)
-        return QemuResult(output, qemu_log_file.read())
+        return QemuResult(qemu_log_file.read())
