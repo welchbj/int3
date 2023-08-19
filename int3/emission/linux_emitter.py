@@ -7,7 +7,7 @@ from typing import Type
 
 from int3.architectures import Architecture, Architectures
 from int3.constants import Int3Files
-from int3.errors import Int3MissingEntityError, Int3SatError
+from int3.errors import Int3MissingEntityError
 from int3.gadgets import Gadget
 from int3.immediates import BytesImmediate, Immediate, IntImmediate
 from int3.registers import (
@@ -47,7 +47,7 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
         syscall_table_path = Int3Files.SYSCALL_TABLES_DIR / syscall_table_file_name
         return LinuxSyscallNumbers(syscall_table_path)
 
-    def syscall(self, num: int, *args: Registers | Immediate):
+    def syscall(self, num: int, *args: Registers | Immediate) -> Registers:
         syscall_con = self.make_syscall_convention()
         num_args = len(args)
 
@@ -82,46 +82,50 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
                             with _maybe_mov_or_push_syscall_arg(5):
                                 self.mov(syscall_con.reg_num, num)
                                 self.emit(self.syscall_gadget())
+                                return syscall_con.reg_result
 
     def open(
-        self, pathname: Registers | BytesImmediate, flags: Registers | IntImmediate
-    ):
-        self.syscall(self.syscall_numbers.open, pathname, flags)
+        self,
+        pathname: Registers | BytesImmediate,
+        flags: Registers | IntImmediate,
+        mode: Registers | IntImmediate,
+    ) -> Registers:
+        return self.syscall(self.syscall_numbers.open, pathname, flags, mode)
 
-    def close(self, fd: Registers | IntImmediate):
-        self.syscall(self.syscall_numbers.close, fd)
+    def close(self, fd: Registers | IntImmediate) -> Registers:
+        return self.syscall(self.syscall_numbers.close, fd)
 
     def read(
         self,
         fd: Registers | IntImmediate,
         buf: Registers | BytesImmediate,
         count: Registers | IntImmediate,
-    ):
-        self.syscall(self.syscall_numbers.read, fd, buf, count)
+    ) -> Registers:
+        return self.syscall(self.syscall_numbers.read, fd, buf, count)
 
     def write(
         self,
         fd: Registers | IntImmediate,
         buf: Registers | BytesImmediate,
         count: Registers | IntImmediate,
-    ):
-        self.syscall(self.syscall_numbers.write, fd, buf, count)
+    ) -> Registers:
+        return self.syscall(self.syscall_numbers.write, fd, buf, count)
 
     def socket(
         self,
         domain: Registers | IntImmediate,
         type_: Registers | IntImmediate,
         protocol: Registers | IntImmediate,
-    ):
-        self.syscall(self.syscall_numbers.socket, domain, type_, protocol)
+    ) -> Registers:
+        return self.syscall(self.syscall_numbers.socket, domain, type_, protocol)
 
     def connect(
         self,
         fd: Registers | IntImmediate,
         addr: Registers | BytesImmediate,
         addrlen: Registers | IntImmediate,
-    ):
-        self.syscall(self.syscall_numbers.connect, fd, addr, addrlen)
+    ) -> Registers:
+        return self.syscall(self.syscall_numbers.connect, fd, addr, addrlen)
 
     def mmap(
         self,
@@ -131,25 +135,32 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
         flags: Registers | IntImmediate,
         fd: Registers | IntImmediate,
         offset: Registers | IntImmediate,
-    ):
-        self.syscall(self.syscall_numbers.mmap, addr, length, prot, flags, fd, offset)
+    ) -> Registers:
+        return self.syscall(
+            self.syscall_numbers.mmap, addr, length, prot, flags, fd, offset
+        )
 
     def mprotect(
         self,
         addr: Registers | IntImmediate,
         length: Registers | IntImmediate,
         prot: Registers | IntImmediate,
-    ):
-        self.syscall(self.syscall_numbers.mprotect, addr, length, prot)
+    ) -> Registers:
+        return self.syscall(self.syscall_numbers.mprotect, addr, length, prot)
 
     # TODO: Higher-level networking interface.
 
-    def map_rwx(self, result: GpRegisters | None) -> GpRegisters:
+    def map_rwx(self, result: GpRegisters | None) -> Registers:
         # TODO
         raise NotImplementedError("map_rwx() not yet implemented")
 
-    def echo(self, buf: bytes, fd: int = 0, null_terminate: bool = True):
-        if null_terminate and not buf.endswith(b"\x00"):
+    def echo(
+        self,
+        buf: bytes | Registers,
+        fd: int | Registers = 0,
+        null_terminate: bool = True,
+    ):
+        if isinstance(buf, bytes) and null_terminate and not buf.endswith(b"\x00"):
             buf += b"\x00"
 
         return self.write(fd=fd, buf=buf, count=len(buf))
