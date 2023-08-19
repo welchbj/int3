@@ -75,28 +75,54 @@ def test_short_circuit_xor():
     assert str(emitter).strip() == "xor rax, rax"
 
 
+# Reference for the following "factoring_force" tests:
+# >>> add rax, rbx
+# b"\x48\x01\xd8"
+# >>> sub rax, rbx
+# b"\x48\x29\xd8"
+# >>> xor rax, rbx
+# b"\x48\x31\xd8"
+# >>> neg rax
+# b"\x48\xf7\xd8"
+
+
 def test_requires_factoring_force_sub():
-    # >>> add rax, rbx
-    # b"\x48\x01\xd8"
-    # >>> sub rax, rbx
-    # b"\x48\x29\xd8"
-    # >>> xor rax, rbx
-    # b"\x48\x31\xd8"
-    ctx = Context.from_host(bad_bytes=b"\x01\x31\x41")
+    ctx = Context.from_host(bad_bytes=b"\x01\x31\xf7\x41")
     emitter = Linuxx86_64Emitter(ctx=ctx)
 
     emitter.mov("rax", 0x41414141)
-    assert str(emitter).strip() == "xor rax, rax"
+    generated_assembly = str(emitter)
+
+    assert "sub rax" in generated_assembly
+    assert "neg" not in generated_assembly
+    assert "add" not in generated_assembly
+    assert "xor" not in generated_assembly
 
 
 def test_requires_factoring_force_xor():
-    # TODO
-    pass
+    ctx = Context.from_host(bad_bytes=b"\x01\x29\xf7\x41")
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    emitter.mov("rax", 0x41414141)
+    generated_assembly = str(emitter)
+
+    assert "xor rax" in generated_assembly
+    assert "neg" not in generated_assembly
+    assert "add" not in generated_assembly
+    assert "sub" not in generated_assembly
 
 
 def test_requires_factoring_force_add():
-    # TODO
-    pass
+    ctx = Context.from_host(bad_bytes=b"\x29\x31\xf7\x41")
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    emitter.mov("rax", 0x41414141)
+    generated_assembly = str(emitter)
+
+    assert "add rax" in generated_assembly
+    assert "neg" not in generated_assembly
+    assert "xor" not in generated_assembly
+    assert "sub" not in generated_assembly
 
 
 # def test_requires_factoring_force_neg():

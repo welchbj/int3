@@ -233,7 +233,11 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
                 allowed_ops.append(FactorOperation.Xor)
 
             factor_result = factor(
-                target=src, ctx=self.ctx, width=width, allow_overflow=allow_overflow
+                target=src,
+                ctx=self.ctx,
+                width=width,
+                allowed_ops=allowed_ops,
+                allow_overflow=allow_overflow,
             )
 
             try:
