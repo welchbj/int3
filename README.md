@@ -81,9 +81,17 @@ x=$(mktemp) ; python3 -m int3 payload --payload linux/reverse_shell --strategy C
 
 ## License
 
-`int3` is intended for educational purposes and events such as CTFs only. It should never be used to target machines and/or networks without explicit prior consent. This code is released under the [MIT license](https://opensource.org/licenses/MIT), as per the [`LICENSE.txt`](./LICENSE.txt) file.
+`int3` is intended for educational purposes and events such as CTFs only. It should never be used to target machines and/or networks without explicit prior consent. `int3`'s unique code is released under the [MIT license](https://opensource.org/licenses/MIT), as per the [`LICENSE.txt`](./LICENSE.txt) file.
 
 ## References
+
+### Vendored Projects
+
+Some code and data from other open source projects is [vendored](https://stackoverflow.com/questions/26217488/what-is-vendoring) within the `int3` repository. This includes:
+
+* Syscall number tables from the [`syscall-tables`](https://github.com/hrw/syscalls-table) project.
+
+### Knowledge References
 
 Many helpful resources were used in the development of this tool, including:
 

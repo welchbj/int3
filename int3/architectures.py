@@ -77,6 +77,7 @@ class Architecture(Generic[Registers, GpRegisters]):
 
     toolchain_triple: str
     qemu_name: str
+    linux_kernel_name: str
 
     keystone_arch: int
     keystone_mode: int
@@ -178,6 +179,7 @@ class Architectures(Enum):
         sp_reg="esp",
         toolchain_triple="i686-linux-musl",
         qemu_name="i386",
+        linux_kernel_name="i386",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
@@ -193,6 +195,7 @@ class Architectures(Enum):
         sp_reg="rsp",
         toolchain_triple="x86_64-linux-musl",
         qemu_name="x86_64",
+        linux_kernel_name="x86_64",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
@@ -208,6 +211,7 @@ class Architectures(Enum):
         sp_reg="$sp",
         toolchain_triple="mips-linux-musl",
         qemu_name="mips",
+        linux_kernel_name="mipso32",
         keystone_arch=KS_ARCH_MIPS,
         keystone_mode=KS_MODE_MIPS32 + KS_MODE_BIG_ENDIAN,
         capstone_arch=CS_ARCH_MIPS,

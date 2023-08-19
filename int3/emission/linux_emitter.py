@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from contextlib import contextmanager, nullcontext
+from dataclasses import dataclass, field
 from typing import Type
 
 from int3.architectures import Architecture, Architectures
+from int3.constants import Int3Files
 from int3.errors import Int3MissingEntityError, Int3SatError
 from int3.gadgets import Gadget
 from int3.immediates import BytesImmediate, Immediate, IntImmediate
@@ -15,7 +17,7 @@ from int3.registers import (
     x86_64Registers,
     x86Registers,
 )
-from int3.syscalls import SyscallConvention
+from int3.syscalls import LinuxSyscallNumbers, SyscallConvention
 
 from .mips_emitter import MipsEmitter
 from .semantic_emitter import SemanticEmitter
@@ -23,8 +25,11 @@ from .x86_64emitter import x86_64Emitter
 from .x86_emitter import x86Emitter
 
 
+@dataclass
 class LinuxEmitter(SemanticEmitter[Registers], ABC):
     """An emitter for Linux targets (generic with respect to architecture)."""
+
+    syscall_numbers: LinuxSyscallNumbers = field(init=False)
 
     @abstractmethod
     def make_syscall_convention(self) -> SyscallConvention[Registers]:
@@ -33,6 +38,14 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
     @abstractmethod
     def syscall_gadget(self, imm: int = 0) -> Gadget:
         ...
+
+    def __post_init__(self):
+        self.syscall_numbers = self._load_syscall_numbers()
+
+    def _load_syscall_numbers(self) -> LinuxSyscallNumbers:
+        syscall_table_file_name = f"syscalls-{self.ctx.architecture.linux_kernel_name}"
+        syscall_table_path = Int3Files.SYSCALL_TABLES_DIR / syscall_table_file_name
+        return LinuxSyscallNumbers(syscall_table_path)
 
     def syscall(self, num: int, *args: Registers | Immediate):
         syscall_con = self.make_syscall_convention()
@@ -73,12 +86,10 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
     def open(
         self, pathname: Registers | BytesImmediate, flags: Registers | IntImmediate
     ):
-        # TODO
-        raise Int3SatError("open() unable to find a suitable gadget")
+        self.syscall(self.syscall_numbers.open, pathname, flags)
 
     def close(self, fd: Registers | IntImmediate):
-        # TODO
-        raise Int3SatError("close() unable to find a suitable gadget")
+        self.syscall(self.syscall_numbers.close, fd)
 
     def read(
         self,
@@ -95,8 +106,7 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
         buf: Registers | BytesImmediate,
         count: Registers | IntImmediate,
     ):
-        # TODO: Dynamic load of syscall number!
-        self.syscall(1, fd, buf, count)
+        self.syscall(self.syscall_numbers.write, fd, buf, count)
 
     def socket(
         self,

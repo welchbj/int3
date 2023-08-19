@@ -17,6 +17,10 @@ class Int3UnsupportedPlatform(Int3MissingEntityError):
     """Exception type for unsupported platforms."""
 
 
+class Int3UnsupportedSyscall(Int3MissingEntityError):
+    """Except type for an unsupported syscall in a given context."""
+
+
 class Int3WrappedKeystoneError(Int3Error):
     """A thin wrapper around KsError."""
 
