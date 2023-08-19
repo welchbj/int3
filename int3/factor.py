@@ -9,6 +9,7 @@ from z3 import (
     BVAddNoOverflow,
     BVSubNoOverflow,
     BVSubNoUnderflow,
+    BVSNegNoOverflow,
     Extract,
     Solver,
     sat,
@@ -181,8 +182,10 @@ def factor(
                         solver_clause -= bvv
                     case FactorOperation.Xor:
                         solver_clause ^= bvv
-                    # TODO: Not sure if this is right
                     case FactorOperation.Neg:
+                        if not allow_overflow:
+                            solver.add(BVSNegNoOverflow(solver_clause))
+
                         solver_clause = ~solver_clause
                     case _:
                         raise Int3MissingEntityError(f"Unsupported factor op: {op}")
