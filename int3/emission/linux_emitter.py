@@ -198,7 +198,7 @@ class Linuxx86Emitter(x86Emitter, LinuxEmitter[x86Registers]):
         )
 
     def syscall_gadget(self, imm: int = 0) -> Gadget:
-        return Gadget("syscall")
+        return Gadget("int 0x80")
 
 
 class Linuxx86_64Emitter(x86_64Emitter, LinuxEmitter[x86_64Registers]):
