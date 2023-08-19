@@ -97,8 +97,7 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
         buf: Registers | BytesImmediate,
         count: Registers | IntImmediate,
     ):
-        # TODO
-        raise Int3SatError("read() unable to find a suitable gadget")
+        self.syscall(self.syscall_numbers.read, fd, buf, count)
 
     def write(
         self,
@@ -111,11 +110,10 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
     def socket(
         self,
         domain: Registers | IntImmediate,
-        type: Registers | IntImmediate,
+        type_: Registers | IntImmediate,
         protocol: Registers | IntImmediate,
     ):
-        # TODO
-        raise Int3SatError("socket() unable to find a suitable gadget")
+        self.syscall(self.syscall_numbers.socket, domain, type_, protocol)
 
     def connect(
         self,
@@ -123,8 +121,7 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
         addr: Registers | BytesImmediate,
         addrlen: Registers | IntImmediate,
     ):
-        # TODO
-        raise Int3SatError("connect() unable to find a suitable gadget")
+        self.syscall(self.syscall_numbers.connect, fd, addr, addrlen)
 
     def mmap(
         self,
@@ -135,10 +132,21 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
         fd: Registers | IntImmediate,
         offset: Registers | IntImmediate,
     ):
-        # TODO
-        raise Int3SatError("mmap() unable to find a suitable gadget")
+        self.syscall(self.syscall_numbers.mmap, addr, length, prot, flags, fd, offset)
+
+    def mprotect(
+        self,
+        addr: Registers | IntImmediate,
+        length: Registers | IntImmediate,
+        prot: Registers | IntImmediate,
+    ):
+        self.syscall(self.syscall_numbers.mprotect, addr, length, prot)
 
     # TODO: Higher-level networking interface.
+
+    def map_rwx(self, result: GpRegisters | None) -> GpRegisters:
+        # TODO
+        raise NotImplementedError("map_rwx() not yet implemented")
 
     def echo(self, buf: bytes, fd: int = 0, null_terminate: bool = True):
         if null_terminate and not buf.endswith(b"\x00"):
