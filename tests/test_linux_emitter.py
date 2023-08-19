@@ -58,11 +58,6 @@ def test_linux_emitter_write_to_file(
         assert out_file.read_bytes() == word + b"\x00"
 
 
-def test_linux_emitter_syscall_with_byte_arguments():
-    # TODO
-    pass
-
-
 def test_linux_emitter_syscall_with_6_arguments():
     # TODO
     pass
