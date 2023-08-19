@@ -125,9 +125,17 @@ def test_requires_factoring_force_add():
     assert "sub" not in generated_assembly
 
 
-# def test_requires_factoring_force_neg():
-#     # TODO
-#     pass
+def test_requires_factoring_force_neg():
+    ctx = Context.from_host(bad_bytes=b"\x01\x29\x31\x41")
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    emitter.mov("rax", 0x41414141)
+    generated_assembly = str(emitter)
+
+    assert "neg rax" in generated_assembly
+    assert "add" not in generated_assembly
+    assert "xor" not in generated_assembly
+    assert "sub" not in generated_assembly
 
 
 def test_stack_scope_push_pop():

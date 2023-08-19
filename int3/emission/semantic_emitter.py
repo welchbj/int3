@@ -104,6 +104,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
             if factor_clause.operation == FactorOperation.Init:
                 factor_gadgets.append(self.literal_mov(dst, factor_clause.operand))
                 continue
+            elif factor_clause.operation == FactorOperation.Neg:
+                factor_gadgets.append(self.literal_neg(dst))
+                continue
 
             imm = factor_clause.operand
             mov_gadget = self.literal_mov(dst=intermediate_dst, src=imm)
@@ -215,6 +218,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
             # Test if XOR is permissable.
             have_xor = self.literal_xor(dst, intermediate_dst).is_okay(self.ctx)
 
+            # Test if negation is permissable.
+            have_neg = self.literal_neg(dst).is_okay(self.ctx)
+
             if arch.instruction_width == InstructionWidth.Fixed:
                 # TODO: This is likely not correct (e.g., arm encoded immediates have
                 #       a shorter length than the max register width).
@@ -231,6 +237,8 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
                 allowed_ops.append(FactorOperation.Sub)
             if have_xor:
                 allowed_ops.append(FactorOperation.Xor)
+            if have_neg:
+                allowed_ops.append(FactorOperation.Neg)
 
             factor_result = factor(
                 target=src,

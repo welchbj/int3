@@ -2,7 +2,7 @@ import pytest
 
 from int3.context import Context
 from int3.errors import Int3ArgumentError, Int3SatError
-from int3.factor import FactorOperation, factor
+from int3.factor import FactorClause, FactorOperation, FactorResult, factor
 
 
 def test_target_with_invalid_width():
@@ -89,3 +89,42 @@ def test_invalid_forbidden_ops():
             ctx=Context.from_host(),
             forbidden_ops=[FactorOperation.Init],
         )
+
+
+def test_factor_result_to_str():
+    factor_result = FactorResult(clauses=tuple())
+    assert str(factor_result) == ""
+
+    factor_result = FactorResult(clauses=(FactorClause(FactorOperation.Init, 0xCAFE),))
+    assert str(factor_result) == "0xcafe"
+
+    factor_result = FactorResult(
+        clauses=(
+            FactorClause(FactorOperation.Init, 0xCAFE),
+            FactorClause(FactorOperation.Add, 0xDEAD),
+            FactorClause(FactorOperation.Sub, 0xBEEF),
+        )
+    )
+    assert str(factor_result) == "0xcafe + 0xdead - 0xbeef"
+
+    factor_result = FactorResult(
+        clauses=(
+            FactorClause(FactorOperation.Init, 0xCAFE),
+            FactorClause(FactorOperation.Add, 0xDEAD),
+            FactorClause(FactorOperation.Neg, -1),
+            FactorClause(FactorOperation.Sub, 0xBEEF),
+        )
+    )
+    assert str(factor_result) == "~(0xcafe + 0xdead) - 0xbeef"
+
+    factor_result = FactorResult(
+        clauses=(
+            FactorClause(FactorOperation.Init, 0xCAFE),
+            FactorClause(FactorOperation.Add, 0xDEAD),
+            FactorClause(FactorOperation.Neg, -1),
+            FactorClause(FactorOperation.Neg, -1),
+            FactorClause(FactorOperation.Sub, 0xBEEF),
+            FactorClause(FactorOperation.Neg, -1),
+        )
+    )
+    assert str(factor_result) == "~(~(~(0xcafe + 0xdead)) - 0xbeef)"

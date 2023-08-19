@@ -24,6 +24,7 @@ class FactorOperation(Enum):
     Add = auto()
     Sub = auto()
     Xor = auto()
+    Neg = auto()
 
 
 @dataclass(frozen=True)
@@ -43,10 +44,14 @@ class FactorClause:
                 s += "- "
             case FactorOperation.Xor:
                 s += "^ "
+            case FactorOperation.Neg:
+                s += "~"
             case _:
                 raise Int3MissingEntityError(f"Unexpected factor op: {self.operation}")
 
-        s += hex(self.operand)
+        if self.operation != FactorOperation.Neg:
+            s += hex(self.operand)
+
         return s
 
 
@@ -55,7 +60,22 @@ class FactorResult:
     clauses: tuple[FactorClause, ...]
 
     def __str__(self) -> str:
-        return " ".join(str(c) for c in self.clauses)
+        last_element_idx = len(self.clauses) - 1
+
+        s = ""
+        for idx, clause in enumerate(self.clauses):
+            if clause.operation == FactorOperation.Neg:
+                s = f"{str(clause)}({s})"
+            else:
+                s += str(clause)
+
+            if (
+                idx < last_element_idx
+                and self.clauses[idx + 1].operation != FactorOperation.Neg
+            ):
+                s += " "
+
+        return s
 
 
 def factor(
@@ -161,6 +181,9 @@ def factor(
                         solver_clause -= bvv
                     case FactorOperation.Xor:
                         solver_clause ^= bvv
+                    # TODO: Not sure if this is right
+                    case FactorOperation.Neg:
+                        solver_clause = ~solver_clause
                     case _:
                         raise Int3MissingEntityError(f"Unsupported factor op: {op}")
 
