@@ -23,7 +23,7 @@ def test_linux_emitter_write_to_file(
 ):
     # We add "/" as a bad byte since we know this will be tmp_path generated
     # paths.
-    ctx = Context(architecture=arch, platform=Platforms.Linux.value, bad_bytes=b"/")
+    ctx = Context(architecture=arch, platform=Platforms.Linux.value, bad_bytes=b"\x00/")
 
     def _make_word(len_: int) -> bytes:
         alphabet = string.ascii_letters.encode()
@@ -42,9 +42,6 @@ def test_linux_emitter_write_to_file(
         pathname = str(out_file).encode() + b"\x00"
 
         with emitter.stack_scope(ret=True):
-            # XXX
-            # emitter.breakpoint()
-
             fd_reg = emitter.open(
                 pathname=pathname,
                 flags=os.O_RDWR | os.O_CREAT,
