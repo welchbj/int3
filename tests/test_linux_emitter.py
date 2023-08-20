@@ -34,7 +34,7 @@ def test_linux_emitter_write_to_file(
     long_word = _make_word(arch.byte_size * 4)
 
     for word in [short_word, aligned_word, long_word]:
-        emitter = LinuxEmitter.get_emitter_cls_for_arch(arch)(ctx)
+        emitter = LinuxEmitter.get_emitter(arch, ctx)
 
         out_file = tmp_path / f"out_{word.decode()}"
         assert not out_file.exists()

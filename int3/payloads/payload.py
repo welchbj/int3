@@ -2,16 +2,17 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Type
+from typing import Generic, Type
 
 from int3.context import Context
 from int3.errors import Int3MissingEntityError
+from int3.registers import Registers
 
 _PAYLOAD_MAP: dict[str, Type[Payload]] = {}
 
 
 @dataclass
-class Payload(ABC):
+class Payload(ABC, Generic[Registers]):
     ctx: Context
 
     def __init_subclass__(cls, **kwargs):

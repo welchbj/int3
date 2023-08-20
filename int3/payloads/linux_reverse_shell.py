@@ -1,29 +1,24 @@
 from dataclasses import dataclass
 
-from int3.emission import Linuxx86_64Emitter
+from int3.emission import LinuxEmitter
+from int3.registers import Registers
 
 from .payload import Payload
 
 
 @dataclass
-class LinuxReverseShell(Payload):
+class LinuxReverseShell(Payload[Registers]):
+    host: str
+    port: int
+
     @classmethod
     def name(cls) -> str:
         return "linux/reverse_shell"
 
-    def __str__(self) -> str:
-        # TODO: These need to be passable from the user.
-        host, port = b"127.0.0.1", 55555
+    def compile(self) -> str:
+        emitter = LinuxEmitter[Registers].get_emitter(self.ctx.architecture, self.ctx)
 
-        emitter = Linuxx86_64Emitter(ctx=self.ctx)
-
-        emitter.syscall(0, "rax")
-
-        emitter.mov("rdx", 0)
-        emitter.mov("rcx", 0x43434343)
-        emitter.mov("rcx", 0x4141414142)
-
-        emitter.syscall(0, 1000, "rbx")
-        emitter.echo(host)
+        # TODO
+        emitter.echo(self.host.encode())
 
         return str(emitter)

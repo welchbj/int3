@@ -7,6 +7,7 @@ from typing import Type
 
 from int3.architectures import Architecture, Architectures
 from int3.constants import Int3Files
+from int3.context import Context
 from int3.errors import Int3MissingEntityError
 from int3.gadgets import Gadget
 from int3.immediates import BytesImmediate, Immediate, IntImmediate
@@ -150,7 +151,8 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
 
     # TODO: Higher-level networking interface.
 
-    def map_rwx(self, result: GpRegisters | None) -> Registers:
+    def map_rwx(self, fixed_addr: int | None = None) -> Registers:
+        # TODO: Check byte width.
         # TODO
         raise NotImplementedError("map_rwx() not yet implemented")
 
@@ -166,7 +168,7 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
         return self.write(fd=fd, buf=buf, count=len(buf))
 
     @staticmethod
-    def get_emitter_cls_for_arch(
+    def get_emitter_cls(
         arch: Architecture[Registers, GpRegisters]
     ) -> Type[LinuxEmitter[Registers]]:
         match arch:
@@ -180,6 +182,16 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
                 raise Int3MissingEntityError(
                     f"No LinuxEmitter defined for arch {arch.name}"
                 )
+
+    @staticmethod
+    def get_emitter(
+        arch: Architecture[Registers, GpRegisters],
+        ctx: Context,
+        *args,
+        **kwargs,
+    ) -> LinuxEmitter[Registers]:
+        emitter_cls = LinuxEmitter.get_emitter_cls(arch)
+        return emitter_cls(ctx, *args, **kwargs)
 
 
 class Linuxx86Emitter(x86Emitter, LinuxEmitter[x86Registers]):
