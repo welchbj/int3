@@ -50,7 +50,7 @@ for tarball in $(ls $download_dir/*.tgz); do
     bin_dir=$triple_install_dir/$triple-cross/bin
 
     for bin in $(ls $bin_dir); do
-        sudo  ln --force --symbolic $bin_dir/$bin $link_install_dir/$bin
+        sudo ln --force --symbolic $bin_dir/$bin $link_install_dir/$bin
     done
 
     echo "Installed: $triple_install_dir"
