@@ -1,5 +1,6 @@
 import itertools
-from typing import Any, Sequence
+from dataclasses import replace
+from typing import Any, cast
 
 from z3 import (
     BitVec,
@@ -13,109 +14,109 @@ from z3 import (
     sat,
 )
 
-from int3.context import Context
 from int3.errors import Int3ArgumentError, Int3MissingEntityError, Int3SatError
 
 from .factor_clause import FactorClause
+from .factor_context import FactorContext
 from .factor_operation import FactorOperation
 from .factor_result import FactorResult
 
 
 def compute_factor(
-    target: int,
-    ctx: Context,
-    allow_overflow: bool = True,
-    width: int | None = None,
-    max_depth: int = 2,
-    allowed_ops: Sequence[FactorOperation] | None = None,
-    forbidden_ops: Sequence[FactorOperation] | None = None,
-    start: int | None = None,
+    factor_ctx: FactorContext,
 ) -> FactorResult:
     """Emit sets of operations that achieve the target value.
-
-    The following arguments are available:
-        target: TODO
-        ctx: TODO
-        allow_overflow: TODO
-        width: TODO
-        max_depth: TODO
-        allowed_ops: TODO
-        forbidden_ops: TODO
-        start: TODO
 
     The `start` argument may specify an initial start value. When omitted, one
     will be selected by the SAT engine.
 
     """
-    if max_depth < 1:
+    if factor_ctx.max_depth < 1:
         raise Int3ArgumentError(
-            f"max_depth must be a positive int ({max_depth} is not)"
+            f"max_depth must be a positive int ({factor_ctx.max_depth} is not)"
         )
 
     # Check if a bad byte was provided in the start value.
-    if start is not None and not ctx.is_okay_int_immediate(start, width=width):
+    if factor_ctx.start is not None and not factor_ctx.ctx.is_okay_int_immediate(
+        factor_ctx.start, width=factor_ctx.width
+    ):
         raise Int3ArgumentError(
-            f"Specified start value {hex(start)} contains at least one bad byte"
+            f"Specified start value {hex(factor_ctx.start)} contains at least one bad "
+            "byte"
         )
 
-    forbidden_ops_iter = tuple() if forbidden_ops is None else tuple(forbidden_ops)
+    forbidden_ops_iter = (
+        tuple() if factor_ctx.forbidden_ops is None else tuple(factor_ctx.forbidden_ops)
+    )
 
     # Init is implied to always be allowed, since we have to start with some
     # value.
     if FactorOperation.Init in forbidden_ops_iter:
         raise Int3ArgumentError(f"{FactorOperation.Init} cannot be forbidden")
 
-    if allowed_ops is None:
-        allowed_ops = (
+    base_allowed_ops: tuple[FactorOperation, ...]
+    if factor_ctx.allowed_ops is None:
+        base_allowed_ops = (
             FactorOperation.Add,
             FactorOperation.Sub,
             FactorOperation.Xor,
         )
+    else:
+        base_allowed_ops = tuple(factor_ctx.allowed_ops)
 
     # Using a list rather than set differences to preserve order.
-    allowed_ops = tuple(op for op in allowed_ops if op not in forbidden_ops_iter)
+    factor_ctx = replace(
+        factor_ctx,
+        allowed_ops=tuple(
+            op for op in base_allowed_ops if op not in forbidden_ops_iter
+        ),
+    )
 
     # Default the width to the passed context.
-    if width is None:
-        width = ctx.architecture.bit_size
+    if factor_ctx.width is None:
+        factor_ctx = replace(factor_ctx, width=factor_ctx.ctx.architecture.bit_size)
 
-    if (num_target_bits := target.bit_length()) > width:
+    if (num_target_bits := factor_ctx.target.bit_length()) > cast(
+        int, factor_ctx.width
+    ):
         raise Int3ArgumentError(
             f"Target would require {num_target_bits} bits to represent, "
-            f"but we are using a width of {width}"
+            f"but we are using a width of {factor_ctx.width}"
         )
 
-    for depth in range(1, max_depth + 1):
+    allowed_ops = cast(tuple[FactorOperation, ...], factor_ctx.allowed_ops)
+
+    for depth in range(1, factor_ctx.max_depth + 1):
         for op_product in itertools.product(allowed_ops, repeat=depth):
             solver = Solver()
 
-            if start is None:
+            if factor_ctx.start is None:
                 start_with_bvv = False
-                start_bv = BitVec("start", width)
+                start_bv = BitVec("start", factor_ctx.width)
             else:
                 start_with_bvv = True
-                start_bv = BitVecVal(start, width)
+                start_bv = BitVecVal(factor_ctx.start, factor_ctx.width)
 
             var_list = [start_bv]
-            var_list.extend(BitVec(f"s{i}", width) for i in range(depth))
+            var_list.extend(BitVec(f"s{i}", factor_ctx.width) for i in range(depth))
 
             bv_list = var_list[1:] if start_with_bvv else var_list
             for bvv in bv_list:
-                _add_bad_byte_constraints(solver, bvv, ctx, width)
+                _add_bad_byte_constraints(factor_ctx, solver, bvv)
 
             solver_clause = var_list[0]
 
             for bvv, op in zip(var_list[1:], op_product):
                 match op:
                     case FactorOperation.Add:
-                        if not allow_overflow:
+                        if not factor_ctx.allow_overflow:
                             solver.add(
                                 BVAddNoOverflow(solver_clause, bvv, signed=False)
                             )
 
                         solver_clause += bvv
                     case FactorOperation.Sub:
-                        if not allow_overflow:
+                        if not factor_ctx.allow_overflow:
                             solver.add(BVSubNoOverflow(solver_clause, bvv))
                             solver.add(
                                 BVSubNoUnderflow(solver_clause, bvv, signed=False)
@@ -125,14 +126,14 @@ def compute_factor(
                     case FactorOperation.Xor:
                         solver_clause ^= bvv
                     case FactorOperation.Neg:
-                        if not allow_overflow:
+                        if not factor_ctx.allow_overflow:
                             solver.add(BVSNegNoOverflow(solver_clause))
 
                         solver_clause = ~solver_clause
                     case _:
                         raise Int3MissingEntityError(f"Unsupported factor op: {op}")
 
-            solver.add(solver_clause == target)
+            solver.add(solver_clause == factor_ctx.target)
 
             if solver.check() != sat:
                 continue
@@ -152,13 +153,13 @@ def compute_factor(
             return FactorResult(clauses=tuple(factor_clauses))
     else:
         raise Int3SatError(
-            f"Unable to solve for target value {target} up to depth {depth}"
+            f"Unable to solve for target value {factor_ctx.target} up to depth {depth}"
         )
 
 
-def _add_bad_byte_constraints(
-    solver: Solver, var: Any, ctx: Context, width: int, byte_width: int = 8
-):
-    for bad_byte in ctx.bad_bytes:
-        for i in range(0, width, byte_width):
-            solver.add(Extract(i + byte_width - 1, i, var) != bad_byte)
+def _add_bad_byte_constraints(factor_ctx: FactorContext, solver: Solver, var: Any):
+    width = cast(int, factor_ctx.width)
+
+    for bad_byte in factor_ctx.ctx.bad_bytes:
+        for i in range(0, width, factor_ctx.byte_width):
+            solver.add(Extract(i + factor_ctx.byte_width - 1, i, var) != bad_byte)
