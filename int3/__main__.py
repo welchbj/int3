@@ -1,6 +1,7 @@
 import logging
 import sys
-from typing import BinaryIO, Type
+from dataclasses import dataclass
+from typing import BinaryIO
 
 import click
 
@@ -10,7 +11,7 @@ from int3.context import Context
 from int3.errors import Int3Error
 from int3.execution import execute
 from int3.format import FormatStyle, Formatter
-from int3.payloads import Payload
+from int3.payloads import LinuxReverseShell, Payload
 from int3.platforms import Platform, Platforms
 from int3.strategy import Strategy
 
@@ -46,6 +47,29 @@ def _setup_logging(debug: bool):
     logging.basicConfig(
         format="[%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)", level=level
     )
+
+
+@dataclass(frozen=True)
+class Int3CliContext:
+    ctx: Context
+    format_out: FormatStyle
+
+
+pass_int3_cli_ctx = click.make_pass_decorator(Int3CliContext)
+
+
+def _format_payload(int3_cli_ctx: Int3CliContext, payload: Payload):
+    assembly = payload.compile()
+
+    if int3_cli_ctx.format_out == FormatStyle.Assembly:
+        click.echo(assembly, nl=False)
+    else:
+        assembled_bytes = assemble(ctx=int3_cli_ctx.ctx, assembly=assembly)
+
+        formatter = Formatter(
+            style_in=FormatStyle.Raw, style_out=int3_cli_ctx.format_out
+        )
+        click.echo(formatter.format(assembled_bytes))
 
 
 @click.group
@@ -248,29 +272,24 @@ def cli_encode(input_file: BinaryIO, debug: bool):
     click.echo("Not yet implemented...")
 
 
-# TODO: Each payload should probably be its own command, rather than the below system.
-
-
-@cli.command("payload")
+@cli.group("payload")
 @bad_bytes_option
 @format_out_option
-@payload_option
 @platform_option
 @architecture_option
 @strategy_option
 @debug_option
+@click.pass_context
 def cli_payload(
+    click_ctx: click.Context,
     bad_bytes: bytes,
     format_out: FormatStyle,
-    payload_cls: Type[Payload],
     platform: Platform,
     architecture: Architecture,
     strategy: Strategy,
     debug: bool,
 ):
     _setup_logging(debug)
-
-    # TODO: Populate arch/platform based on the payload.
 
     ctx = Context(
         architecture=architecture,
@@ -279,16 +298,30 @@ def cli_payload(
         bad_bytes=bad_bytes,
     )
 
-    payload = payload_cls(ctx=ctx)
-    assembly = str(payload)
+    click_ctx.obj = Int3CliContext(ctx=ctx, format_out=format_out)
 
-    if format_out == FormatStyle.Assembly:
-        click.echo(assembly, nl=False)
-    else:
-        assembled_bytes = assemble(ctx=ctx, assembly=assembly)
 
-        formatter = Formatter(style_in=FormatStyle.Raw, style_out=format_out)
-        click.echo(formatter.format(assembled_bytes))
+@cli_payload.command(name=LinuxReverseShell.name())
+@pass_int3_cli_ctx
+@click.option(
+    "--host",
+    help="Callback host.",
+    required=True,
+    type=str,
+)
+@click.option(
+    "--port",
+    help="Callback port.",
+    required=True,
+    type=int,
+)
+def cli_payload_linux_reverse_shell(
+    int3_cli_ctx: Int3CliContext,
+    host: str,
+    port: int,
+):
+    payload = LinuxReverseShell(ctx=int3_cli_ctx.ctx, host=host, port=port)
+    _format_payload(int3_cli_ctx, payload)
 
 
 if __name__ == "__main__":

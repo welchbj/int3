@@ -14,8 +14,6 @@ _PAYLOAD_MAP: dict[str, Type[Payload]] = {}
 class Payload(ABC):
     ctx: Context
 
-    # TODO: How to have per-payload arguments?
-
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
 
@@ -42,5 +40,5 @@ class Payload(ABC):
     #       property.
 
     @abstractmethod
-    def __str__(self) -> str:
+    def compile(self) -> str:
         """Generate the payload's logic as assembly code."""
