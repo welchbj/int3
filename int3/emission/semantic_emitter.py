@@ -16,7 +16,7 @@ from int3.errors import (
     Int3MissingEntityError,
     Int3SatError,
 )
-from int3.factor import FactorOperation, FactorResult, factor
+from int3.factor import FactorOperation, FactorResult, compute_factor
 from int3.gadgets import Gadget, MultiGadget
 from int3.immediates import BytesImmediate, Immediate, IntImmediate
 from int3.registers import Registers
@@ -240,7 +240,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
             if have_neg:
                 allowed_ops.append(FactorOperation.Neg)
 
-            factor_result = factor(
+            factor_result = compute_factor(
                 target=src,
                 ctx=self.ctx,
                 width=width,

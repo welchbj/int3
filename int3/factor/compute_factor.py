@@ -1,6 +1,4 @@
 import itertools
-from dataclasses import dataclass
-from enum import Enum, auto
 from typing import Any, Sequence
 
 from z3 import (
@@ -18,68 +16,12 @@ from z3 import (
 from int3.context import Context
 from int3.errors import Int3ArgumentError, Int3MissingEntityError, Int3SatError
 
-
-class FactorOperation(Enum):
-    Init = auto()
-
-    Add = auto()
-    Sub = auto()
-    Xor = auto()
-    Neg = auto()
+from .factor_clause import FactorClause
+from .factor_operation import FactorOperation
+from .factor_result import FactorResult
 
 
-@dataclass(frozen=True)
-class FactorClause:
-    operation: FactorOperation
-    operand: int
-
-    def __str__(self) -> str:
-        s = ""
-
-        match self.operation:
-            case FactorOperation.Init:
-                pass
-            case FactorOperation.Add:
-                s += "+ "
-            case FactorOperation.Sub:
-                s += "- "
-            case FactorOperation.Xor:
-                s += "^ "
-            case FactorOperation.Neg:
-                s += "~"
-            case _:
-                raise Int3MissingEntityError(f"Unexpected factor op: {self.operation}")
-
-        if self.operation != FactorOperation.Neg:
-            s += hex(self.operand)
-
-        return s
-
-
-@dataclass(frozen=True)
-class FactorResult:
-    clauses: tuple[FactorClause, ...]
-
-    def __str__(self) -> str:
-        last_element_idx = len(self.clauses) - 1
-
-        s = ""
-        for idx, clause in enumerate(self.clauses):
-            if clause.operation == FactorOperation.Neg:
-                s = f"{str(clause)}({s})"
-            else:
-                s += str(clause)
-
-            if (
-                idx < last_element_idx
-                and self.clauses[idx + 1].operation != FactorOperation.Neg
-            ):
-                s += " "
-
-        return s
-
-
-def factor(
+def compute_factor(
     target: int,
     ctx: Context,
     allow_overflow: bool = True,
