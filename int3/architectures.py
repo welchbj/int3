@@ -20,12 +20,14 @@ from keystone import (
     KS_MODE_BIG_ENDIAN,
     KS_MODE_MIPS32,
 )
+from z3 import ULE
 
 from int3.errors import (
     Int3ArgumentError,
     Int3InsufficientWidthError,
     Int3MissingEntityError,
 )
+from int3.factor import FactorConstraintCallback, FactorConstraintCallbackContext
 from int3.immediates import IntImmediate
 from int3.registers import (
     GpRegisters,
@@ -64,6 +66,17 @@ _endian_to_format_str_map = {
 }
 
 
+def nop_factor_constraint_cb(ctx: FactorConstraintCallbackContext):
+    pass
+
+
+def x86_64_factor_constraint_cb(ctx: FactorConstraintCallbackContext):
+    # x86_64 instructions like mov reg, imm32 with 0x7fffffff < imm32 < 0xffffffff
+    # have the immediate field explode into 8 bytes, rather than 4.
+    if ctx.factor_ctx.width == 32:
+        ctx.solver.add(ULE(ctx.bvv_operand, 0x7FFFFFFF))
+
+
 @dataclass(frozen=True)
 class Architecture(Generic[Registers, GpRegisters]):
     name: str
@@ -84,6 +97,8 @@ class Architecture(Generic[Registers, GpRegisters]):
 
     capstone_arch: int
     capstone_mode: int
+
+    factor_constraint_cb: FactorConstraintCallback = nop_factor_constraint_cb
 
     byte_size: int = field(init=False)
 
@@ -200,6 +215,7 @@ class Architectures(Enum):
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_64,
+        factor_constraint_cb=x86_64_factor_constraint_cb,
     )
     Mips = Architecture[MipsRegisters, MipsGpRegisters](
         name="mips",

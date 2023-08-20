@@ -1,15 +1,19 @@
 from dataclasses import dataclass
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
-from int3.context import Context
+from z3 import BitVecVal, Solver
 
+from .factor_constraint import FactorConstraintCallbackContext
 from .factor_operation import FactorOperation
+
+if TYPE_CHECKING:
+    from int3.context import Context
 
 
 @dataclass(frozen=True)
 class FactorContext:
     # The wrapped int3 Context instance.
-    ctx: Context
+    ctx: "Context"
 
     # The target value.
     target: int
@@ -35,3 +39,15 @@ class FactorContext:
     # The initial value to work from. When omitted, the engine will select
     # one based on the existing constraints.
     start: int | None = None
+
+    def do_arch_constraint_cb(
+        self, solver: Solver, op: FactorOperation, bvv: BitVecVal
+    ):
+        return self.ctx.architecture.factor_constraint_cb(
+            FactorConstraintCallbackContext(
+                factor_ctx=self,
+                solver=solver,
+                factor_operation=op,
+                bvv_operand=bvv,
+            )
+        )

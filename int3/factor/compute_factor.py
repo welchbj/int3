@@ -64,7 +64,7 @@ def compute_factor(
     else:
         base_allowed_ops = tuple(factor_ctx.allowed_ops)
 
-    # Using a list rather than set differences to preserve order.
+    # Using a tuple rather than set differences to preserve order in allowed_ops.
     factor_ctx = replace(
         factor_ctx,
         allowed_ops=tuple(
@@ -76,9 +76,8 @@ def compute_factor(
     if factor_ctx.width is None:
         factor_ctx = replace(factor_ctx, width=factor_ctx.ctx.architecture.bit_size)
 
-    if (num_target_bits := factor_ctx.target.bit_length()) > cast(
-        int, factor_ctx.width
-    ):
+    width_as_int = cast(int, factor_ctx.width)
+    if (num_target_bits := factor_ctx.target.bit_length()) > width_as_int:
         raise Int3ArgumentError(
             f"Target would require {num_target_bits} bits to represent, "
             f"but we are using a width of {factor_ctx.width}"
@@ -97,6 +96,8 @@ def compute_factor(
                 start_with_bvv = True
                 start_bv = BitVecVal(factor_ctx.start, factor_ctx.width)
 
+                factor_ctx.do_arch_constraint_cb(solver, FactorOperation.Init, start_bv)
+
             var_list = [start_bv]
             var_list.extend(BitVec(f"s{i}", factor_ctx.width) for i in range(depth))
 
@@ -107,6 +108,10 @@ def compute_factor(
             solver_clause = var_list[0]
 
             for bvv, op in zip(var_list[1:], op_product):
+                # Invoke callback to allow for the addition of per-architecture
+                # constraints.
+                factor_ctx.do_arch_constraint_cb(solver, op, bvv)
+
                 match op:
                     case FactorOperation.Add:
                         if not factor_ctx.allow_overflow:
