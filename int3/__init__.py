@@ -8,6 +8,7 @@ from .execution import *  # noqa
 from .factor import *  # noqa
 from .gadgets import *  # noqa
 from .immediates import *  # noqa
+from .networking import *  # noqa
 from .payloads import *  # noqa
 from .platforms import *  # noqa
 from .registers import *  # noqa

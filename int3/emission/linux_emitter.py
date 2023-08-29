@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import ctypes
+import socket
 from abc import ABC, abstractmethod
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass, field
@@ -11,6 +13,12 @@ from int3.context import Context
 from int3.errors import Int3MissingEntityError
 from int3.gadgets import Gadget
 from int3.immediates import BytesImmediate, Immediate, IntImmediate
+from int3.networking import (
+    TransportProtocols,
+    make_sockaddr_in,
+    sockaddr_in,
+    sockaddr_in6,
+)
 from int3.registers import (
     GpRegisters,
     MipsRegisters,
@@ -149,7 +157,56 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
     ) -> Registers:
         return self.syscall(self.syscall_numbers.mprotect, addr, length, prot)
 
-    # TODO: Higher-level networking interface.
+    def net_open_connection(
+        self,
+        ip_addr: str,
+        port: int,
+        transport_proto: TransportProtocols = TransportProtocols.Tcp,
+    ) -> Registers:
+        sockaddr_in_struct = make_sockaddr_in(
+            ip_addr=ip_addr, port=port, endian=self.arch.endian
+        )
+
+        if isinstance(sockaddr_in_struct, sockaddr_in):
+            domain = socket.AF_INET
+        elif isinstance(sockaddr_in_struct, sockaddr_in6):
+            domain = socket.AF_INET6
+        else:
+            raise Int3MissingEntityError(
+                f"Unsupported sockaddr type: {sockaddr_in_struct.__class__.__name__}"
+            )
+
+        if transport_proto == TransportProtocols.Tcp:
+            type_ = socket.SOCK_STREAM
+        elif transport_proto == TransportProtocols.Udp:
+            type_ = socket.SOCK_DGRAM
+        else:
+            raise Int3MissingEntityError(
+                f"Unsupported transport protocol: {transport_proto}"
+            )
+
+        socket_result_reg = self.socket(domain=domain, type=type_, protocol=0)
+        # TODO: Branching if syscalls fail and establishing error conventions.
+        # XXX
+        print(f"{socket_result_reg = }")
+
+        if self.ctx.usable_stack:
+            self.push(socket_result_reg)
+        else:
+            raise NotImplementedError("Non-stack saving socket fd not yet implemented")
+
+        # TODO: Need to store the network socket fd somehow.
+
+        connect_result_reg = self.connect(
+            fd=socket_result_reg,
+            addr=bytes(sockaddr_in_struct),
+            addrlen=ctypes.sizeof(sockaddr_in_struct),
+        )
+        # TODO: Branching if syscalls fail and establishing error conventions.
+        # XXX
+        print(f"{connect_result_reg = }")
+
+        return self.pop()
 
     def map_rwx(self, fixed_addr: int | None = None) -> Registers:
         # TODO: Check byte width.
