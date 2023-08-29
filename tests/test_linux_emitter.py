@@ -21,7 +21,7 @@ from .qemu import parametrize_qemu_arch, run_in_qemu
 def test_linux_emitter_write_to_file(
     arch: Architecture[Registers, GpRegisters], tmp_path: Path
 ):
-    # We add "/" as a bad byte since we know this will be tmp_path generated
+    # We add "/" as a bad byte since we know this will be in tmp_path generated
     # paths.
     ctx = Context(architecture=arch, platform=Platforms.Linux.value, bad_bytes=b"\x00/")
 
