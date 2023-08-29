@@ -49,29 +49,6 @@ def _setup_logging(debug: bool):
     )
 
 
-@dataclass(frozen=True)
-class Int3CliContext:
-    ctx: Context
-    format_out: FormatStyle
-
-
-pass_int3_cli_ctx = click.make_pass_decorator(Int3CliContext)
-
-
-def _format_payload(int3_cli_ctx: Int3CliContext, payload: Payload):
-    assembly = payload.compile()
-
-    if int3_cli_ctx.format_out == FormatStyle.Assembly:
-        click.echo(assembly, nl=False)
-    else:
-        assembled_bytes = assemble(ctx=int3_cli_ctx.ctx, assembly=assembly)
-
-        formatter = Formatter(
-            style_in=FormatStyle.Raw, style_out=int3_cli_ctx.format_out
-        )
-        click.echo(formatter.format(assembled_bytes))
-
-
 @click.group
 def cli():
     pass
@@ -270,6 +247,29 @@ def cli_encode(input_file: BinaryIO, debug: bool):
 
     # TODO
     click.echo("Not yet implemented...")
+
+
+@dataclass(frozen=True)
+class Int3CliContext:
+    ctx: Context
+    format_out: FormatStyle
+
+
+pass_int3_cli_ctx = click.make_pass_decorator(Int3CliContext)
+
+
+def _format_payload(int3_cli_ctx: Int3CliContext, payload: Payload):
+    assembly = payload.compile()
+
+    if int3_cli_ctx.format_out == FormatStyle.Assembly:
+        click.echo(assembly, nl=False)
+    else:
+        assembled_bytes = assemble(ctx=int3_cli_ctx.ctx, assembly=assembly)
+
+        formatter = Formatter(
+            style_in=FormatStyle.Raw, style_out=int3_cli_ctx.format_out
+        )
+        click.echo(formatter.format(assembled_bytes))
 
 
 @cli.group("payload")
