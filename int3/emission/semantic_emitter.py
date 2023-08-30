@@ -431,7 +431,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
     def je(self, operand_one: Registers, operand_two: Registers, target: Label):
         # See if naive solution works.
-        if (gadget := self.literal_je(operand_one, operand_two, target)).is_okay(self.ctx):
+        if (gadget := self.literal_je(operand_one, operand_two, target)).is_okay(
+            self.ctx
+        ):
             return self.emit(gadget)
 
         # TODO
@@ -439,7 +441,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
     def jne(self, operand_one: Registers, operand_two: Registers, target: Label):
         # See if naive solution works.
-        if (gadget := self.literal_jne(operand_one, operand_two, target)).is_okay(self.ctx):
+        if (gadget := self.literal_jne(operand_one, operand_two, target)).is_okay(
+            self.ctx
+        ):
             return self.emit(gadget)
 
         # TODO
@@ -447,7 +451,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
     def jgt(self, operand_one: Registers, operand_two: Registers, target: Label):
         # See if naive solution works.
-        if (gadget := self.literal_jgt(operand_one, operand_two, target)).is_okay(self.ctx):
+        if (gadget := self.literal_jgt(operand_one, operand_two, target)).is_okay(
+            self.ctx
+        ):
             return self.emit(gadget)
 
         # TODO
@@ -455,7 +461,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
     def jlt(self, operand_one: Registers, operand_two: Registers, target: Label):
         # See if naive solution works.
-        if (gadget := self.literal_jlt(operand_one, operand_two, target)).is_okay(self.ctx):
+        if (gadget := self.literal_jlt(operand_one, operand_two, target)).is_okay(
+            self.ctx
+        ):
             return self.emit(gadget)
 
         # TODO
@@ -463,7 +471,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
     def jge(self, operand_one: Registers, operand_two: Registers, target: Label):
         # See if naive solution works.
-        if (gadget := self.literal_jge(operand_one, operand_two, target)).is_okay(self.ctx):
+        if (gadget := self.literal_jge(operand_one, operand_two, target)).is_okay(
+            self.ctx
+        ):
             return self.emit(gadget)
 
         # TODO
@@ -471,7 +481,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
     def jle(self, operand_one: Registers, operand_two: Registers, target: Label):
         # See if naive solution works.
-        if (gadget := self.literal_jle(operand_one, operand_two, target)).is_okay(self.ctx):
+        if (gadget := self.literal_jle(operand_one, operand_two, target)).is_okay(
+            self.ctx
+        ):
             return self.emit(gadget)
 
         # TODO
