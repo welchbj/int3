@@ -71,25 +71,25 @@ class ArchitectureEmitter(Emitter, ABC, Generic[Registers]):
         ...
 
     @abstractmethod
-    def literal_bgt(
+    def literal_jgt(
         self, operand_one: Registers, operand_two: Registers, target: Label
     ) -> Gadget:
         ...
 
     @abstractmethod
-    def literal_blt(
+    def literal_jlt(
         self, operand_one: Registers, operand_two: Registers, target: Label
     ) -> Gadget:
         ...
 
     @abstractmethod
-    def literal_bge(
+    def literal_jge(
         self, operand_one: Registers, operand_two: Registers, target: Label
     ) -> Gadget:
         ...
 
     @abstractmethod
-    def literal_ble(
+    def literal_jle(
         self, operand_one: Registers, operand_two: Registers, target: Label
     ) -> Gadget:
         ...
