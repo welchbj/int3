@@ -3,6 +3,7 @@ from typing import Generic
 
 from int3.gadgets import Gadget
 from int3.immediates import IntImmediate
+from int3.labels import Label
 from int3.registers import Registers
 
 from .emitter import Emitter
@@ -50,7 +51,47 @@ class ArchitectureEmitter(Emitter, ABC, Generic[Registers]):
         ...
 
     @abstractmethod
-    def literal_call(self, target: Registers) -> Gadget:
+    def literal_call(self, target: Registers | Label) -> Gadget:
+        ...
+
+    @abstractmethod
+    def literal_jump(self, target: Registers | Label | IntImmediate) -> Gadget:
+        ...
+
+    @abstractmethod
+    def literal_je(
+        self, operand_one: Registers, operand_two: Registers, target: Label
+    ) -> Gadget:
+        ...
+
+    @abstractmethod
+    def literal_jne(
+        self, operand_one: Registers, operand_two: Registers, target: Label
+    ) -> Gadget:
+        ...
+
+    @abstractmethod
+    def literal_bgt(
+        self, operand_one: Registers, operand_two: Registers, target: Label
+    ) -> Gadget:
+        ...
+
+    @abstractmethod
+    def literal_blt(
+        self, operand_one: Registers, operand_two: Registers, target: Label
+    ) -> Gadget:
+        ...
+
+    @abstractmethod
+    def literal_bge(
+        self, operand_one: Registers, operand_two: Registers, target: Label
+    ) -> Gadget:
+        ...
+
+    @abstractmethod
+    def literal_ble(
+        self, operand_one: Registers, operand_two: Registers, target: Label
+    ) -> Gadget:
         ...
 
     @abstractmethod

@@ -1,5 +1,6 @@
 from int3.gadgets import Gadget
 from int3.immediates import IntImmediate
+from int3.labels import Label
 from int3.registers import Registers
 
 from .architecture_emitter import ArchitectureEmitter
@@ -81,7 +82,7 @@ class IntelEmitterMixin(ArchitectureEmitter[Registers]):
 
         return Gadget(f"neg {dst}")
 
-    def literal_call(self, target: Registers) -> Gadget:
+    def literal_call(self, target: Registers | Label) -> Gadget:
         return Gadget(f"call {target}", stack_change=-self.arch.byte_size)
 
     def literal_breakpoint(self) -> Gadget:

@@ -19,6 +19,7 @@ from int3.errors import (
 from int3.factor import FactorContext, FactorOperation, FactorResult, compute_factor
 from int3.gadgets import Gadget, MultiGadget
 from int3.immediates import BytesImmediate, Immediate, IntImmediate
+from int3.labels import Label
 from int3.registers import Registers
 
 from .architecture_emitter import ArchitectureEmitter
@@ -412,13 +413,69 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         # TODO
         raise Int3SatError("neg() unable to find suitable gadget")
 
-    def call(self, target: Registers):
+    def call(self, target: Registers | Label):
         # See if naive solution works.
         if (gadget := self.literal_call(target)).is_okay(self.ctx):
             return self.emit(gadget)
 
         # TODO
         raise Int3SatError("call() unable to find suitable gadget")
+
+    def jump(self, target: Registers | Label):
+        # See if naive solution works.
+        if (gadget := self.literal_jump(target)).is_okay(self.ctx):
+            return self.emit(gadget)
+
+        # TODO
+        raise Int3SatError("jump() unable to find suitable gadget")
+
+    def je(self, operand_one: Registers, operand_two: Registers, target: Label):
+        # See if naive solution works.
+        if (gadget := self.literal_je(operand_one, operand_two, target)).is_okay(self.ctx):
+            return self.emit(gadget)
+
+        # TODO
+        raise Int3SatError("je() unable to find suitable gadget")
+
+    def jne(self, operand_one: Registers, operand_two: Registers, target: Label):
+        # See if naive solution works.
+        if (gadget := self.literal_jne(operand_one, operand_two, target)).is_okay(self.ctx):
+            return self.emit(gadget)
+
+        # TODO
+        raise Int3SatError("jne() unable to find suitable gadget")
+
+    def jgt(self, operand_one: Registers, operand_two: Registers, target: Label):
+        # See if naive solution works.
+        if (gadget := self.literal_jgt(operand_one, operand_two, target)).is_okay(self.ctx):
+            return self.emit(gadget)
+
+        # TODO
+        raise Int3SatError("jgt() unable to find suitable gadget")
+
+    def jlt(self, operand_one: Registers, operand_two: Registers, target: Label):
+        # See if naive solution works.
+        if (gadget := self.literal_jlt(operand_one, operand_two, target)).is_okay(self.ctx):
+            return self.emit(gadget)
+
+        # TODO
+        raise Int3SatError("jlt() unable to find suitable gadget")
+
+    def jge(self, operand_one: Registers, operand_two: Registers, target: Label):
+        # See if naive solution works.
+        if (gadget := self.literal_jge(operand_one, operand_two, target)).is_okay(self.ctx):
+            return self.emit(gadget)
+
+        # TODO
+        raise Int3SatError("jge() unable to find suitable gadget")
+
+    def jle(self, operand_one: Registers, operand_two: Registers, target: Label):
+        # See if naive solution works.
+        if (gadget := self.literal_jle(operand_one, operand_two, target)).is_okay(self.ctx):
+            return self.emit(gadget)
+
+        # TODO
+        raise Int3SatError("jle() unable to find suitable gadget")
 
     def breakpoint(self):
         return self.emit(self.literal_breakpoint())

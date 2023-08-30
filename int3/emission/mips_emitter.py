@@ -1,5 +1,6 @@
 from int3.gadgets import Gadget, MultiGadget
 from int3.immediates import IntImmediate
+from int3.labels import Label
 from int3.registers import MipsRegisters
 
 from .architecture_emitter import ArchitectureEmitter
@@ -64,7 +65,7 @@ class MipsEmitter(ArchitectureEmitter[MipsRegisters]):
         # TODO
         return Gadget("__invalid__")
 
-    def literal_call(self, target: MipsRegisters) -> Gadget:
+    def literal_call(self, target: MipsRegisters | Label) -> Gadget:
         # TODO
         return Gadget("__invalid__")
 
