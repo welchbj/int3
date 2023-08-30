@@ -157,6 +157,9 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
     ) -> Registers:
         return self.syscall(self.syscall_numbers.mprotect, addr, length, prot)
 
+    def exit(self, status: Registers | IntImmediate) -> Registers:
+        return self.syscall(self.syscall_numbers.exit, status)
+
     def net_open_connection(
         self,
         ip_addr: str,
@@ -185,7 +188,7 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
                 f"Unsupported transport protocol: {transport_proto}"
             )
 
-        socket_result_reg = self.socket(domain=domain, type=type_, protocol=0)
+        socket_result_reg = self.socket(domain=domain, type_=type_, protocol=0)
         # TODO: Branching if syscalls fail and establishing error conventions.
         # XXX
         print(f"{socket_result_reg = }")
