@@ -1,5 +1,7 @@
 import ctypes
 import ipaddress
+import socket
+from typing import Type
 
 from int3.architectures import Endian
 from int3.errors import Int3MissingEntityError
@@ -55,25 +57,50 @@ def make_sockaddr_in(
 
     is_ipv4 = isinstance(parsed_ip_addr, ipaddress.IPv4Address)
 
-    endian_mixin_cls = (
-        ctypes.BigEndianStructure
-        if endian == Endian.Big
-        else ctypes.LittleEndianStructure
-    )
-
     if is_ipv4:
+        sockaddr_in_endian_aware: Type[sockaddr_in]
 
-        class sockaddr_in_endian_aware(sockaddr_in, endian_mixin_cls):
-            pass
+        if endian == Endian.Big:
+
+            class sockaddr_in_big_endian(sockaddr_in, ctypes.BigEndianStructure):
+                pass
+
+            sockaddr_in_endian_aware = sockaddr_in_big_endian
+        else:
+
+            class sockaddr_in_little_endian(sockaddr_in, ctypes.LittleEndianStructure):
+                pass
+
+            sockaddr_in_endian_aware = sockaddr_in_little_endian
 
         return sockaddr_in_endian_aware(
-            # TODO
+            sin_family=socket.AF_INET,
+            sin_port=socket.htons(port),
+            sin_addr=socket.inet_pton(socket.AF_INET, ip_addr),
+            sin_zero=b"\x00" * 0x8,
         )
     else:
         # ipv6
-        class sockaddr_in6_endian_aware(sockaddr_in, endian_mixin_cls):
-            pass
+
+        sockaddr_in6_endian_aware: Type[sockaddr_in6]
+
+        if endian == Endian.Big:
+
+            class sockaddr_in6_big_endian(sockaddr_in6, ctypes.BigEndianStructure):
+                pass
+
+            sockaddr_in6_endian_aware = sockaddr_in6_big_endian
+        else:
+
+            class sockaddr_in6_little_endian(sockaddr_in6, ctypes.LittleEndianStructure):
+                pass
+
+            sockaddr_in6_endian_aware = sockaddr_in6_little_endian
 
         return sockaddr_in6_endian_aware(
-            # TODO
+            sin6_family=socket.AF_INET6,
+            sin6_port=socket.htons(port),
+            sin6_flowinfo=0,
+            sin6_addr=socket.inet_pton(socket.AF_INET6, ip_addr),
+            sin6_scope_id=0,
         )
