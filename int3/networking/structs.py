@@ -92,7 +92,9 @@ def make_sockaddr_in(
             sockaddr_in6_endian_aware = sockaddr_in6_big_endian
         else:
 
-            class sockaddr_in6_little_endian(sockaddr_in6, ctypes.LittleEndianStructure):
+            class sockaddr_in6_little_endian(
+                sockaddr_in6, ctypes.LittleEndianStructure
+            ):
                 pass
 
             sockaddr_in6_endian_aware = sockaddr_in6_little_endian

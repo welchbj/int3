@@ -23,9 +23,9 @@ class LinuxReverseShell(Payload[Registers]):
         # XXX
         print(f"{fd_reg = }")
 
-        # emitter.jne(fd_reg, 0, label="else")
-        # emitter.label("else")
+        # emitter.jne(fd_reg, 0, label="syscall_failed")
 
-        # emitter.echo(self.host.encode())
+        emitter.label("syscall_failed")
+        emitter.exit(0)
 
         return str(emitter)
