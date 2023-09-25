@@ -1,5 +1,6 @@
 import platform
 import struct
+import sys
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import ClassVar, Generic, cast, get_args
@@ -10,6 +11,7 @@ from capstone import (
     CS_MODE_32,
     CS_MODE_64,
     CS_MODE_BIG_ENDIAN,
+    CS_MODE_LITTLE_ENDIAN,
     CS_MODE_MIPS32,
 )
 from keystone import (
@@ -18,6 +20,7 @@ from keystone import (
     KS_MODE_32,
     KS_MODE_64,
     KS_MODE_BIG_ENDIAN,
+    KS_MODE_LITTLE_ENDIAN,
     KS_MODE_MIPS32,
 )
 from z3 import ULE
@@ -233,6 +236,22 @@ class Architectures(Enum):
         capstone_arch=CS_ARCH_MIPS,
         capstone_mode=CS_MODE_MIPS32 + CS_MODE_BIG_ENDIAN,
     )
+    Mipsel = Architecture[MipsRegisters, MipsGpRegisters](
+        name="mipsel",
+        bit_size=32,
+        endian=Endian.Little,
+        instruction_width=InstructionWidth.Fixed,
+        regs=get_args(MipsRegisters),
+        gp_regs=get_args(MipsGpRegisters),
+        sp_reg="$sp",
+        toolchain_triple="mipsel-linux-musl",
+        qemu_name="mipsel",
+        linux_kernel_name="mipso32",
+        keystone_arch=KS_ARCH_MIPS,
+        keystone_mode=KS_MODE_MIPS32 + KS_MODE_LITTLE_ENDIAN,
+        capstone_arch=CS_ARCH_MIPS,
+        capstone_mode=CS_MODE_MIPS32 + CS_MODE_LITTLE_ENDIAN,
+    )
 
     @staticmethod
     def from_host() -> Architecture:
@@ -240,14 +259,18 @@ class Architectures(Enum):
         # https://stackoverflow.com/a/45125525
         # https://en.wikipedia.org/wiki/Uname
 
+        is_little_endian = sys.byteorder == "little"
+
         match (machine := platform.machine()):
             case "i386":
                 return Architectures.from_str("x86")
             case "x86_64":
                 return Architectures.from_str("x86_64")
-            # TODO: How to differentiate between be and le?
             case "mips":
-                return Architectures.from_str("Mips")
+                if is_little_endian:
+                    return Architectures.from_str("Mipsle")
+                else:
+                    return Architectures.from_str("Mips")
             case _:
                 raise Int3MissingEntityError(f"Unrecognized machine {machine}")
 
