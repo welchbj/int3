@@ -268,7 +268,7 @@ class Architectures(Enum):
                 return Architectures.from_str("x86_64")
             case "mips":
                 if is_little_endian:
-                    return Architectures.from_str("Mipsle")
+                    return Architectures.from_str("Mipsel")
                 else:
                     return Architectures.from_str("Mips")
             case _:
