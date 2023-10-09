@@ -234,7 +234,7 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
                 return Linuxx86Emitter
             case Architectures.x86_64.value:
                 return Linuxx86_64Emitter
-            case Architectures.Mips.value:
+            case Architectures.Mips.value | Architectures.Mipsel.value:
                 return LinuxMipsEmitter
             case _:
                 raise Int3MissingEntityError(
