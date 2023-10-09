@@ -2,9 +2,9 @@ from dataclasses import dataclass
 
 from int3.registers import Registers, x86_64Registers, x86Registers
 
-from .semantic_emitter import SemanticEmitter
-from .x86_64emitter import x86_64Emitter
-from .x86_emitter import x86Emitter
+from ..architectures.x86_64emitter import x86_64Emitter
+from ..architectures.x86_emitter import x86Emitter
+from ..semantic_emitter import SemanticEmitter
 
 
 @dataclass

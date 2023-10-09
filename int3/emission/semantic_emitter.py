@@ -22,7 +22,7 @@ from int3.immediates import BytesImmediate, Immediate, IntImmediate
 from int3.labels import Label
 from int3.registers import Registers
 
-from .architecture_emitter import ArchitectureEmitter
+from .architectures import ArchitectureEmitter
 from .stack_scope import StackScope
 
 

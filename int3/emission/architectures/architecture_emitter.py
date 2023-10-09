@@ -6,7 +6,7 @@ from int3.immediates import IntImmediate
 from int3.labels import Label
 from int3.registers import Registers
 
-from .emitter import Emitter
+from ..emitter import Emitter
 
 
 class ArchitectureEmitter(Emitter, ABC, Generic[Registers]):

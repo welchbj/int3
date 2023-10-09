@@ -1,12 +1,5 @@
-from .architecture_emitter import ArchitectureEmitter  # noqa
+from .architectures import *  # noqa
 from .emitter import Emitter  # noqa
-from .linux_emitter import (  # noqa
-    LinuxEmitter,
-    LinuxMipsEmitter,
-    Linuxx86_64Emitter,
-    Linuxx86Emitter,
-)
-from .mips_emitter import MipsEmitter  # noqa
-from .windows_emitter import WindowsEmitter, Windowsx86Emitter  # noqa
-from .x86_64emitter import x86_64Emitter  # noqa
-from .x86_emitter import x86Emitter  # noqa
+from .linux import *  # noqa
+from .semantic_emitter import SemanticEmitter  # noqa
+from .windows import *  # noqa

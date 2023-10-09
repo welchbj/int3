@@ -28,10 +28,8 @@ from int3.registers import (
 )
 from int3.syscalls import LinuxSyscallNumbers, SyscallConvention
 
-from .mips_emitter import MipsEmitter
-from .semantic_emitter import SemanticEmitter
-from .x86_64emitter import x86_64Emitter
-from .x86_emitter import x86Emitter
+from ..architectures import MipsEmitter, x86_64Emitter, x86Emitter
+from ..semantic_emitter import SemanticEmitter
 
 
 @dataclass
