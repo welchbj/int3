@@ -21,11 +21,7 @@ class QemuResult:
 
 
 QEMU_ARCHES = [
-    # XXX
-    # arch.value for arch in Architectures if arch.value.qemu_name != "unsupported"
-    arch.value
-    for arch in Architectures
-    if arch.value.qemu_name != "mips"
+    arch.value for arch in Architectures if arch.value.qemu_name != "unsupported"
 ]
 
 
