@@ -85,6 +85,46 @@ class IntelEmitterMixin(ArchitectureEmitter[Registers]):
     def literal_call(self, target: Registers | Label) -> Gadget:
         return Gadget(f"call {target}", stack_change=-self.arch.byte_size)
 
+    def literal_jump(self, target: Registers | Label | IntImmediate) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_je(
+        self, operand_one: Registers, operand_two: Registers, target: Label
+    ) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_jne(
+        self, operand_one: Registers, operand_two: Registers, target: Label
+    ) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_jgt(
+        self, operand_one: Registers, operand_two: Registers, target: Label
+    ) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_jlt(
+        self, operand_one: Registers, operand_two: Registers, target: Label
+    ) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_jge(
+        self, operand_one: Registers, operand_two: Registers, target: Label
+    ) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_jle(
+        self, operand_one: Registers, operand_two: Registers, target: Label
+    ) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
     def literal_breakpoint(self) -> Gadget:
         return Gadget("int3")
 

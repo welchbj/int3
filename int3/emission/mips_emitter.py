@@ -15,7 +15,6 @@ class MipsEmitter(ArchitectureEmitter[MipsRegisters]):
         else:
             return Gadget(f"move {dst}, {src}")
 
-    # TODO: Need type for Label.
     def literal_load(
         self, dst: MipsRegisters, src_ptr: MipsRegisters, offset: int = 0
     ) -> Gadget:
@@ -66,6 +65,46 @@ class MipsEmitter(ArchitectureEmitter[MipsRegisters]):
         return Gadget("__invalid__")
 
     def literal_call(self, target: MipsRegisters | Label) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_jump(self, target: MipsRegisters | Label | IntImmediate) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_je(
+        self, operand_one: MipsRegisters, operand_two: MipsRegisters, target: Label
+    ) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_jne(
+        self, operand_one: MipsRegisters, operand_two: MipsRegisters, target: Label
+    ) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_jgt(
+        self, operand_one: MipsRegisters, operand_two: MipsRegisters, target: Label
+    ) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_jlt(
+        self, operand_one: MipsRegisters, operand_two: MipsRegisters, target: Label
+    ) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_jge(
+        self, operand_one: MipsRegisters, operand_two: MipsRegisters, target: Label
+    ) -> Gadget:
+        # TODO
+        return Gadget("__invalid__")
+
+    def literal_jle(
+        self, operand_one: MipsRegisters, operand_two: MipsRegisters, target: Label
+    ) -> Gadget:
         # TODO
         return Gadget("__invalid__")
 
