@@ -13,6 +13,7 @@ from int3.context import Context
 from int3.errors import Int3MissingEntityError
 from int3.gadgets import Gadget
 from int3.immediates import BytesImmediate, Immediate, IntImmediate
+from int3.labels import Label
 from int3.networking import (
     TransportProtocols,
     make_sockaddr_in,
@@ -118,6 +119,20 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
     ) -> Registers:
         return self.syscall(self.syscall_numbers.write, fd, buf, count)
 
+    def dup2(
+        self, oldfd: Registers | IntImmediate, newfd: Registers | IntImmediate
+    ) -> Registers:
+        return self.syscall(self.syscall_numbers.dup2, oldfd, newfd)
+
+    def execve(
+        self,
+        filename: Registers | BytesImmediate,
+        argv: Registers | None = None,
+        envp: Registers | None = None,
+    ) -> Registers:
+        # TODO: Support for Python list argv / envp and dynamic pushing into registers.
+        return self.syscall(self.syscall_numbers.execve, filename, argv, envp)
+
     def socket(
         self,
         domain: Registers | IntImmediate,
@@ -163,7 +178,11 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
         ip_addr: str,
         port: int,
         transport_proto: TransportProtocols = TransportProtocols.Tcp,
+        error_handler: Label | None = None,
     ) -> Registers:
+        if error_handler is None:
+            error_handler = self.current_error_handler
+
         sockaddr_in_struct = make_sockaddr_in(
             ip_addr=ip_addr, port=port, endian=self.arch.endian
         )
@@ -187,25 +206,19 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
             )
 
         socket_result_reg = self.socket(domain=domain, type_=type_, protocol=0)
-        # TODO: Branching if syscalls fail and establishing error conventions.
-        # XXX
-        print(f"{socket_result_reg = }")
+        self.jlt(socket_result_reg, 0, error_handler)
 
         if self.ctx.usable_stack:
             self.push(socket_result_reg)
         else:
             raise NotImplementedError("Non-stack saving socket fd not yet implemented")
 
-        # TODO: Need to store the network socket fd somehow.
-
         connect_result_reg = self.connect(
             fd=socket_result_reg,
             addr=bytes(sockaddr_in_struct),
             addrlen=ctypes.sizeof(sockaddr_in_struct),
         )
-        # TODO: Branching if syscalls fail and establishing error conventions.
-        # XXX
-        print(f"{connect_result_reg = }")
+        self.jlt(connect_result_reg, 0, error_handler)
 
         return self.pop()
 

@@ -315,12 +315,20 @@ def cli_payload(
     required=True,
     type=int,
 )
+@click.option(
+    "--shell",
+    help="Shell program to invoke for interactive access.",
+    required=True,
+    type=str,
+    default="/bin/sh",
+)
 def cli_payload_linux_reverse_shell(
     int3_cli_ctx: Int3CliContext,
     host: str,
     port: int,
+    shell: str,
 ):
-    payload = LinuxReverseShell(ctx=int3_cli_ctx.ctx, host=host, port=port)
+    payload = LinuxReverseShell(ctx=int3_cli_ctx.ctx, host=host, port=port, shell=shell)
     _format_payload(int3_cli_ctx, payload)
 
 
