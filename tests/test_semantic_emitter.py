@@ -10,6 +10,7 @@ from int3.context import Context
 from int3.emission import Linuxx86_64Emitter
 from int3.errors import (
     Int3ArgumentError,
+    Int3ContextError,
     Int3CorruptedStackScopeError,
     Int3LockedRegisterError,
 )
@@ -192,3 +193,22 @@ def test_stack_scope_corrupted():
         with emitter.stack_scope() as stack_scope:
             emitter.mov("rsp", 0xCAFE)
             assert stack_scope.is_corrupted
+
+
+def test_error_handler():
+    ctx = Context.from_host()
+    emitter = Linuxx86_64Emitter(ctx=ctx)
+
+    with pytest.raises(Int3ContextError):
+        emitter.current_error_handler
+
+    with emitter.error_handler("label_one"):
+        assert emitter.current_error_handler == "label_one"
+
+        with emitter.error_handler("label_two"):
+            assert emitter.current_error_handler == "label_two"
+
+        assert emitter.current_error_handler == "label_one"
+
+    with pytest.raises(Int3ContextError):
+        emitter.current_error_handler

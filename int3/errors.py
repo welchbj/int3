@@ -53,5 +53,9 @@ class Int3LockedRegisterError(Int3ArgumentError):
     """Exception type for attempting to use a locked register."""
 
 
+class Int3ContextError(Int3Error):
+    """Exception type for misuse or invalid state with context managers."""
+
+
 class Int3SatError(Int3Error):
     """Exception type for satisfiability errors."""

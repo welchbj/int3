@@ -11,6 +11,7 @@ from typing import Any, Generic, Iterable, Iterator, Protocol
 from int3.architectures import InstructionWidth
 from int3.errors import (
     Int3ArgumentError,
+    Int3ContextError,
     Int3CorruptedStackScopeError,
     Int3LockedRegisterError,
     Int3MissingEntityError,
@@ -41,6 +42,7 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
     bound_register_scopes: list[BoundRegisterScope[Registers]] = field(
         init=False, default_factory=list
     )
+    error_handler_stack: list[Label] = field(init=False, default_factory=list)
 
     @property
     def free_gp_registers(self) -> tuple[Registers, ...]:
@@ -53,6 +55,13 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
     @property
     def locked_gp_registers(self) -> set[Registers]:
         return set().union(*[scope.regs for scope in self.bound_register_scopes])
+
+    @property
+    def current_error_handler(self) -> Label:
+        if self.error_handler_stack:
+            return self.error_handler_stack[-1]
+        else:
+            raise Int3ContextError("Error handler stack is empty")
 
     @contextmanager
     def locked(self, *regs: Registers) -> Iterator[BoundRegisterScope]:
@@ -96,6 +105,16 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
 
         if ret:
             self.ret()
+
+    @contextmanager
+    def error_handler(self, handler_label: Label) -> Iterator[Label]:
+        # Of note, the below approach is not thread-safe.
+
+        try:
+            self.error_handler_stack.append(handler_label)
+            yield handler_label
+        finally:
+            self.error_handler_stack.pop()
 
     def _gadget_from_factor_result(
         self, dst: Registers, intermediate_dst: Registers, factor_result: FactorResult
