@@ -1,7 +1,7 @@
 import os
 import random
 import stat
-import string
+import tempfile
 from pathlib import Path
 
 from int3 import (
@@ -14,7 +14,8 @@ from int3 import (
     assemble,
 )
 
-from .qemu import parametrize_qemu_arch, run_in_qemu
+from .qemu import FilePaths, compile_src, parametrize_qemu_arch, run_in_qemu
+from .utils import make_random_word
 
 
 @parametrize_qemu_arch
@@ -25,13 +26,9 @@ def test_linux_emitter_write_to_file(
     # paths.
     ctx = Context(architecture=arch, platform=Platforms.Linux.value, bad_bytes=b"\x00/")
 
-    def _make_word(len_: int) -> bytes:
-        alphabet = string.ascii_letters.encode()
-        return bytes([random.choice(alphabet) for _ in range(len_)])
-
-    short_word = _make_word(arch.byte_size - 1)
-    aligned_word = _make_word(arch.byte_size)
-    long_word = _make_word(arch.byte_size * 4)
+    short_word = make_random_word(arch.byte_size - 1)
+    aligned_word = make_random_word(arch.byte_size)
+    long_word = make_random_word(arch.byte_size * 4)
 
     for word in [short_word, aligned_word, long_word]:
         emitter = LinuxEmitter.get_emitter(arch, ctx)
@@ -56,6 +53,48 @@ def test_linux_emitter_write_to_file(
         run_in_qemu(shellcode=shellcode, arch=arch)
 
         assert out_file.read_bytes() == word + b"\x00"
+
+
+@parametrize_qemu_arch
+def test_linux_execve(arch: Architecture[Registers, GpRegisters]):
+    with tempfile.NamedTemporaryFile(delete=False) as argv_envp_printer_bin:
+        # Compile execve argv/envp printer program before launching shellcode runner.
+        compile_src(
+            arch=arch,
+            in_file=FilePaths.INT3_ARGV_ENVP_PRINTER_SRC,
+            out_file=Path(argv_envp_printer_bin.name),
+        )
+
+        # Generate random argv.
+        argv_len = random.randrange(0x1, 0x10)
+        argv = [make_random_word(random.randrange(0x1, 0x20)) for _ in range(argv_len)]
+
+        # Generate random envp.
+        envp_len = random.randrange(0x1, 0x10)
+        envp = []
+        for _ in range(envp_len):
+            key = make_random_word(random.randrange(0x1, 0x20)).decode()
+            value = make_random_word(random.randrange(0x1, 0x20)).decode()
+            envp.append(f"{key}={value}".encode())
+
+        ctx = Context(
+            architecture=arch, platform=Platforms.Linux.value, bad_bytes=b"\x00"
+        )
+
+        emitter = LinuxEmitter.get_emitter(arch, ctx)
+        emitter.execve(argv_envp_printer_bin.name.encode(), argv, envp)
+
+        shellcode = assemble(ctx=ctx, assembly=str(emitter))
+        qemu_result = run_in_qemu(shellcode=shellcode, arch=arch)
+
+        # XXX
+        assert qemu_result.log == "xxx"
+
+
+@parametrize_qemu_arch
+def test_linux_open_net_connection(arch: Architecture[Registers, GpRegisters]):
+    # TODO
+    pass
 
 
 def test_linux_emitter_syscall_with_6_arguments():

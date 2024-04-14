@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ctypes
+import functools
 import socket
 from abc import ABC, abstractmethod
 from contextlib import contextmanager, nullcontext
@@ -10,7 +11,7 @@ from typing import Type
 from int3.architectures import Architecture, Architectures
 from int3.constants import Int3Files
 from int3.context import Context
-from int3.errors import Int3MissingEntityError
+from int3.errors import Int3ArgumentError, Int3MissingEntityError
 from int3.gadgets import Gadget
 from int3.immediates import BytesImmediate, Immediate, IntImmediate
 from int3.labels import Label
@@ -55,9 +56,14 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
         syscall_table_path = Int3Files.SYSCALL_TABLES_DIR / syscall_table_file_name
         return LinuxSyscallNumbers(syscall_table_path)
 
-    def syscall(self, num: int, *args: Registers | Immediate) -> Registers:
+    def syscall(
+        self, num: int, *args: Registers | Immediate | list[BytesImmediate]
+    ) -> Registers:
         syscall_con = self.make_syscall_convention()
         num_args = len(args)
+
+        # XXX
+        print(f"{args = }")
 
         @contextmanager
         def _maybe_mov_or_push_syscall_arg(arg_idx: int):
@@ -74,8 +80,69 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
                 arg = args[arg_idx]
                 if isinstance(arg, BytesImmediate):
                     self.push_into(dst=syscall_reg, buf=arg)
-                else:
+                # Assume list[BytesImmediate].
+                elif isinstance(arg, list):
+                    arg_list = arg
+
+                    # XXX
+                    self.breakpoint()
+
+                    # Push the entirety of the array onto the stack.
+                    self.push_into(dst=self.arch.sp_reg, buf=b"\x00".join(arg_list))
+
+                    # Push the array of addresses (pointing to offsets in our
+                    # pushed buffer) onto the stack.
+                    #
+                    # TODO: This is a good use case for intelligent unbound register
+                    #       scoping design experiments, which would remove the cluttered
+                    #       constraint choice below.
+                    # XXX
+                    print(f"{self.locked_gp_registers = }")
+                    print(f"{self.free_gp_registers = }")
+
+                    util_reg = self.choose(
+                        self._find_free_gp_reg_for(
+                            functools.partial(self._mov_iter, src=self.arch.sp_reg),
+                            functools.partial(self._push_iter),
+                            functools.partial(self._mov_iter, src=0),
+                            *[
+                                functools.partial(self._add_iter, operand=len_ + 1)
+                                for len_ in [len(arg) for arg in arg_list[1:]]
+                            ],
+                        )
+                    )
+
+                    # XXX
+                    print(f"{util_reg = }")
+
+                    # XXX
+                    self.breakpoint()
+
+                    with self.locked(util_reg):
+                        self.mov(util_reg, self.arch.sp_reg)
+                        self.push(util_reg)
+
+                        for i in range(1, len(arg_list)):
+                            next_len = len(arg_list[i - 1]) + 1
+                            self.add(util_reg, next_len)
+                            self.push(util_reg)
+
+                        # Push null terminator.
+                        self.mov(util_reg, 0)
+                        self.push(util_reg)
+
+                        # Load array of pointers into syscall argument register.
+                        # TODO
+
+                    # XXX
+                    self.breakpoint()
+                # We are using str as a synonym for Registers in the below isinstance.
+                elif isinstance(arg, (str, IntImmediate)):
                     self.mov(dst=syscall_reg, src=arg)
+                else:
+                    raise Int3ArgumentError(
+                        f"Unexpected syscall argument type: {arg.__class__.__name__}"
+                    )
 
             with wrapped_cm:
                 yield
@@ -127,10 +194,26 @@ class LinuxEmitter(SemanticEmitter[Registers], ABC):
     def execve(
         self,
         filename: Registers | BytesImmediate,
-        argv: Registers | None = None,
-        envp: Registers | None = None,
+        argv: Registers | list[BytesImmediate] | None = None,
+        envp: Registers | list[BytesImmediate] | None = None,
+        null_terminate: bool = True,
     ) -> Registers:
-        # TODO: Support for Python list argv / envp and dynamic pushing into registers.
+        if argv is None:
+            argv = []
+
+        if envp is None:
+            envp = []
+
+        def _do_null_terminate(arg_array: list[BytesImmediate]) -> list[BytesImmediate]:
+            return [arg if arg[-1] == b"\x00" else (arg + b"\x00") for arg in arg_array]
+
+        if null_terminate:
+            if isinstance(argv, list):
+                argv = _do_null_terminate(argv)
+
+            if isinstance(envp, list):
+                envp = _do_null_terminate(envp)
+
         return self.syscall(self.syscall_numbers.execve, filename, argv, envp)
 
     def socket(

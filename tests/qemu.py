@@ -13,6 +13,7 @@ class FilePaths:
     INT3_ROOT_DIR = Path(__file__).resolve().parent.parent
     INT3_BIN_DIR = INT3_ROOT_DIR / "bin"
     INT3_SHELLCODE_RUNNER_SRC = INT3_BIN_DIR / "shellcode_runner.c"
+    INT3_ARGV_ENVP_PRINTER_SRC = INT3_BIN_DIR / "argv_envp_printer.c"
 
 
 @dataclass(frozen=True)
