@@ -174,25 +174,41 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         num_bytes = len(packed_imm) + max(null_run_left, null_run_right)
         return num_bytes * self.ctx.architecture.BITS_IN_A_BYTE
 
-    def _find_literal_mov_dst(self, src: Registers | IntImmediate) -> Registers:
+    def _find_literal_mov_dst(
+        self, src: Registers | IntImmediate, exclude: list[Registers] | None = None
+    ) -> Registers:
         """Find a general-purpose destination register for a move."""
-        for gp_register in self.free_gp_registers:
+        if exclude:
+            search_registers = [
+                reg for reg in self.free_gp_registers if reg not in exclude
+            ]
+        else:
+            search_registers = self.free_gp_registers
+
+        for gp_register in search_registers:
             if self.literal_mov(dst=gp_register, src=src).is_okay(ctx=self.ctx):
                 return gp_register
 
         raise Int3SatError("Unable to find free gp register that meets constraints")
 
     def _find_free_gp_reg_for(
-        self, *gadget_funcs: UnboundGadgetFunc
+        self, *gadget_funcs: UnboundGadgetFunc, exclude: list[Registers] | None = None
     ) -> Iterator[Registers]:
         """Find a stream of free gp registers that can be used in all provided funcs."""
-        if not self.free_gp_registers:
+        if exclude:
+            search_registers = [
+                reg for reg in self.free_gp_registers if reg not in exclude
+            ]
+        else:
+            search_registers = self.free_gp_registers
+
+        if not search_registers:
             raise Int3LockedRegisterError("No free gp registers")
 
         def _has_at_least_one_okay_gadget(gadgets: Iterable[Gadget]) -> bool:
             return any(gadget.is_okay(self.ctx) for gadget in gadgets)
 
-        for reg in self.free_gp_registers:
+        for reg in search_registers:
             if all(
                 _has_at_least_one_okay_gadget(gadget_func(reg))
                 for gadget_func in gadget_funcs
@@ -226,8 +242,9 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
             # We will require a transitory register for the arthmetic operations;
             # we determine that register here to use in our identification of which
             # factor operations we have available.
-            with self.locked(dst):
-                intermediate_dst = self._find_literal_mov_dst(src=dummy_operand)
+            intermediate_dst = self._find_literal_mov_dst(
+                src=dummy_operand, exclude=dst
+            )
 
             # Test if addition is permissable.
             have_add = self.literal_add(dst, intermediate_dst).is_okay(self.ctx)
@@ -401,12 +418,16 @@ class SemanticEmitter(ArchitectureEmitter[Registers]):
         # TODO: Other options.
 
     def add(self, dst: Registers, operand: Registers | IntImmediate):
+        self.choose_and_emit(self._add_iter(dst, operand))
+
+    def _add_iter(
+        self, dst: Registers, operand: Registers | IntImmediate
+    ) -> Iterator[Gadget]:
         # See if naive solution works.
         if (gadget := self.literal_add(dst, operand)).is_okay(self.ctx):
-            return self.emit(gadget)
+            yield gadget
 
-        # TODO
-        raise Int3SatError("add() unable to find suitable gadget")
+        # TODO: Other options.
 
     def sub(self, dst: Registers, operand: Registers | IntImmediate):
         # See if naive solution works.
