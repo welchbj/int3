@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from int3.architectures import ArchitectureMetas, ArchitectureMeta
+from int3.architectures import ArchitectureMeta, ArchitectureMetas
 
 
 class FilePaths:
@@ -35,7 +35,9 @@ def _name_getter(obj):
 parametrize_qemu_arch = pytest.mark.parametrize("arch", QEMU_ARCHES, ids=_name_getter)
 
 
-def compile_src(arch_meta: ArchitectureMeta, in_file: Path, out_file: Path, static: bool = True):
+def compile_src(
+    arch_meta: ArchitectureMeta, in_file: Path, out_file: Path, static: bool = True
+):
     cc_bin = f"{arch_meta.toolchain_triple}-gcc"
     if (cc_path := shutil.which(cc_bin)) is None:
         pytest.fail(f"No available gcc binary {cc_bin}")
