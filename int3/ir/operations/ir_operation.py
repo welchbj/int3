@@ -1,9 +1,7 @@
 from dataclasses import dataclass
 
-from .ir_var import IrVar
-
 
 @dataclass
-class IrGlobalVar(IrVar):
+class IrOperation:
     # TODO
     pass
