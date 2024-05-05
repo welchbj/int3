@@ -74,7 +74,7 @@ def compute_factor(
 
     # Default the width to the passed context.
     if factor_ctx.width is None:
-        factor_ctx = replace(factor_ctx, width=factor_ctx.ctx.architecture.bit_size)
+        factor_ctx = replace(factor_ctx, width=factor_ctx.arch_meta.bit_size)
 
     width_as_int = cast(int, factor_ctx.width)
     if (num_target_bits := factor_ctx.target.bit_length()) > width_as_int:
@@ -96,7 +96,10 @@ def compute_factor(
                 start_with_bvv = True
                 start_bv = BitVecVal(factor_ctx.start, factor_ctx.width)
 
-                factor_ctx.do_arch_constraint_cb(solver, FactorOperation.Init, start_bv)
+                # XXX
+                # factor_ctx.do_arch_constraint_cb(
+                #     solver, FactorOperation.Init, start_bv
+                # )
 
             var_list = [start_bv]
             var_list.extend(BitVec(f"s{i}", factor_ctx.width) for i in range(depth))
@@ -108,9 +111,10 @@ def compute_factor(
             solver_clause = var_list[0]
 
             for bvv, op in zip(var_list[1:], op_product):
+                # XXX
                 # Invoke callback to allow for the addition of per-architecture
                 # constraints.
-                factor_ctx.do_arch_constraint_cb(solver, op, bvv)
+                # factor_ctx.do_arch_constraint_cb(solver, op, bvv)
 
                 match op:
                     case FactorOperation.Add:
@@ -165,6 +169,6 @@ def compute_factor(
 def _add_bad_byte_constraints(factor_ctx: FactorContext, solver: Solver, var: Any):
     width = cast(int, factor_ctx.width)
 
-    for bad_byte in factor_ctx.ctx.bad_bytes:
+    for bad_byte in factor_ctx.bad_bytes:
         for i in range(0, width, factor_ctx.byte_width):
             solver.add(Extract(i + factor_ctx.byte_width - 1, i, var) != bad_byte)

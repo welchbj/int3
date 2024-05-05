@@ -1,12 +1,12 @@
 import pytest
 
-from int3.architectures import Architectures
+from int3.architectures import ArchitectureMetas
 from int3.errors import Int3ArgumentError, Int3InsufficientWidthError
 
 
 def test_packing():
-    x86 = Architectures.x86.value
-    x86_64 = Architectures.x86_64.value
+    x86 = ArchitectureMetas.x86.value
+    x86_64 = ArchitectureMetas.x86_64.value
 
     assert x86.pack(0x41, width=0x8) == b"A"
     assert x86.pack(0x41, width=0x10) == b"A\x00"
@@ -22,8 +22,8 @@ def test_packing():
 
 
 def test_unpacking():
-    x86 = Architectures.x86.value
-    x86_64 = Architectures.x86_64.value
+    x86 = ArchitectureMetas.x86.value
+    x86_64 = ArchitectureMetas.x86_64.value
 
     assert x86.unpack(b"\xff\xff\xff\xff", signed=False) == 0xFFFFFFFF
     assert x86.unpack(b"\xff\xff\xff\xff", signed=True) == -1
@@ -32,7 +32,7 @@ def test_unpacking():
 
 
 def test_invalid_pack_unpack_values():
-    x86 = Architectures.x86.value
+    x86 = ArchitectureMetas.x86.value
 
     with pytest.raises(Int3ArgumentError):
         x86.pack(0xFFFFFFFF + 1)
@@ -45,7 +45,7 @@ def test_invalid_pack_unpack_values():
 
 
 def test_invalid_pack_widths():
-    x86 = Architectures.x86.value
+    x86 = ArchitectureMetas.x86.value
 
     for width in (-0x10, -1, 0, 1, 0x11, 0x18, 0x40):
         with pytest.raises(Int3ArgumentError):
@@ -53,8 +53,8 @@ def test_invalid_pack_widths():
 
 
 def test_pad():
-    x86 = Architectures.x86.value
-    x86_64 = Architectures.x86_64.value
+    x86 = ArchitectureMetas.x86.value
+    x86_64 = ArchitectureMetas.x86_64.value
 
     assert x86.pad(b"", width=0x8) == b"\x00"
     assert x86.pad(b"", width=0x10, fill_byte=b"B") == b"BB"
@@ -65,7 +65,7 @@ def test_pad():
 
 
 def test_invalid_pad_widths():
-    x86 = Architectures.x86.value
+    x86 = ArchitectureMetas.x86.value
 
     with pytest.raises(Int3InsufficientWidthError):
         x86.pad(b"X" * 5)
