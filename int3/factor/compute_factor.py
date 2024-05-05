@@ -37,13 +37,15 @@ def compute_factor(
         )
 
     # Check if a bad byte was provided in the start value.
-    if factor_ctx.start is not None and not factor_ctx.ctx.is_okay_int_immediate(
-        factor_ctx.start, width=factor_ctx.width
-    ):
-        raise Int3ArgumentError(
-            f"Specified start value {hex(factor_ctx.start)} contains at least one bad "
-            "byte"
+    if factor_ctx.start is not None:
+        packed_start = factor_ctx.arch_meta.pack(
+            factor_ctx.start, width=factor_ctx.width
         )
+        if any(b in packed_start for b in factor_ctx.bad_bytes):
+            raise Int3ArgumentError(
+                f"Specified start value {hex(factor_ctx.start)} contains at least one bad "
+                "byte"
+            )
 
     forbidden_ops_iter = (
         tuple() if factor_ctx.forbidden_ops is None else tuple(factor_ctx.forbidden_ops)
