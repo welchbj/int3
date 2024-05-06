@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
 from ..compiler import Compiler
-from .linux_syscall_mixin import LinuxSyscallMixin
+from ._linux_high_level_interface_mixin import LinuxHighLevelInterfaceMixin
+from ._linux_syscall_interface_mixin import LinuxSyscallInterfaceMixin
 
 
 @dataclass
-class LinuxCompiler(Compiler, LinuxSyscallMixin):
-    # TODO
+class LinuxCompiler(LinuxSyscallInterfaceMixin, LinuxHighLevelInterfaceMixin):
     pass

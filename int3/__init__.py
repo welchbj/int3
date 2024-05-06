@@ -9,5 +9,4 @@ from .format import *  # noqa
 from .ir import *  # noqa
 from .networking import *  # noqa
 from .strategy import *  # noqa
-from .syscalls import *  # noqa
 from .version import *  # noqa

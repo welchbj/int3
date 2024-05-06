@@ -59,3 +59,11 @@ class Int3ContextError(Int3Error):
 
 class Int3SatError(Int3Error):
     """Exception type for satisfiability errors."""
+
+
+class Int3IrError(Int3Error):
+    """Exception type for invalid IR nodes."""
+
+
+class Int3IrMismatchedTypeError(Int3IrError):
+    """Exception type for mismatched IR node type and value."""
