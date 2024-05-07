@@ -43,8 +43,8 @@ def compute_factor(
         )
         if any(b in packed_start for b in factor_ctx.bad_bytes):
             raise Int3ArgumentError(
-                f"Specified start value {hex(factor_ctx.start)} contains at least one bad "
-                "byte"
+                f"Specified start value {hex(factor_ctx.start)} contains at least one "
+                "bad byte"
             )
 
     forbidden_ops_iter = (

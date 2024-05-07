@@ -1,6 +1,6 @@
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import ContextManager, Iterator
+from typing import Iterator
 
 from int3.architectures import ArchitectureMeta, ArchitectureMetas
 from int3.ir import IrAbstractPredicate, IrBasicBlock
@@ -25,13 +25,20 @@ class Compiler:
     def compile(self) -> str:
         # XXX
         print(self.basic_blocks)
+        return "work-in-progress"
 
     @contextmanager
     def if_else(
         self, predicate: IrAbstractPredicate
-    ) -> Iterator[tuple[ContextManager, ContextManager]]:
+    ) -> Iterator[tuple[IrBasicBlock, IrBasicBlock]]:
         # TODO: How do we define the "scope" of a bb?
         #       What's the compiler's relationship with a bb?
+
+        # TODO: Do we need to pass some kind of context related to the current
+        #       compiler scope down to the basic block?
+        #
+        #       What would we include in this?
+        #         - TODO
 
         if_bb = IrBasicBlock()
         # TODO
