@@ -1,9 +1,8 @@
 from dataclasses import dataclass
 
-from .ir_var import IrVar
+from .ir_named_var import IrNamedVar
 
 
 @dataclass
-class IrGlobalVar(IrVar):
-    # TODO
+class IrGlobalVar(IrNamedVar):
     pass
