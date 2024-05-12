@@ -37,7 +37,10 @@ TODO
 
 ### Terminology
 
-TODO
+* Basic Block: TODO
+* Predicate: TODO
+* Branch: TODO
+* Jump: TODO
 
 ### Workflow
 
