@@ -19,7 +19,7 @@ def main():
         with otherwise:
             cc.sys_exit(0)
 
-    print(cc.compile())
+    print(cc.compile_ir())
 
 
 if __name__ == "__main__":

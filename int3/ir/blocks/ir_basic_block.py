@@ -6,15 +6,30 @@ from typing import ContextManager
 
 from int3.compilation.compiler_scope import CompilerScope
 
+from ..operations import IrAbstractOperation
+
 
 @dataclass
 class IrBasicBlock:
     cc_scope: CompilerScope
 
-    predecessors: list[IrBasicBlock] = field(default_factory=list)
-    successors: list[IrBasicBlock] = field(default_factory=list)
+    operations: list[IrAbstractOperation] = field(default_factory=list)
+    incoming_edges: list[IrBasicBlock] = field(default_factory=list)
+    outgoing_edges: list[IrBasicBlock] = field(default_factory=list)
 
     active_bb_cm: ContextManager[IrBasicBlock] | None = field(init=False, default=None)
+
+    def add_operation(self, op: IrAbstractOperation):
+        # TODO: Checking of variables against cc_scope?
+        self.operations.append(op)
+
+    def add_incoming_edge(self, other_bb: IrBasicBlock):
+        # TODO: Should we error on circular references?
+        self.incoming_edges.append(other_bb)
+
+    def add_outgoing_edge(self, other_bb: IrBasicBlock):
+        # TODO: Should we error on circular references?
+        self.outgoing_edges.append(other_bb)
 
     def __enter__(self) -> IrBasicBlock:
         self.active_bb_cm = self.cc_scope.cc.active_bb_cm(self)
