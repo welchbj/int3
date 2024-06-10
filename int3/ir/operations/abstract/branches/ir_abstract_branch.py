@@ -11,3 +11,6 @@ if TYPE_CHECKING:
 class IrAbstractBranch(IrAbstractOperation):
     taken: "IrBasicBlock"
     not_taken: "IrBasicBlock"
+
+    def __str__(self) -> str:
+        return f"branch taken={self.taken.label} not_taken={self.not_taken.label}"

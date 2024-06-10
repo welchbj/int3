@@ -48,3 +48,7 @@ class IrIntType(IrType):
     @staticmethod
     def u64() -> IrIntType:
         return IrIntType(signed=False, bit_size=64)
+
+    def __str__(self) -> str:
+        signedness = "i" if self.signed else "u"
+        return f"{signedness}{self.bit_size}"

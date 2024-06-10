@@ -12,6 +12,7 @@ from ..operations import IrAbstractOperation
 @dataclass
 class IrBasicBlock:
     cc_scope: CompilerScope
+    label: str
 
     operations: list[IrAbstractOperation] = field(default_factory=list)
     incoming_edges: list[IrBasicBlock] = field(default_factory=list)
@@ -26,6 +27,7 @@ class IrBasicBlock:
     def add_incoming_edge(self, other_bb: IrBasicBlock):
         # TODO: Should we error on circular references?
         self.incoming_edges.append(other_bb)
+        other_bb.add_outgoing_edge(self)
 
     def add_outgoing_edge(self, other_bb: IrBasicBlock):
         # TODO: Should we error on circular references?
@@ -34,6 +36,24 @@ class IrBasicBlock:
     def __enter__(self) -> IrBasicBlock:
         self.active_bb_cm = self.cc_scope.cc.active_bb_cm(self)
         return self.active_bb_cm.__enter__()
+
+    def __str__(self) -> str:
+        indent = " " * 2
+
+        # TODO: We have to avoid visiting duplicate labels
+
+        s = f"{self.label}:\n"
+        for operation in self.operations:
+            s += indent
+            s += str(operation)
+            s += "\n"
+        s += "\n"
+
+        for child_bb in self.outgoing_edges:
+            s += str(child_bb)
+            s += "\n"
+
+        return s.rstrip("\n")
 
     def __exit__(
         self,

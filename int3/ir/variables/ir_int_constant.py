@@ -40,6 +40,9 @@ class IrIntConstant(IrVar):
 
     # TODO: Remaining mathematical operations.
 
+    def __str__(self) -> str:
+        return f"{self.value}:{self.type_}"
+
     @staticmethod
     def i8(value: int) -> IrIntConstant:
         return IrIntConstant(type_=IrIntType.i8(), value=value)
