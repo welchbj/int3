@@ -1,7 +1,7 @@
 import random
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Iterator
+from typing import Iterator, Literal
 
 from int3.architectures import ArchitectureMeta, ArchitectureMetas
 from int3.errors import Int3MissingEntityError
@@ -11,8 +11,10 @@ from int3.ir import (
     IrBasicBlock,
     IrBytesConstant,
     IrBytesType,
+    IrGlobalVar,
     IrIntConstant,
     IrIntType,
+    IrLocalVar,
     IrVar,
 )
 from int3.strategy import Strategy
@@ -68,7 +70,9 @@ class Compiler:
             case _:
                 raise Int3MissingEntityError(f"Unexpected bit size {bit_size}")
 
-    def make_native_int_var(self, signed: bool = False) -> IrVar:
+    def make_native_int_var(
+        self, signed: bool = False, scope: Literal["local", "global"] = "local"
+    ) -> IrVar:
         match bit_size := self.arch_meta.bit_size:
             case 32:
                 type_ = IrIntType.i32() if signed else IrIntType.u32()
@@ -77,7 +81,11 @@ class Compiler:
             case _:
                 raise Int3MissingEntityError(f"Unexpected bit size {bit_size}")
 
-        return IrVar(type_=type_)
+        name = self.active_scope.make_var_name(prefix=scope)
+        if scope == "local":
+            return IrLocalVar(name=name, type_=type_)
+        else:
+            return IrGlobalVar(name=name, type_=type_)
 
     def as_bytes_constant(self, value: bytes) -> IrBytesConstant:
         return IrBytesConstant(type_=IrBytesType(), value=value)

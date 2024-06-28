@@ -7,4 +7,5 @@ from .ir_type import IrType
 
 @dataclass(frozen=True)
 class IrBytesType(IrType):
-    pass
+    def __str__(self) -> str:
+        return "bytes"

@@ -61,6 +61,10 @@ class Int3SatError(Int3Error):
     """Exception type for satisfiability errors."""
 
 
+class Int3ExhaustedEntropyError(Int3Error):
+    """Exception type for exhausted entropy."""
+
+
 class Int3IrError(Int3Error):
     """Exception type for invalid IR nodes."""
 
