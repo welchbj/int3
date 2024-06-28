@@ -197,3 +197,7 @@ def cli_execute(input_file: BinaryIO, debug: bool):
         machine_code: bytes = input_file.read()
 
     execute(machine_code=machine_code)
+
+
+if __name__ == "__main__":
+    cli()
