@@ -1,1 +1,1 @@
-from .execute import execute  # noqa
+from .execute import execute

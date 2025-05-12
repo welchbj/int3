@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 from typing import Sequence
 
-from int3.architectures import ArchitectureMeta
+from int3.architecture import Architecture
 
 from .factor_operation import FactorOperation
 
 
 @dataclass(frozen=True)
 class FactorContext:
-    arch_meta: ArchitectureMeta
+    arch: Architecture
 
     # The target value.
     target: int

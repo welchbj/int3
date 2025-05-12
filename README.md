@@ -21,48 +21,17 @@ pip install int3
 
 ## Usage
 
-### Formatting
-
-TODO
-
-### Encoding
-
-TODO
-
-### Factoring
-
 TODO
 
 ## Design
 
-### Terminology
-
-* Basic Block: TODO
-* Predicate: TODO
-* Branch: TODO
-* Jump: TODO
+TODO
 
 ### Workflow
 
-Flow:
-
-* `int3` top-level Python library interface (mainly, a `Compiler` instance for the appropriate platform and architecture)
-* Generation of `int3` IR as a graph of basic blocks, variables, and abstract operations
-* Multiple optimization passes over the graph, translating abstract operations to concrete operations
-  * The translation of abstract to concrete operations is where architecture-dependent considerations are applied
-* Translation of `int3` IR basic blocks to machine code
-* Stitching together emiited machine code with optimal relocations
-
-When avoiding bad bytes, there's three categories of things we need to avoid them in:
-
-* Instruction opcodes
-* Registers selected to represent variables
-* Immediate values (accounting for encoding of architecture-dependent encoding)
-* Relocations/offsets to branch targets and global data
+TODO
 
 ### Relationship with LLVM IR
-
-TODO
 
 ```
 https://llvmlite.readthedocs.io/en/latest/user-guide/ir/index.html

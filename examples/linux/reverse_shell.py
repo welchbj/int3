@@ -1,15 +1,18 @@
-from int3 import IrIntConstant, LinuxCompiler
+import int3
 
-HOST = "0.0.0.0"
-PORT = 4444
+HOST, PORT = "0.0.0.0", 4444
 
 
 def main():
-    cc = LinuxCompiler(arch="x86_64")
+    cc = int3.Compiler.from_str("linux/x86_64")
+
+    sockaddr = int3.struct.c_struct("""
+        TODO
+    """)
 
     # XXX
     # sock = cc.net_open_connection(ip_addr=HOST, port=PORT)
-    sock = IrIntConstant.i32(-1)
+    sock = int3.ir.IntConstant.i32(-1)
 
     with cc.if_else(sock < 0) as (then, otherwise):
         with then:

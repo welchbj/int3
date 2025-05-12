@@ -1,4 +1,9 @@
-from .blocks import *  # noqa
-from .operations import *  # noqa
-from .types import *  # noqa
-from .variables import *  # noqa
+from .block import Block
+from .constant import Constant
+from .function import Function
+from .jump import Jump
+from .label import Label
+from .operation import Operation
+from .predicate import Predicate
+from .struct import Struct
+from .variable import Variable

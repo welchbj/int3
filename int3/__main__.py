@@ -4,7 +4,7 @@ from typing import BinaryIO
 
 import click
 
-from int3.architectures import ArchitectureMeta, ArchitectureMetas
+from int3.architecture import ArchitectureMeta, ArchitectureMetas
 from int3.assembly import assemble, disassemble
 from int3.errors import Int3Error
 from int3.execution import execute
