@@ -39,6 +39,9 @@ Changelog = "https://github.com/welchbj/int3"
 [project.scripts]
 tt = "int3.__main__:cli"
 
+[tool.uv]
+package = true
+
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
