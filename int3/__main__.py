@@ -4,20 +4,14 @@ from typing import BinaryIO
 
 import click
 
-from int3.architecture import ArchitectureMeta, ArchitectureMetas
-from int3.assembly import assemble, disassemble
+from int3.architecture import Architecture, Architectures
 from int3.errors import Int3Error
 from int3.execution import execute
 from int3.format import FormatStyle, Formatter
-from int3.strategy import Strategy
-
-
-def _strategy_from_str(ctx, param, value: str):
-    return Strategy.from_str(value)
 
 
 def _architecture_from_str(ctx, param, value: str):
-    return ArchitectureMetas.from_str(value)
+    return Architectures.from_str(value)
 
 
 def _format_style_from_str(ctx, param, value: str):
@@ -59,19 +53,9 @@ arch_meta_option = click.option(
     "-a",
     "arch_meta",
     help="Target architecture.",
-    type=click.Choice(ArchitectureMetas.names()),
+    type=click.Choice(Architectures.names()),
     callback=_architecture_from_str,
-    default=ArchitectureMetas.from_host().name,
-    show_default=True,
-)
-
-strategy_option = click.option(
-    "--strategy",
-    "-s",
-    help="Code generation strategy.",
-    type=click.Choice(Strategy.names()),
-    callback=_strategy_from_str,
-    default=Strategy.CodeSize.name,
+    default=Architectures.from_host().name,
     show_default=True,
 )
 
@@ -114,7 +98,7 @@ debug_option = click.option(
 @file_or_stdin_input_option
 @arch_meta_option
 @debug_option
-def cli_assemble(input_file: BinaryIO, arch_meta: ArchitectureMeta, debug: bool):
+def cli_assemble(input_file: BinaryIO, arch_meta: Architecture, debug: bool):
     _setup_logging(debug)
 
     with input_file:
@@ -127,7 +111,7 @@ def cli_assemble(input_file: BinaryIO, arch_meta: ArchitectureMeta, debug: bool)
 @cli.command("assemble_repl")
 @arch_meta_option
 @debug_option
-def cli_assemble_repl(arch_meta: ArchitectureMeta, debug: bool):
+def cli_assemble_repl(arch_meta: Architecture, debug: bool):
     _setup_logging(debug)
 
     # Attempt to import readline to provide history capability to input().
@@ -154,7 +138,7 @@ def cli_assemble_repl(arch_meta: ArchitectureMeta, debug: bool):
 @file_or_stdin_input_option
 @arch_meta_option
 @debug_option
-def cli_disassemble(input_file: BinaryIO, arch_meta: ArchitectureMeta, debug: bool):
+def cli_disassemble(input_file: BinaryIO, arch_meta: Architecture, debug: bool):
     _setup_logging(debug)
 
     with input_file:

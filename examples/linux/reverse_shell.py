@@ -1,18 +1,18 @@
-import int3
+from int3 import Compiler, Struct
 
 HOST, PORT = "0.0.0.0", 4444
 
 
 def main():
-    cc = int3.Compiler.from_str("linux/x86_64")
+    cc = Compiler.from_str("linux/x86_64")
 
-    sockaddr = int3.struct.c_struct("""
+    sockaddr = Struct.from_c("""
         TODO
     """)
 
     # XXX
     # sock = cc.net_open_connection(ip_addr=HOST, port=PORT)
-    sock = int3.ir.IntConstant.i32(-1)
+    sock = cc.const_i32(-1)
 
     with cc.if_else(sock < 0) as (then, otherwise):
         with then:
@@ -22,7 +22,7 @@ def main():
         with otherwise:
             cc.sys_exit(0)
 
-    print(cc.compile_ir())
+    print(cc.compile())
 
 
 if __name__ == "__main__":

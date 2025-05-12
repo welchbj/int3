@@ -1,1 +1,1 @@
-from .linux import *
+from .compiler import Compiler

@@ -477,7 +477,7 @@ wheels = [
 [[package]]
 name = "int3"
 version = "0.0.2"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "pypcode" },
     { name = "z3-solver" },

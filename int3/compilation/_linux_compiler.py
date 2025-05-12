@@ -2,14 +2,13 @@ from dataclasses import dataclass, field
 
 from int3.meta import Int3Files
 from int3.errors import Int3ArgumentError
-from int3.ir import IrAbstractSyscallOperation, IrVar
 from int3.platform import LinuxSyscallNumbers
 
 from .compiler import Compiler
 
 
 @dataclass
-class LinuxSyscallInterfaceMixin(Compiler):
+class LinuxCompiler(Compiler):
     sys_nums: LinuxSyscallNumbers = field(init=False)
 
     def __post_init__(self):

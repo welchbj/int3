@@ -7,9 +7,11 @@ from int3.architecture import Architecture
 from int3.codegen import CodeGenerator
 from int3.ir import Block, Constant, Label, Predicate, Variable
 
+from ._compiler_factory_mixin import CompilerFactoryMixin
+
 
 @dataclass
-class Compiler:
+class Compiler(CompilerFactoryMixin):
     # TODO: Platform that is combination of arch, calling convention, syscalls, etc.
     arch: Architecture
 
