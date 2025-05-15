@@ -2,8 +2,9 @@ import ast
 import binascii
 from dataclasses import dataclass
 
-from int3.errors import Int3UnsupportedFormatError
 from int3._utils import grouper
+from int3.errors import Int3UnsupportedFormatError
+
 from .format_style import FormatStyle
 
 

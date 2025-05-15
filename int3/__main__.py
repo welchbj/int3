@@ -99,39 +99,43 @@ debug_option = click.option(
 @arch_meta_option
 @debug_option
 def cli_assemble(input_file: BinaryIO, arch_meta: Architecture, debug: bool):
-    _setup_logging(debug)
+    # _setup_logging(debug)
 
-    with input_file:
-        asm_text: str = input_file.read().decode()
+    # with input_file:
+    #     asm_text: str = input_file.read().decode()
 
-    asm_bytes = assemble(arch_meta=arch_meta, assembly=asm_text)
-    click.echo(asm_bytes, nl=False)
+    # asm_bytes = assemble(arch_meta=arch_meta, assembly=asm_text)
+    # click.echo(asm_bytes, nl=False)
+
+    ...
 
 
 @cli.command("assemble_repl")
 @arch_meta_option
 @debug_option
 def cli_assemble_repl(arch_meta: Architecture, debug: bool):
-    _setup_logging(debug)
+    # _setup_logging(debug)
 
-    # Attempt to import readline to provide history capability to input().
-    try:
-        import readline  # noqa
-    except ImportError:
-        pass
+    # # Attempt to import readline to provide history capability to input().
+    # try:
+    #     import readline  # noqa
+    # except ImportError:
+    #     pass
 
-    formatter = Formatter(style_in=FormatStyle.Raw, style_out=FormatStyle.Python)
+    # formatter = Formatter(style_in=FormatStyle.Raw, style_out=FormatStyle.Python)
 
-    while True:
-        try:
-            asm_text = input(">>> ")
-            asm_bytes = assemble(arch_meta=arch_meta, assembly=asm_text)
-            click.echo(formatter.format(asm_bytes))
-        except Int3Error as e:
-            click.echo(f"Error: {e}")
-        except KeyboardInterrupt:
-            click.echo("Quitting!")
-            break
+    # while True:
+    #     try:
+    #         asm_text = input(">>> ")
+    #         asm_bytes = assemble(arch_meta=arch_meta, assembly=asm_text)
+    #         click.echo(formatter.format(asm_bytes))
+    #     except Int3Error as e:
+    #         click.echo(f"Error: {e}")
+    #     except KeyboardInterrupt:
+    #         click.echo("Quitting!")
+    #         break
+
+    ...
 
 
 @cli.command("disassemble")
@@ -139,13 +143,15 @@ def cli_assemble_repl(arch_meta: Architecture, debug: bool):
 @arch_meta_option
 @debug_option
 def cli_disassemble(input_file: BinaryIO, arch_meta: Architecture, debug: bool):
-    _setup_logging(debug)
+    # _setup_logging(debug)
 
-    with input_file:
-        machine_code: bytes = input_file.read()
+    # with input_file:
+    #     machine_code: bytes = input_file.read()
 
-    asm_text = disassemble(arch_meta=arch_meta, machine_code=machine_code)
-    click.echo(asm_text)
+    # asm_text = disassemble(arch_meta=arch_meta, machine_code=machine_code)
+    # click.echo(asm_text)
+
+    ...
 
 
 @cli.command("format")

@@ -1,14 +1,13 @@
 from dataclasses import dataclass
 
+from .variable import IrBytesVariable, IrIntVariable
 
-@dataclass(frozen=True)
-class IntConstant:
+
+@dataclass
+class IrIntConstant(IrIntVariable):
     value: int
 
 
-@dataclass(frozen=True)
-class BytesConstant:
+@dataclass
+class IrBytesConstant(IrBytesVariable):
     value: bytes
-
-
-type Constant = IntConstant | BytesConstant

@@ -120,9 +120,6 @@ class Architecture:
 
 
 class Architectures(Enum):
-    # Reference:
-    # https://github.com/keystone-engine/keystone/blob/master/bindings/python/sample.py
-
     x86 = Architecture(
         name="x86",
         bit_size=32,

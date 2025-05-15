@@ -1,4 +1,4 @@
-from int3 import Compiler, Struct
+from int3 import Compiler, IrStruct
 
 HOST, PORT = "0.0.0.0", 4444
 
@@ -6,7 +6,7 @@ HOST, PORT = "0.0.0.0", 4444
 def main():
     cc = Compiler.from_str("linux/x86_64")
 
-    sockaddr = Struct.from_c("""
+    sockaddr = IrStruct.from_c("""
         TODO
     """)
 

@@ -38,9 +38,7 @@ def compute_factor(
 
     # Check if a bad byte was provided in the start value.
     if factor_ctx.start is not None:
-        packed_start = factor_ctx.arch_meta.pack(
-            factor_ctx.start, width=factor_ctx.width
-        )
+        packed_start = factor_ctx.arch.pack(factor_ctx.start, width=factor_ctx.width)
         if any(b in packed_start for b in factor_ctx.bad_bytes):
             raise Int3ArgumentError(
                 f"Specified start value {hex(factor_ctx.start)} contains at least one "
@@ -76,7 +74,7 @@ def compute_factor(
 
     # Default the width to the passed context.
     if factor_ctx.width is None:
-        factor_ctx = replace(factor_ctx, width=factor_ctx.arch_meta.bit_size)
+        factor_ctx = replace(factor_ctx, width=factor_ctx.arch.bit_size)
 
     width_as_int = cast(int, factor_ctx.width)
     if (num_target_bits := factor_ctx.target.bit_length()) > width_as_int:
