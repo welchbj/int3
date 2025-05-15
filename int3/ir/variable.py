@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .predicate import IrPredicate, IrPredicateOperator
+
 
 @dataclass
 class IrIntVariable:
@@ -17,9 +19,23 @@ class IrIntVariable:
         else:
             return 0 <= value <= ((1 << self.bit_size) - 1)
 
+    def _ensure_int_var(self, var: AnyIntType) -> IrIntType:
+        if isinstance(var, int):
+            return IrIntConstant(signed=self.signed, bit_size=self.bit_size, value=var)
+        else:
+            return var
+
     def __str__(self) -> str:
         signedness = "i" if self.signed else "u"
         return f"{signedness}{self.bit_size}"
+
+    def __lt__(self, other: AnyIntType) -> IrPredicate:
+        other_var = self._ensure_int_var(other)
+
+        return IrPredicate(
+            operator=IrPredicateOperator.LessThan,
+            args=[self, other_var],
+        )
 
     @staticmethod
     def i8() -> IrIntVariable:
@@ -59,3 +75,23 @@ class IrBytesVariable:
     # TODO: Length field
 
     is_unbound: bool = field(init=False, default=False)
+
+
+@dataclass
+class IrIntConstant(IrIntVariable):
+    value: int
+
+
+@dataclass
+class IrBytesConstant(IrBytesVariable):
+    value: bytes
+
+
+type IrVariable = IrBytesVariable | IrIntVariable
+type IrConstant = IrBytesConstant | IrIntConstant
+
+type IrIntType = IrIntConstant | IrIntVariable
+type IrBytesType = IrBytesConstant | IrBytesVariable
+
+type AnyIntType = IrIntType | int
+type AnyBytesType = IrIntType | bytes
