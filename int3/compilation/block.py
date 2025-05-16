@@ -5,7 +5,7 @@ from types import TracebackType
 from typing import TYPE_CHECKING, ContextManager
 
 from int3.errors import Int3MissingEntityError
-from int3.ir import IrOperation, IrVariable
+from int3.ir import IrBranch, IrOperation, IrVariable
 
 if TYPE_CHECKING:
     from .compiler import Compiler
@@ -17,6 +17,7 @@ class Block:
     compiler: "Compiler"
     scope_stack: list["Scope"]
     operations: list[IrOperation] = field(init=False, default_factory=list)
+    label: str
 
     current_block_cm: ContextManager[Block] | None = field(init=False, default=None)
 
@@ -33,11 +34,38 @@ class Block:
         else:
             raise Int3MissingEntityError(f"Unable to resolve var name {var_name}")
 
+    def add_operation(self, operation: IrBranch | IrOperation):
+        """Record an operation or branch on this block.
+
+        This method will enforce some variable naming norms. Namely,
+        unnamed variables will be assigned a name in the current scope
+        and variable names will attempt to be resolved in the current scope.
+
+        """
+        # It's possible that there are unnamed variables within the operation's
+        # arguments, such as Python literals that were promoted to IR constants.
+        # Here, we ensure those variables receive names for the current scope.
+        for var in operation.args:
+            if var.is_unnamed:
+                self.lowest_scope.add_var(var)
+
+        # We then validate that all of the operation's variables are resolvable
+        # within this block's scope stack.
+        for var in operation.args:
+            try:
+                self.resolve_var(var.name)
+            except Int3MissingEntityError as e:
+                raise Int3MissingEntityError(
+                    f"Operation {operation} is using unnamed variable"
+                ) from e
+
+        self.operations.append(operation)
+
     def __str__(self) -> str:
-        block_text = ""
+        block_text = f"{self.label}:\n"
 
         for operation in self.operations:
-            block_text += str(operation)
+            block_text += f"    {str(operation)}"
             block_text += "\n"
 
         return block_text

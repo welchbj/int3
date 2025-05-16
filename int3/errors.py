@@ -71,3 +71,7 @@ class Int3IrError(Int3Error):
 
 class Int3IrMismatchedTypeError(Int3IrError):
     """Exception type for mismatched IR node type and value."""
+
+
+class Int3IrAlreadyNamedError(Int3IrError):
+    """Exception type for assigning a name to an already-named entity."""

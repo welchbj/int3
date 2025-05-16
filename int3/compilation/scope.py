@@ -4,8 +4,12 @@ import random
 import string
 from dataclasses import dataclass, field
 
-from int3.errors import Int3ExhaustedEntropyError, Int3MissingEntityError
-from int3.ir import IrVariable
+from int3.errors import (
+    Int3ExhaustedEntropyError,
+    Int3IrAlreadyNamedError,
+    Int3MissingEntityError,
+)
+from int3.ir import VAR_UNNAMED, IrVariable
 
 
 @dataclass
@@ -32,8 +36,12 @@ class Scope:
 
     def add_var(self, var: IrVariable) -> str:
         """Register an IR variable in this scope, assigning (and returning) a name for it."""
+        if var.name != VAR_UNNAMED:
+            raise Int3IrAlreadyNamedError(f"Variable already has name: {var.name}")
+
         var_name = self._make_var_name(prefix=str(var))
         self.var_map[var_name] = var
+        var.name = var_name
         return var_name
 
     def resolve_var(self, name: str) -> IrVariable:

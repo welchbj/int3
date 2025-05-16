@@ -9,12 +9,12 @@ from int3.architecture import Architecture, Architectures
 from int3.codegen import CodeGenerator
 from int3.errors import Int3ArgumentError, Int3InsufficientWidthError
 from int3.ir import (
+    IrBranch,
     IrConstant,
     IrIntConstant,
     IrIntType,
     IrIntVariable,
-    IrLabel,
-    IrPredicate,
+    IrOperation,
     IrVariable,
 )
 
@@ -23,6 +23,8 @@ if TYPE_CHECKING:
 
 from .block import Block
 from .scope import Scope
+
+_ENTRY_LABEL_NAME = "entry"
 
 
 @dataclass
@@ -40,12 +42,15 @@ class Compiler:
 
     code_generator: CodeGenerator = field(init=False)
 
-    # TODO
-    used_labels: set[str] = field(init=False, default_factory=set)
+    # Mapping of IR labels to their associated blocks.
+    label_map: dict[str, Block] = field(init=False)
 
     def __post_init__(self):
-        self.entry = Block(compiler=self, scope_stack=[Scope()])
+        self.entry = Block(
+            compiler=self, scope_stack=[Scope()], label=_ENTRY_LABEL_NAME
+        )
         self.block_stack = [self.entry]
+        self.label_map = {_ENTRY_LABEL_NAME: self.entry}
 
     @property
     def current_block(self) -> Block:
@@ -62,7 +67,11 @@ class Compiler:
         new_scope: bool = True,
         inherit_scope: bool = True,
         base_block: Block | None = None,
+        name_hint: str | None = None,
     ) -> Block:
+        if name_hint is None:
+            name_hint = "block"
+
         if base_block is None:
             base_block = self.current_block
 
@@ -74,21 +83,28 @@ class Compiler:
         if new_scope:
             scope_stack.append(Scope())
 
-        new_block = Block(compiler=self, scope_stack=scope_stack)
+        new_label = self._make_unique_label(name_hint)
+        new_block = Block(compiler=self, scope_stack=scope_stack, label=new_label)
+
+        self.label_map[new_label] = new_block
         self.blocks.append(new_block)
 
         return new_block
 
-    def _make_label(self, hint: str) -> str:
-        """Generate a unique label name."""
+    def _make_unique_label(self, hint: str) -> str:
+        """Generate a label with a unique name.
+
+        This method should not be used directly. Rather, _spawn_block
+        uses this method to associate a new label with a new block.
+
+        """
         while True:
             rand_str = "".join(random.choice("0123456789abcdef") for _ in range(4))
             maybe_label = f"{hint}_{rand_str}"
 
-            if maybe_label in self.used_labels:
+            if maybe_label in self.label_map.keys():
                 continue
 
-            self.used_labels.add(maybe_label)
             return maybe_label
 
     def _make_int_var(
@@ -132,14 +148,17 @@ class Compiler:
             self.block_stack.pop()
 
     @contextmanager
-    def if_else(self, predicate: IrPredicate) -> Iterator[tuple[Block, Block]]:
-        if_else_block = self._spawn_block()
-        inner_if_block = self._spawn_block(base_block=if_else_block)
-        inner_else_block = self._spawn_block(base_block=if_else_block)
-
-        # TODO: We need to setup branches/jumps based on the results of the predicate.
+    def if_else(self, branch: IrBranch) -> Iterator[tuple[Block, Block]]:
+        if_else_block = self._spawn_block(name_hint="branch")
+        inner_if_block = self._spawn_block(
+            base_block=if_else_block, name_hint=f"{if_else_block.label}_if"
+        )
+        inner_else_block = self._spawn_block(
+            base_block=if_else_block, name_hint=f"{if_else_block.label}_else"
+        )
 
         with self.current_block_as(if_else_block):
+            self._branch_if_else(branch, inner_if_block, inner_else_block)
             yield inner_if_block, inner_else_block
 
     @contextmanager
@@ -156,11 +175,14 @@ class Compiler:
 
     def sub(self, dest: IrVariable, one: IrVariable, two: IrVariable | IrConstant): ...
 
-    def call(self, target: IrLabel): ...
+    def call(self, target: Block): ...
 
-    def jump(self, target: IrLabel): ...
+    def _branch_if_else(self, branch: IrBranch, if_target: Block, else_target: Block):
+        branch.set_targets(if_target.label, else_target.label)
+        self._add_operation(branch)
 
-    def branch(self, predicate: IrPredicate): ...
+    def _add_operation(self, operation: IrBranch | IrOperation):
+        self.current_block.add_operation(operation)
 
     @overload
     @staticmethod

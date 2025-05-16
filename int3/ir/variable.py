@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .predicate import IrPredicate, IrPredicateOperator
+from .branch import IrBranch, IrBranchOperator
+
+VAR_UNNAMED = "<<unnamed>>"
 
 
 @dataclass
@@ -10,6 +12,7 @@ class IrIntVariable:
     signed: bool
     bit_size: int
 
+    name: str = field(init=False, default=VAR_UNNAMED)
     is_unbound: bool = field(init=False, default=False)
 
     def is_representable(self, value: int) -> bool:
@@ -18,6 +21,10 @@ class IrIntVariable:
             return -magnitude <= value <= (magnitude - 1)
         else:
             return 0 <= value <= ((1 << self.bit_size) - 1)
+
+    @property
+    def is_unnamed(self) -> bool:
+        return self.name == VAR_UNNAMED
 
     def _ensure_int_var(self, var: AnyIntType) -> IrIntType:
         if isinstance(var, int):
@@ -29,11 +36,11 @@ class IrIntVariable:
         signedness = "i" if self.signed else "u"
         return f"{signedness}{self.bit_size}"
 
-    def __lt__(self, other: AnyIntType) -> IrPredicate:
+    def __lt__(self, other: AnyIntType) -> IrBranch:
         other_var = self._ensure_int_var(other)
 
-        return IrPredicate(
-            operator=IrPredicateOperator.LessThan,
+        return IrBranch(
+            operator=IrBranchOperator.LessThan,
             args=[self, other_var],
         )
 
@@ -73,6 +80,7 @@ class IrIntVariable:
 @dataclass
 class IrBytesVariable:
     # TODO: Length field
+    name: str
 
     is_unbound: bool = field(init=False, default=False)
 

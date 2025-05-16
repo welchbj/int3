@@ -1,10 +1,10 @@
+from .branch import IrBranch, IrBranchOperator
 from .function import IrFunction
 from .jump import IrJump
-from .label import IrLabel
 from .operation import IrOperation
-from .predicate import IrPredicate
 from .struct import IrStruct
 from .variable import (
+    VAR_UNNAMED,
     AnyBytesType,
     AnyIntType,
     IrBytesConstant,
