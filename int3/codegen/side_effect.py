@@ -1,3 +1,0 @@
-class SideEffect:
-    # TODO
-    pass
