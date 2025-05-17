@@ -9,12 +9,15 @@ from int3.architecture import Architecture, Architectures
 from int3.codegen import CodeGenerator
 from int3.errors import Int3ArgumentError, Int3InsufficientWidthError
 from int3.ir import (
+    AnyBytesType,
+    AnyIntType,
     IrBranch,
     IrConstant,
     IrIntConstant,
     IrIntType,
     IrIntVariable,
     IrOperation,
+    IrOperator,
     IrVariable,
 )
 
@@ -49,6 +52,7 @@ class Compiler:
         self.entry = Block(
             compiler=self, scope_stack=[Scope()], label=_ENTRY_LABEL_NAME
         )
+        self.blocks = [self.entry]
         self.block_stack = [self.entry]
         self.label_map = {_ENTRY_LABEL_NAME: self.entry}
 
@@ -161,11 +165,18 @@ class Compiler:
             self._branch_if_else(branch, inner_if_block, inner_else_block)
             yield inner_if_block, inner_else_block
 
-    @contextmanager
-    def try_finally(self) -> Iterator[tuple[Block, Block]]: ...
+    def mov(self, dest: IrVariable, src: AnyBytesType | AnyIntType):
+        if isinstance(src, int):
+            if src < 0:
+                src = self.i(src)
+            else:
+                src = self.u(src)
+        elif isinstance(src, bytes):
+            raise NotImplementedError("bytes operand support not yet implemented")
 
-    def mov(self, dest: IrVariable, src: IrVariable | IrConstant):
-        # TODO
+        self.add_operation(
+            IrOperation(operator=IrOperator.Mov, result=dest, args=[src])
+        )
 
         dest.is_unbound = False
 
@@ -179,9 +190,10 @@ class Compiler:
 
     def _branch_if_else(self, branch: IrBranch, if_target: Block, else_target: Block):
         branch.set_targets(if_target.label, else_target.label)
-        self._add_operation(branch)
+        self.add_operation(branch)
 
-    def _add_operation(self, operation: IrBranch | IrOperation):
+    def add_operation(self, operation: IrBranch | IrOperation):
+        """Interface for adding a raw TODO."""
         self.current_block.add_operation(operation)
 
     @overload

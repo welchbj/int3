@@ -27,5 +27,10 @@ class IrBranch:
         self.else_target = else_target
 
     def __str__(self) -> str:
-        # TODO
-        return "branch"
+        text = f"branch {self.operator.name}"
+        text += "("
+        text += ", ".join(str(arg) for arg in self.args)
+        text += ")\n"
+        text += f"      then {self.if_target}\n"
+        text += f"      else {self.else_target}"
+        return text

@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class Block:
     compiler: "Compiler"
     scope_stack: list["Scope"]
-    operations: list[IrOperation] = field(init=False, default_factory=list)
+    operations: list[IrBranch | IrOperation] = field(init=False, default_factory=list)
     label: str
 
     current_block_cm: ContextManager[Block] | None = field(init=False, default=None)

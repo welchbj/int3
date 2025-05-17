@@ -3,6 +3,7 @@ from int3 import Compiler
 cc = Compiler.from_str("linux/x86_64")
 
 my_var = cc.i(0xDEADBEEF)
+cc.mov(my_var, 0xD00D)
 
 with cc.if_else(my_var < 0xCAFEBABE) as (if_, else_):
     with if_:

@@ -7,6 +7,7 @@ if TYPE_CHECKING:
 
 
 class IrOperator(Enum):
+    Mov = auto()
     Add = auto()
     Sub = auto()
     Xor = auto()
@@ -16,8 +17,13 @@ class IrOperator(Enum):
 @dataclass
 class IrOperation:
     operator: IrOperator
+    result: "IrVariable"
     args: list["IrVariable"]
 
     def __str__(self) -> str:
-        # TODO
-        pass
+        text = f"{self.result} = "
+        text += self.operator.name
+        text += "("
+        text += ", ".join(str(arg) for arg in self.args)
+        text += ")"
+        return text

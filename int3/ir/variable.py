@@ -23,6 +23,11 @@ class IrIntVariable:
             return 0 <= value <= ((1 << self.bit_size) - 1)
 
     @property
+    def type_str(self) -> str:
+        signedness = "i" if self.signed else "u"
+        return f"{signedness}{self.bit_size}"
+
+    @property
     def is_unnamed(self) -> bool:
         return self.name == VAR_UNNAMED
 
@@ -33,8 +38,7 @@ class IrIntVariable:
             return var
 
     def __str__(self) -> str:
-        signedness = "i" if self.signed else "u"
-        return f"{signedness}{self.bit_size}"
+        return f"{self.name}/{self.type_str}"
 
     def __lt__(self, other: AnyIntType) -> IrBranch:
         other_var = self._ensure_int_var(other)
@@ -80,14 +84,20 @@ class IrIntVariable:
 @dataclass
 class IrBytesVariable:
     # TODO: Length field
-    name: str
-
+    name: str = field(init=False, default=VAR_UNNAMED)
     is_unbound: bool = field(init=False, default=False)
+
+    @property
+    def is_unnamed(self) -> bool:
+        return self.name == VAR_UNNAMED
 
 
 @dataclass
 class IrIntConstant(IrIntVariable):
     value: int
+
+    def __str__(self) -> str:
+        return f"{self.value:#x}/{self.type_str}"
 
 
 @dataclass

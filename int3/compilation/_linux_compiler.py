@@ -1,7 +1,14 @@
 from dataclasses import dataclass, field
 
 from int3.errors import Int3ArgumentError
-from int3.ir import IrBytesType, IrBytesVariable, IrIntType, IrIntVariable
+from int3.ir import (
+    IrBytesType,
+    IrIntType,
+    IrIntVariable,
+    IrOperation,
+    IrOperator,
+    IrVariable,
+)
 from int3.meta import Int3Files
 from int3.platform import LinuxSyscallNumbers
 
@@ -31,7 +38,7 @@ class LinuxCompiler(Compiler):
         else:
             syscall_num_var = sys_num
 
-        syscall_arg_vars = []
+        syscall_arg_vars: list[IrVariable] = [syscall_num_var]
         for arg in args:
             syscall_arg_var: IrIntVariable
 
@@ -47,9 +54,13 @@ class LinuxCompiler(Compiler):
             syscall_arg_vars.append(syscall_arg_var)
 
         syscall_result_var = self.i()
-
-        # TODO
-
+        self.add_operation(
+            IrOperation(
+                operator=IrOperator.Syscall,
+                result=syscall_result_var,
+                args=syscall_arg_vars,
+            )
+        )
         return syscall_result_var
 
     def sys_exit(self, status: int | IrIntType) -> IrIntVariable:

@@ -22,7 +22,7 @@ class Scope:
             prefix = f"{prefix}_"
 
         for i in range(100):
-            suffix = "".join(random.choice(string.ascii_lowercase) for _ in range(4))
+            suffix = "".join(random.choice(string.hexdigits) for _ in range(4))
 
             name = f"{prefix}{suffix}"
             if name in self.var_map.keys():
@@ -39,7 +39,7 @@ class Scope:
         if var.name != VAR_UNNAMED:
             raise Int3IrAlreadyNamedError(f"Variable already has name: {var.name}")
 
-        var_name = self._make_var_name(prefix=str(var))
+        var_name = self._make_var_name(prefix="var")
         self.var_map[var_name] = var
         var.name = var_name
         return var_name
