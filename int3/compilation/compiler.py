@@ -25,6 +25,7 @@ if TYPE_CHECKING:
     from ._linux_compiler import LinuxCompiler
 
 from .block import Block
+from .function import Function
 from .scope import Scope
 
 _ENTRY_LABEL_NAME = "entry"
@@ -43,7 +44,13 @@ class Compiler:
     # All blocks ever created by this compiler.
     blocks: list[Block] = field(init=False, default_factory=list)
 
-    code_generator: CodeGenerator = field(init=False)
+    # All functions ever created by this compiler.
+    functions: list[Function] = field(init=False, default_factory=list)
+
+    # TODO: Consolidation around FunctionFactory or something similar.
+
+    # Bytes that must be avoided when generating assembly.
+    bad_bytes: bytes = b""
 
     # Mapping of IR labels to their associated blocks.
     label_map: dict[str, Block] = field(init=False)
@@ -141,6 +148,11 @@ class Compiler:
     def ir_str(self) -> str:
         return "\n".join(str(block) for block in self.blocks)
 
+    def compile(self) -> bytes:
+        code_generator = CodeGenerator(bad_bytes=self.bad_bytes)
+        # XXX: Should functions be passed here, or some other construct?
+        return code_generator.emit_asm(self.functions)
+
     @contextmanager
     def current_block_as(self, block: Block) -> Iterator[Block]:
         """Context manager to set the compiler's current block."""
@@ -193,19 +205,21 @@ class Compiler:
         self.add_operation(branch)
 
     def add_operation(self, operation: IrBranch | IrOperation):
-        """Interface for adding a raw TODO."""
+        """Interface for adding a raw operation to the current block."""
         self.current_block.add_operation(operation)
 
     @overload
     @staticmethod
-    def from_str(platform_spec: Literal["linux/x86_64"]) -> "LinuxCompiler": ...
+    def from_str(
+        platform_spec: Literal["linux/x86_64"], bad_bytes: bytes = b""
+    ) -> "LinuxCompiler": ...
 
     @overload
     @staticmethod
-    def from_str(platform_spec: str) -> Compiler: ...
+    def from_str(platform_spec: str, bad_bytes: bytes = b"") -> Compiler: ...
 
     @staticmethod
-    def from_str(platform_spec: str) -> Compiler:
+    def from_str(platform_spec: str, bad_bytes: bytes = b"") -> Compiler:
         parts = platform_spec.split("/")
         if len(parts) != 2:
             raise Int3ArgumentError(f"Invalid platform spec: {platform_spec}")
@@ -222,4 +236,4 @@ class Compiler:
                 raise Int3ArgumentError(f"Unknown platform string {os_name}")
 
         arch = Architectures.from_str(parts[1])
-        return compiler_cls(arch)
+        return compiler_cls(arch=arch, bad_bytes=bad_bytes)

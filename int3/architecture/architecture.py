@@ -39,6 +39,9 @@ class Architecture:
     linux_kernel_name: str
     ghidra_name: str
 
+    sp_reg: str
+    gp_regs: tuple[str, ...]
+
     byte_size: int = field(init=False)
 
     BITS_IN_A_BYTE: ClassVar[int] = 8
@@ -129,6 +132,8 @@ class Architectures(Enum):
         qemu_name="i386",
         linux_kernel_name="i386",
         ghidra_name="x86:LE:32:default",
+        sp_reg="TODO",
+        gp_regs=("TODO",),
     )
     x86_64 = Architecture(
         name="x86_64",
@@ -139,6 +144,24 @@ class Architectures(Enum):
         qemu_name="x86_64",
         linux_kernel_name="x86_64",
         ghidra_name="x86:LE:64:default",
+        sp_reg="rsp",
+        gp_regs=(
+            "rax",
+            "rbx",
+            "rcx",
+            "rdx",
+            "rdi",
+            "rsi",
+            "rbp",
+            "r8",
+            "r9",
+            "r10",
+            "r11",
+            "r12",
+            "r13",
+            "r14",
+            "r15",
+        ),
     )
     Mips = Architecture(
         name="mips",
@@ -149,6 +172,8 @@ class Architectures(Enum):
         qemu_name="mips",
         linux_kernel_name="mipso32",
         ghidra_name="MIPS:BE:32:default",
+        sp_reg="TODO",
+        gp_regs=("TODO",),
     )
 
     @staticmethod
