@@ -71,7 +71,7 @@ class Block:
         return block_text
 
     def __enter__(self) -> Block:
-        self.current_block_cm = self.compiler.current_block_as(self)
+        self.current_block_cm = self.compiler._current_block_as(self)
         return self.current_block_cm.__enter__()
 
     def __exit__(

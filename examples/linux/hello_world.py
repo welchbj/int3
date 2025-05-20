@@ -1,10 +1,9 @@
 from int3 import Compiler
 
-
 cc = Compiler.from_str("linux/x86_64", bad_bytes=b"\x00")
 
 
-with cc.func.entry():
+with cc.func.main():
     my_var = cc.i(0xDEADBEEF)
     cc.mov(my_var, 0xD00D)
 

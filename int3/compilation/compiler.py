@@ -7,14 +7,13 @@ from typing import TYPE_CHECKING, Iterator, Literal, overload
 
 from int3.architecture import Architecture, Architectures
 from int3.codegen import CodeGenerator
-from int3.errors import Int3ArgumentError, Int3InsufficientWidthError
+from int3.errors import Int3ArgumentError, Int3ContextError, Int3InsufficientWidthError
 from int3.ir import (
     AnyBytesType,
     AnyIntType,
     IrBranch,
     IrConstant,
     IrIntConstant,
-    IrIntType,
     IrIntVariable,
     IrOperation,
     IrOperator,
@@ -25,82 +24,40 @@ if TYPE_CHECKING:
     from ._linux_compiler import LinuxCompiler
 
 from .block import Block
-from .function import Function
+from .function import Function, FunctionFactory
 from .scope import Scope
-
-_ENTRY_LABEL_NAME = "entry"
 
 
 @dataclass
 class Compiler:
     arch: Architecture
 
-    # The entrypoint of the program.
-    entry: Block = field(init=False)
-
-    # The stack used to maintain the concept of the compiler's "current" block.
-    block_stack: list[Block] = field(init=False)
-
-    # All blocks ever created by this compiler.
-    blocks: list[Block] = field(init=False, default_factory=list)
-
-    # All functions ever created by this compiler.
-    functions: list[Function] = field(init=False, default_factory=list)
-
-    # TODO: Consolidation around FunctionFactory or something similar.
+    # The name of the entrypoint function for the compiler.
+    entry: str = "main"
 
     # Bytes that must be avoided when generating assembly.
     bad_bytes: bytes = b""
 
+    # Interface for creating functions on this compiler.
+    func: FunctionFactory = field(init=False)
+
     # Mapping of IR labels to their associated blocks.
     label_map: dict[str, Block] = field(init=False)
 
+    # The function this compiler is currently operating on.
+    _current_func: Function | None = field(init=False, default=None)
+
     def __post_init__(self):
-        self.entry = Block(
-            compiler=self, scope_stack=[Scope()], label=_ENTRY_LABEL_NAME
-        )
-        self.blocks = [self.entry]
-        self.block_stack = [self.entry]
-        self.label_map = {_ENTRY_LABEL_NAME: self.entry}
+        self.func = FunctionFactory(compiler=self)
 
     @property
-    def current_block(self) -> Block:
-        """The IR block the compiler is currently operating on.
+    def current_func(self) -> Function:
+        if self._current_func is None:
+            raise Int3ContextError(
+                "Attempted to modify program definition without a current function set"
+            )
 
-        Most user-facing compiler operations will implicitly modify the block
-        this property references.
-
-        """
-        return self.block_stack[-1]
-
-    def _spawn_block(
-        self,
-        new_scope: bool = True,
-        inherit_scope: bool = True,
-        base_block: Block | None = None,
-        name_hint: str | None = None,
-    ) -> Block:
-        if name_hint is None:
-            name_hint = "block"
-
-        if base_block is None:
-            base_block = self.current_block
-
-        if inherit_scope:
-            scope_stack = list(base_block.scope_stack)
-        else:
-            scope_stack = []
-
-        if new_scope:
-            scope_stack.append(Scope())
-
-        new_label = self._make_unique_label(name_hint)
-        new_block = Block(compiler=self, scope_stack=scope_stack, label=new_label)
-
-        self.label_map[new_label] = new_block
-        self.blocks.append(new_block)
-
-        return new_block
+        return self._current_func
 
     def _make_unique_label(self, hint: str) -> str:
         """Generate a label with a unique name.
@@ -127,13 +84,25 @@ class Compiler:
             )
 
         new_var = IrIntVariable(signed=signed, bit_size=bit_size)
-        self.current_block.lowest_scope.add_var(new_var)
+        self._current_func.current_block.lowest_scope.add_var(new_var)
         if value is not None:
             self.mov(
                 new_var, IrIntConstant(signed=signed, bit_size=bit_size, value=value)
             )
 
         return new_var
+
+    @contextmanager
+    def _current_function_as(self, func: Function) -> Iterator[Function]:
+        """Context manager to set the compiler's current function."""
+        if self._current_func is not None:
+            raise Int3ContextError("Cannot have nested current functions")
+
+        self._current_func = func
+        try:
+            yield func
+        finally:
+            self._current_func = None
 
     def i(self, value: int | None = None) -> IrIntVariable:
         """Create a signed int var for the architecture's native bit width."""
@@ -146,34 +115,23 @@ class Compiler:
         )
 
     def ir_str(self) -> str:
-        return "\n".join(str(block) for block in self.blocks)
+        return "\n".join(str(func) for func in self.func.func_map.values())
 
     def compile(self) -> bytes:
-        code_generator = CodeGenerator(bad_bytes=self.bad_bytes)
-        # XXX: Should functions be passed here, or some other construct?
-        return code_generator.emit_asm(self.functions)
-
-    @contextmanager
-    def current_block_as(self, block: Block) -> Iterator[Block]:
-        """Context manager to set the compiler's current block."""
-        self.block_stack.append(block)
-
-        try:
-            yield block
-        finally:
-            self.block_stack.pop()
+        # TODO: Error if there's no entrypoint defined.
+        return CodeGenerator(self).emit_asm()
 
     @contextmanager
     def if_else(self, branch: IrBranch) -> Iterator[tuple[Block, Block]]:
-        if_else_block = self._spawn_block(name_hint="branch")
-        inner_if_block = self._spawn_block(
+        if_else_block = self.current_func._spawn_block(name_hint="branch")
+        inner_if_block = self.current_func._spawn_block(
             base_block=if_else_block, name_hint=f"{if_else_block.label}_if"
         )
-        inner_else_block = self._spawn_block(
+        inner_else_block = self.current_func._spawn_block(
             base_block=if_else_block, name_hint=f"{if_else_block.label}_else"
         )
 
-        with self.current_block_as(if_else_block):
+        with self.current_func._current_block_as(if_else_block):
             self._branch_if_else(branch, inner_if_block, inner_else_block)
             yield inner_if_block, inner_else_block
 
@@ -200,13 +158,13 @@ class Compiler:
 
     def call(self, target: Block): ...
 
+    def add_operation(self, operation: IrBranch | IrOperation):
+        """Interface for adding a raw operation to the current block."""
+        self.current_func.current_block.add_operation(operation)
+
     def _branch_if_else(self, branch: IrBranch, if_target: Block, else_target: Block):
         branch.set_targets(if_target.label, else_target.label)
         self.add_operation(branch)
-
-    def add_operation(self, operation: IrBranch | IrOperation):
-        """Interface for adding a raw operation to the current block."""
-        self.current_block.add_operation(operation)
 
     @overload
     @staticmethod

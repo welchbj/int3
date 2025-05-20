@@ -1,5 +1,4 @@
 from .branch import IrBranch, IrBranchOperator
-from .function import IrFunction
 from .jump import IrJump
 from .operation import IrOperation, IrOperator
 from .struct import IrStruct

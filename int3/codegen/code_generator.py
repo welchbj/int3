@@ -4,18 +4,20 @@ from typing import TYPE_CHECKING
 from int3.ir import IrBranch, IrOperation
 
 from .gadget import Gadget
-from .implication import Implication, ImmediateImplication, RegisterImplication
+from .implication import ImmediateImplication, Implication, RegisterImplication
 
 if TYPE_CHECKING:
-    from int3.compilation import Block, Function
+    from int3.compilation import Block, Compiler, Function
 
 
 @dataclass
 class CodeGenerator:
-    bad_bytes: bytes
-    gadgets: list[Gadget]
+    compiler: "Compiler"
 
-    def emit_asm(self, function: list["Function"]) -> bytes:
+    # TODO: Probably need some kind of GadgetCollection concept
+    # gadgets: list[Gadget]
+
+    def emit_asm(self) -> bytes:
         # Process blocks into a half-compiled form. We hold off on finalizing
         # branches, jumps, and calls, as we might be able to re-arrange them
         # to avoid bad byte constraints.
