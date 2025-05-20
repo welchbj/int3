@@ -22,9 +22,7 @@ class QemuResult:
 
 
 QEMU_ARCHES = [
-    arch.value
-    for arch in Architectures
-    if arch.value.qemu_name != "unsupported"
+    arch.value for arch in Architectures if arch.value.qemu_name != "unsupported"
 ]
 
 
@@ -35,9 +33,7 @@ def _name_getter(obj):
 parametrize_qemu_arch = pytest.mark.parametrize("arch", QEMU_ARCHES, ids=_name_getter)
 
 
-def compile_src(
-    arch: Architecture, in_file: Path, out_file: Path, static: bool = True
-):
+def compile_src(arch: Architecture, in_file: Path, out_file: Path, static: bool = True):
     cc_bin = f"{arch.toolchain_triple}-gcc"
     if (cc_path := shutil.which(cc_bin)) is None:
         pytest.fail(f"No available gcc binary {cc_bin}")
