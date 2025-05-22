@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from types import TracebackType
 from typing import TYPE_CHECKING, ContextManager
 
+from int3._interfaces import PrintableIr
 from int3.errors import Int3MissingEntityError
 from int3.ir import IrBranch, IrOperation, IrVariable
 
@@ -13,7 +14,7 @@ if TYPE_CHECKING:
 
 
 @dataclass
-class Block:
+class Block(PrintableIr):
     compiler: "Compiler"
     scope_stack: list["Scope"]
     operations: list[IrBranch | IrOperation] = field(init=False, default_factory=list)
@@ -61,17 +62,18 @@ class Block:
 
         self.operations.append(operation)
 
-    def __str__(self) -> str:
-        block_text = f"{self.label}:\n"
+    def to_str(self, indent: int = 0) -> str:
+        indent_str = self.indent_str(indent)
+        block_text = f"{indent_str}{self.label}:\n"
 
         for operation in self.operations:
-            block_text += f"    {str(operation)}"
+            block_text += operation.to_str(indent=indent + 1)
             block_text += "\n"
 
         return block_text
 
     def __enter__(self) -> Block:
-        self.current_block_cm = self.compiler._current_block_as(self)
+        self.current_block_cm = self.compiler.current_func._current_block_as(self)
         return self.current_block_cm.__enter__()
 
     def __exit__(

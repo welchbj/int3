@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from types import TracebackType
 from typing import TYPE_CHECKING, ContextManager, Iterator
 
+from int3._interfaces import PrintableIr
+
 from .block import Block
 from .scope import Scope
 
@@ -16,28 +18,28 @@ _ENTRY_LABEL_NAME = "entry"
 
 
 @dataclass
-class Function:
+class Function(PrintableIr):
     compiler: "Compiler"
     name: str
 
     # Entrypoint block for this function.
     entry: Block = field(init=False)
 
-    # The stack used to maintain the concept of the compiler's "current" block.
+    # The stack used to maintain the concept of the function's "current" block.
     block_stack: list[Block] = field(init=False)
 
-    # All blocks ever created by this compiler.
+    # All blocks contained within this function.
     blocks: list[Block] = field(init=False, default_factory=list)
 
     # Internal context manager used to manage shared lifetimes between function
     # and compiler utilities.
-    current_function_cm: ContextManager[Function] | None = field(
+    _current_function_cm: ContextManager[Function] | None = field(
         init=False, default=None
     )
 
     def __post_init__(self):
         self.entry = Block(
-            compiler=self, scope_stack=[Scope()], label=_ENTRY_LABEL_NAME
+            compiler=self.compiler, scope_stack=[Scope()], label=_ENTRY_LABEL_NAME
         )
         self.blocks = [self.entry]
         self.block_stack = [self.entry]
@@ -51,6 +53,15 @@ class Function:
 
         """
         return self.block_stack[-1]
+
+    def to_str(self, indent: int = 0) -> str:
+        indent_str = self.indent_str(indent)
+
+        text = f"{indent_str}func {self.name}:\n"
+        for block in self.blocks:
+            text += block.to_str(indent=indent + 1)
+
+        return text
 
     def _spawn_block(
         self,
@@ -74,7 +85,9 @@ class Function:
             scope_stack.append(Scope())
 
         new_label = self.compiler._make_unique_label(name_hint)
-        new_block = Block(compiler=self, scope_stack=scope_stack, label=new_label)
+        new_block = Block(
+            compiler=self.compiler, scope_stack=scope_stack, label=new_label
+        )
         self.compiler.label_map[new_label] = new_block
         self.blocks.append(new_block)
 
@@ -91,8 +104,8 @@ class Function:
             self.block_stack.pop()
 
     def __enter__(self) -> Function:
-        self.current_function_cm = self.compiler._current_function_as(self)
-        return self.current_function_cm.__enter__()
+        self._current_function_cm = self.compiler._current_function_as(self)
+        return self._current_function_cm.__enter__()
 
     def __exit__(
         self,
@@ -100,11 +113,23 @@ class Function:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if self.current_function_cm is None:
+        if self._current_function_cm is None:
             raise RuntimeError("This should be unreachable!")
         else:
-            self.current_function_cm.__exit__(None, None, None)
-            self.current_function_cm = None
+            self._current_function_cm.__exit__(None, None, None)
+            self._current_function_cm = None
+
+
+@dataclass
+class PartialFunctionDef:
+    name: str
+
+    factory: FunctionFactory
+
+    def __call__(self) -> Function:
+        new_func = Function(compiler=self.factory.compiler, name=self.name)
+        self.factory.func_map[self.name] = new_func
+        return new_func
 
 
 @dataclass
@@ -113,7 +138,5 @@ class FunctionFactory:
 
     func_map: dict[str, Function] = field(init=False, default_factory=dict)
 
-    def __getattr__(self, attr: str) -> Function:
-        new_func = Function(compiler=self.compiler, name=attr)
-        # TODO
-        1 / 0
+    def __getattr__(self, attr: str) -> PartialFunctionDef:
+        return PartialFunctionDef(name=attr, factory=self)

@@ -2,13 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from int3._interfaces import PrintableIr
+
 from .branch import IrBranch, IrBranchOperator
 
 VAR_UNNAMED = "<<unnamed>>"
 
 
 @dataclass
-class IrIntVariable:
+class IrIntVariable(PrintableIr):
     signed: bool
     bit_size: int
 
@@ -37,8 +39,9 @@ class IrIntVariable:
         else:
             return var
 
-    def __str__(self) -> str:
-        return f"{self.name}/{self.type_str}"
+    def to_str(self, indent: int = 0) -> str:
+        indent_str = self.indent_str(indent)
+        return f"{indent_str}{self.name}/{self.type_str}"
 
     def __lt__(self, other: AnyIntType) -> IrBranch:
         other_var = self._ensure_int_var(other)
@@ -96,8 +99,9 @@ class IrBytesVariable:
 class IrIntConstant(IrIntVariable):
     value: int
 
-    def __str__(self) -> str:
-        return f"{self.value:#x}/{self.type_str}"
+    def to_str(self, indent: int = 0) -> str:
+        indent_str = self.indent_str(indent)
+        return f"{indent_str}{self.value:#x}/{self.type_str}"
 
 
 @dataclass

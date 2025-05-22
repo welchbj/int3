@@ -18,9 +18,11 @@ class CodeGenerator:
     # gadgets: list[Gadget]
 
     def emit_asm(self) -> bytes:
-        # Process blocks into a half-compiled form. We hold off on finalizing
+        # Process each function into a half-compiled form. We hold off on finalizing
         # branches, jumps, and calls, as we might be able to re-arrange them
         # to avoid bad byte constraints.
+        for function in self.compiler.func.func_map.items():
+            print(function)
         # TODO
 
         # Re-arrange blocks to avoid bad bytes in relocations.

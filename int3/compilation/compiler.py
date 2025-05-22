@@ -42,7 +42,7 @@ class Compiler:
     func: FunctionFactory = field(init=False)
 
     # Mapping of IR labels to their associated blocks.
-    label_map: dict[str, Block] = field(init=False)
+    label_map: dict[str, Block] = field(init=False, default_factory=dict)
 
     # The function this compiler is currently operating on.
     _current_func: Function | None = field(init=False, default=None)
@@ -84,7 +84,7 @@ class Compiler:
             )
 
         new_var = IrIntVariable(signed=signed, bit_size=bit_size)
-        self._current_func.current_block.lowest_scope.add_var(new_var)
+        self.current_func.current_block.lowest_scope.add_var(new_var)
         if value is not None:
             self.mov(
                 new_var, IrIntConstant(signed=signed, bit_size=bit_size, value=value)

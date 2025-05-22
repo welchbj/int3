@@ -16,4 +16,5 @@ with cc.func.main():
     # status = cc.sys_write(1, b"Hello, world!")
 
 print(cc.ir_str())
-print(cc.compile())
+print("=" * 80)
+# print(cc.compile())
