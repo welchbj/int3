@@ -5,6 +5,7 @@ from typing import BinaryIO
 import click
 
 from int3.architecture import Architecture, Architectures
+from int3.assembly import assemble, disassemble
 from int3.errors import Int3Error
 from int3.execution import execute
 from int3.format import FormatStyle, Formatter
@@ -48,10 +49,10 @@ file_or_stdin_input_option = click.option(
     default=sys.stdin.buffer,
 )
 
-arch_meta_option = click.option(
+arch_option = click.option(
     "--architecture",
     "-a",
-    "arch_meta",
+    "arch",
     help="Target architecture.",
     type=click.Choice(Architectures.names()),
     callback=_architecture_from_str,
@@ -96,62 +97,56 @@ debug_option = click.option(
 
 @cli.command("assemble")
 @file_or_stdin_input_option
-@arch_meta_option
+@arch_option
 @debug_option
-def cli_assemble(input_file: BinaryIO, arch_meta: Architecture, debug: bool):
-    # _setup_logging(debug)
+def cli_assemble(input_file: BinaryIO, arch: Architecture, debug: bool):
+    _setup_logging(debug)
 
-    # with input_file:
-    #     asm_text: str = input_file.read().decode()
+    with input_file:
+        asm_text: str = input_file.read().decode()
 
-    # asm_bytes = assemble(arch_meta=arch_meta, assembly=asm_text)
-    # click.echo(asm_bytes, nl=False)
-
-    ...
+    asm_bytes = assemble(arch=arch, assembly=asm_text)
+    click.echo(asm_bytes, nl=False)
 
 
 @cli.command("assemble_repl")
-@arch_meta_option
+@arch_option
 @debug_option
-def cli_assemble_repl(arch_meta: Architecture, debug: bool):
-    # _setup_logging(debug)
+def cli_assemble_repl(arch: Architecture, debug: bool):
+    _setup_logging(debug)
 
-    # # Attempt to import readline to provide history capability to input().
-    # try:
-    #     import readline  # noqa
-    # except ImportError:
-    #     pass
+    # Attempt to import readline to provide history capability to input().
+    try:
+        import readline  # noqa
+    except ImportError:
+        pass
 
-    # formatter = Formatter(style_in=FormatStyle.Raw, style_out=FormatStyle.Python)
+    formatter = Formatter(style_in=FormatStyle.Raw, style_out=FormatStyle.Python)
 
-    # while True:
-    #     try:
-    #         asm_text = input(">>> ")
-    #         asm_bytes = assemble(arch_meta=arch_meta, assembly=asm_text)
-    #         click.echo(formatter.format(asm_bytes))
-    #     except Int3Error as e:
-    #         click.echo(f"Error: {e}")
-    #     except KeyboardInterrupt:
-    #         click.echo("Quitting!")
-    #         break
-
-    ...
+    while True:
+        try:
+            asm_text = input(">>> ")
+            asm_bytes = assemble(arch=arch, assembly=asm_text)
+            click.echo(formatter.format(asm_bytes))
+        except Int3Error as e:
+            click.echo(f"Error: {e}")
+        except KeyboardInterrupt:
+            click.echo("Quitting!")
+            break
 
 
 @cli.command("disassemble")
 @file_or_stdin_input_option
-@arch_meta_option
+@arch_option
 @debug_option
-def cli_disassemble(input_file: BinaryIO, arch_meta: Architecture, debug: bool):
-    # _setup_logging(debug)
+def cli_disassemble(input_file: BinaryIO, arch: Architecture, debug: bool):
+    _setup_logging(debug)
 
-    # with input_file:
-    #     machine_code: bytes = input_file.read()
+    with input_file:
+        machine_code: bytes = input_file.read()
 
-    # asm_text = disassemble(arch_meta=arch_meta, machine_code=machine_code)
-    # click.echo(asm_text)
-
-    ...
+    asm_text = disassemble(arch=arch, machine_code=machine_code)
+    click.echo(asm_text)
 
 
 @cli.command("format")

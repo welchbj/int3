@@ -5,6 +5,23 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import ClassVar, cast
 
+from capstone import (
+    CS_ARCH_MIPS,
+    CS_ARCH_X86,
+    CS_MODE_32,
+    CS_MODE_64,
+    CS_MODE_BIG_ENDIAN,
+    CS_MODE_MIPS32,
+)
+from keystone import (
+    KS_ARCH_MIPS,
+    KS_ARCH_X86,
+    KS_MODE_32,
+    KS_MODE_64,
+    KS_MODE_BIG_ENDIAN,
+    KS_MODE_MIPS32,
+)
+
 from int3.errors import (
     Int3ArgumentError,
     Int3InsufficientWidthError,
@@ -38,6 +55,12 @@ class Architecture:
     qemu_name: str
     linux_kernel_name: str
     ghidra_name: str
+
+    keystone_arch: int
+    keystone_mode: int
+
+    capstone_arch: int
+    capstone_mode: int
 
     sp_reg: str
     gp_regs: tuple[str, ...]
@@ -132,6 +155,10 @@ class Architectures(Enum):
         qemu_name="i386",
         linux_kernel_name="i386",
         ghidra_name="x86:LE:32:default",
+        keystone_arch=KS_ARCH_X86,
+        keystone_mode=KS_MODE_32,
+        capstone_arch=CS_ARCH_X86,
+        capstone_mode=CS_MODE_32,
         sp_reg="TODO",
         gp_regs=("TODO",),
     )
@@ -144,6 +171,10 @@ class Architectures(Enum):
         qemu_name="x86_64",
         linux_kernel_name="x86_64",
         ghidra_name="x86:LE:64:default",
+        keystone_arch=KS_ARCH_X86,
+        keystone_mode=KS_MODE_64,
+        capstone_arch=CS_ARCH_X86,
+        capstone_mode=CS_MODE_64,
         sp_reg="rsp",
         gp_regs=(
             "rax",
@@ -172,6 +203,10 @@ class Architectures(Enum):
         qemu_name="mips",
         linux_kernel_name="mipso32",
         ghidra_name="MIPS:BE:32:default",
+        keystone_arch=KS_ARCH_MIPS,
+        keystone_mode=KS_MODE_MIPS32 + KS_MODE_BIG_ENDIAN,
+        capstone_arch=CS_ARCH_MIPS,
+        capstone_mode=CS_MODE_MIPS32 + CS_MODE_BIG_ENDIAN,
         sp_reg="TODO",
         gp_regs=("TODO",),
     )
