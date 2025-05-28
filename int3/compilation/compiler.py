@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import random
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -26,6 +27,8 @@ if TYPE_CHECKING:
 from .block import Block
 from .function import Function, FunctionFactory
 from .scope import Scope
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -73,6 +76,7 @@ class Compiler:
             if maybe_label in self.label_map.keys():
                 continue
 
+            logging.debug(f"Created label {maybe_label}")
             return maybe_label
 
     def _make_int_var(
