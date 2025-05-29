@@ -4,8 +4,8 @@ cc = Compiler.from_str("linux/x86_64", bad_bytes=b"\x00")
 
 
 with cc.func.main():
-    my_var = cc.i(0xDEADBEEF)
-    cc.mov(my_var, 0xD00D)
+    my_var = cc.i()
+    cc.mov(my_var, 0xDEADBEEF)
 
     with cc.if_else(my_var < 0xCAFEBABE) as (if_, else_):
         with if_:
@@ -17,4 +17,5 @@ with cc.func.main():
 
 print(cc.ir_str())
 print("=" * 80)
-# print(cc.compile())
+cc.flatten()
+print(cc.ir_str())

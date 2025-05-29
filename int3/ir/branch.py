@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from int3._interfaces import PrintableIr
 
 if TYPE_CHECKING:
-    from .variable import IrVariable
+    from .variable import AnyIrType
 
 
 class IrBranchOperator(Enum):
@@ -19,7 +19,7 @@ LABEL_UNSET = "<<unset>>"
 @dataclass
 class IrBranch(PrintableIr):
     operator: IrBranchOperator
-    args: list["IrVariable"]
+    args: list["AnyIrType"]
 
     if_target: str = LABEL_UNSET
     else_target: str = LABEL_UNSET

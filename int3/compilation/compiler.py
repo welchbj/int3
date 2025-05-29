@@ -13,7 +13,6 @@ from int3.ir import (
     AnyBytesType,
     AnyIntType,
     IrBranch,
-    IrConstant,
     IrIntConstant,
     IrIntVariable,
     IrOperation,
@@ -25,6 +24,7 @@ if TYPE_CHECKING:
     from ._linux_compiler import LinuxCompiler
 
 from .block import Block
+from .flattener import Flattener
 from .function import Function, FunctionFactory
 from .scope import Scope
 
@@ -81,20 +81,24 @@ class Compiler:
 
     def _make_int_var(
         self, signed: bool, bit_size: int, value: int | None = None
-    ) -> IrIntVariable:
+    ) -> IrIntVariable | IrIntConstant:
         if bit_size > self.arch.bit_size:
             raise Int3InsufficientWidthError(
                 f"Cannot represent values of width {bit_size} on arch {self.arch.name}"
             )
 
-        new_var = IrIntVariable(signed=signed, bit_size=bit_size)
-        self.current_func.current_block.lowest_scope.add_var(new_var)
         if value is not None:
-            self.mov(
-                new_var, IrIntConstant(signed=signed, bit_size=bit_size, value=value)
+            return IrIntConstant(
+                compiler=self, signed=signed, bit_size=bit_size, value=value
             )
-
-        return new_var
+        else:
+            scope = self.current_func.current_block.lowest_scope
+            new_var_name = scope.allocate_var_name(prefix="var")
+            new_var = IrIntVariable(
+                compiler=self, name=new_var_name, signed=signed, bit_size=bit_size
+            )
+            scope.add_var(new_var)
+            return new_var
 
     @contextmanager
     def _current_function_as(self, func: Function) -> Iterator[Function]:
@@ -108,12 +112,24 @@ class Compiler:
         finally:
             self._current_func = None
 
-    def i(self, value: int | None = None) -> IrIntVariable:
-        """Create a signed int var for the architecture's native bit width."""
+    @overload
+    def i(self, value: int) -> IrIntConstant: ...
+
+    @overload
+    def i(self, value: None = None) -> IrIntVariable: ...
+
+    def i(self, value: int | None = None) -> IrIntVariable | IrIntConstant:
+        """Create a signed int variable or constant for the architecture's native bit width."""
         return self._make_int_var(signed=True, bit_size=self.arch.bit_size, value=value)
 
-    def u(self, value: int | None = None) -> IrIntVariable:
-        """Create an unsigned int var for the architecture's native bit width."""
+    @overload
+    def u(self, value: int) -> IrIntConstant: ...
+
+    @overload
+    def u(self, value: None = None) -> IrIntVariable: ...
+
+    def u(self, value: int | None = None) -> IrIntVariable | IrIntConstant:
+        """Create an unsigned int variable or constant for the architecture's native bit width."""
         return self._make_int_var(
             signed=False, bit_size=self.arch.bit_size, value=value
         )
@@ -121,9 +137,15 @@ class Compiler:
     def ir_str(self) -> str:
         return "\n".join(str(func) for func in self.func.func_map.values())
 
+    def flatten(self) -> str:
+        # TODO
+        pass
+
     def compile(self) -> bytes:
         # TODO: Error if there's no entrypoint defined.
-        return CodeGenerator(self).emit_asm()
+
+        Flattener(self).flatten()
+        return b""
 
     @contextmanager
     def if_else(self, branch: IrBranch) -> Iterator[tuple[Block, Block]]:
@@ -153,14 +175,6 @@ class Compiler:
         )
 
         dest.is_unbound = False
-
-    def add(self, dest: IrVariable, one: IrVariable, two: IrVariable | IrConstant): ...
-
-    def xor(self, dest: IrVariable, one: IrVariable, two: IrVariable | IrConstant): ...
-
-    def sub(self, dest: IrVariable, one: IrVariable, two: IrVariable | IrConstant): ...
-
-    def call(self, target: Block): ...
 
     def add_operation(self, operation: IrBranch | IrOperation):
         """Interface for adding a raw operation to the current block."""

@@ -7,9 +7,6 @@ from typing import TYPE_CHECKING
 from int3.architecture import Architecture
 from int3.ir import IrBranch, IrOperation
 
-from .gadget import Gadget
-from .implication import ImmediateImplication, Implication, RegisterImplication
-
 if TYPE_CHECKING:
     from int3.compilation import Block, Compiler, Function
 
@@ -18,13 +15,28 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
-class CodeGenerator:
+class FlattenedFunction:
+    # TODO
+    pass
+
+
+@dataclass
+class FlattenedBlock:
+    # TODO
+    pass
+
+
+@dataclass
+class VirtualRegister:
+    # TODO
+    pass
+
+
+@dataclass
+class Flattener:
     compiler: "Compiler"
 
-    # TODO: Probably need some kind of GadgetCollection concept
-    # gadgets: list[Gadget]
-
-    def emit_asm(self) -> bytes:
+    def flatten(self):
         # XXX: Can we translate the functions into a sequence of gadgets with
         #      "register holes"? We can then leverage gadget implications to
         #      ascertain the set of allowable registers.
@@ -43,4 +55,13 @@ class CodeGenerator:
         #      We should also cleanup the compiler/block/function semantics around
         #      variable name / label generation and the semantics around variables
         #      vs constants.
-        return b"TODO"
+
+        for func_name, func in self.compiler.func.func_map.items():
+            self._
+            # XXX
+
+    def _flatten_func(self, func: Function):
+        logger.debug(f"Starting function flatten on {func.name}...")
+
+        # TODO
+        pass

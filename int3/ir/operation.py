@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from int3._interfaces import PrintableIr
 
 if TYPE_CHECKING:
-    from .variable import IrVariable
+    from .variable import AnyIrType, IrVariable
 
 
 class IrOperator(Enum):
@@ -14,13 +14,16 @@ class IrOperator(Enum):
     Sub = auto()
     Xor = auto()
     Syscall = auto()
+    Birth = auto()
+    Kill = auto()
+    Lock = auto()
 
 
 @dataclass
 class IrOperation(PrintableIr):
     operator: IrOperator
     result: "IrVariable"
-    args: list["IrVariable"]
+    args: list["AnyIrType"]
 
     def to_str(self, indent: int = 0) -> str:
         indent_str = self.indent_str(indent)

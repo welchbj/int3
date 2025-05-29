@@ -3,9 +3,9 @@ from .jump import IrJump
 from .operation import IrOperation, IrOperator
 from .struct import IrStruct
 from .variable import (
-    VAR_UNNAMED,
     AnyBytesType,
     AnyIntType,
+    AnyIrType,
     IrBytesConstant,
     IrBytesType,
     IrBytesVariable,

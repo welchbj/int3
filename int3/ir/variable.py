@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from int3._interfaces import PrintableIr
 
 from .branch import IrBranch, IrBranchOperator
 
-VAR_UNNAMED = "<<unnamed>>"
+if TYPE_CHECKING:
+    from int3.compilation import Compiler
 
 
 @dataclass
-class IrIntVariable(PrintableIr):
+class _IrIntBase:
+    compiler: "Compiler"
     signed: bool
     bit_size: int
-
-    name: str = field(init=False, default=VAR_UNNAMED)
-    is_unbound: bool = field(init=False, default=False)
 
     def is_representable(self, value: int) -> bool:
         if self.signed:
@@ -29,13 +29,17 @@ class IrIntVariable(PrintableIr):
         signedness = "i" if self.signed else "u"
         return f"{signedness}{self.bit_size}"
 
-    @property
-    def is_unnamed(self) -> bool:
-        return self.name == VAR_UNNAMED
+
+@dataclass
+class IrIntVariable(_IrIntBase, PrintableIr):
+    name: str
+    is_unbound: bool = field(init=False, default=False)
 
     def _ensure_int_var(self, var: AnyIntType) -> IrIntType:
         if isinstance(var, int):
-            return IrIntConstant(signed=self.signed, bit_size=self.bit_size, value=var)
+            return self.compiler._make_int_var(
+                signed=self.signed, bit_size=self.bit_size, value=var
+            )
         else:
             return var
 
@@ -51,57 +55,20 @@ class IrIntVariable(PrintableIr):
             args=[self, other_var],
         )
 
-    @staticmethod
-    def i8() -> IrIntVariable:
-        return IrIntVariable(signed=True, bit_size=8)
-
-    @staticmethod
-    def i16() -> IrIntVariable:
-        return IrIntVariable(signed=True, bit_size=16)
-
-    @staticmethod
-    def i32() -> IrIntVariable:
-        return IrIntVariable(signed=True, bit_size=32)
-
-    @staticmethod
-    def i64() -> IrIntVariable:
-        return IrIntVariable(signed=True, bit_size=64)
-
-    @staticmethod
-    def u8() -> IrIntVariable:
-        return IrIntVariable(signed=False, bit_size=8)
-
-    @staticmethod
-    def u16() -> IrIntVariable:
-        return IrIntVariable(signed=False, bit_size=16)
-
-    @staticmethod
-    def u32() -> IrIntVariable:
-        return IrIntVariable(signed=False, bit_size=32)
-
-    @staticmethod
-    def u64() -> IrIntVariable:
-        return IrIntVariable(signed=False, bit_size=64)
-
 
 @dataclass
-class IrBytesVariable:
-    # TODO: Length field
-    name: str = field(init=False, default=VAR_UNNAMED)
-    is_unbound: bool = field(init=False, default=False)
-
-    @property
-    def is_unnamed(self) -> bool:
-        return self.name == VAR_UNNAMED
-
-
-@dataclass
-class IrIntConstant(IrIntVariable):
+class IrIntConstant(_IrIntBase, PrintableIr):
     value: int
 
     def to_str(self, indent: int = 0) -> str:
         indent_str = self.indent_str(indent)
         return f"{indent_str}{self.value:#x}/{self.type_str}"
+
+
+@dataclass
+class IrBytesVariable:
+    name: str
+    is_unbound: bool = field(init=False, default=False)
 
 
 @dataclass
@@ -117,3 +84,4 @@ type IrBytesType = IrBytesConstant | IrBytesVariable
 
 type AnyIntType = IrIntType | int
 type AnyBytesType = IrIntType | bytes
+type AnyIrType = IrBytesType | IrIntType

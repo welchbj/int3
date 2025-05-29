@@ -2,12 +2,13 @@ from dataclasses import dataclass, field
 
 from int3.errors import Int3ArgumentError
 from int3.ir import (
+    AnyIrType,
     IrBytesType,
+    IrIntConstant,
     IrIntType,
     IrIntVariable,
     IrOperation,
     IrOperator,
-    IrVariable,
 )
 from int3.meta import Int3Files
 from int3.platform import LinuxSyscallNumbers
@@ -32,15 +33,15 @@ class LinuxCompiler(Compiler):
         *args: int | bytes | IrIntType | IrBytesType,
         hint: str = "",
     ) -> IrIntVariable:
-        syscall_num_var: IrIntVariable
+        syscall_num_var: IrIntVariable | IrIntConstant
         if isinstance(sys_num, int):
             syscall_num_var = self.i(sys_num)
         else:
             syscall_num_var = sys_num
 
-        syscall_arg_vars: list[IrVariable] = [syscall_num_var]
+        syscall_arg_vars: list[AnyIrType] = [syscall_num_var]
         for arg in args:
-            syscall_arg_var: IrIntVariable
+            syscall_arg_var: IrIntVariable | IrIntConstant
 
             if isinstance(arg, int):
                 syscall_arg_var = self.i(arg)
@@ -54,6 +55,7 @@ class LinuxCompiler(Compiler):
             syscall_arg_vars.append(syscall_arg_var)
 
         syscall_result_var = self.i()
+        # TODO: We should emit Lock instructions to enforce the calling convention.
         self.add_operation(
             IrOperation(
                 operator=IrOperator.Syscall,

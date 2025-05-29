@@ -65,7 +65,6 @@ class Function(PrintableIr):
 
     def _spawn_block(
         self,
-        new_scope: bool = True,
         inherit_scope: bool = True,
         base_block: Block | None = None,
         name_hint: str | None = None,
@@ -81,9 +80,7 @@ class Function(PrintableIr):
         else:
             scope_stack = []
 
-        if new_scope:
-            scope_stack.append(Scope())
-
+        scope_stack.append(Scope())
         new_label = self.compiler._make_unique_label(name_hint)
         new_block = Block(
             compiler=self.compiler, scope_stack=scope_stack, label=new_label

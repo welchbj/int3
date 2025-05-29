@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, ContextManager
 
 from int3._interfaces import PrintableIr
 from int3.errors import Int3MissingEntityError
-from int3.ir import IrBranch, IrOperation, IrVariable
+from int3.ir import IrBranch, IrBytesVariable, IrIntVariable, IrOperation, IrVariable
 
 if TYPE_CHECKING:
     from .compiler import Compiler
@@ -38,21 +38,16 @@ class Block(PrintableIr):
     def add_operation(self, operation: IrBranch | IrOperation):
         """Record an operation or branch on this block.
 
-        This method will enforce some variable naming norms. Namely,
-        unnamed variables will be assigned a name in the current scope
-        and variable names will attempt to be resolved in the current scope.
+        This method will enforce some variable naming norms. Namely, variable names will
+        attempt to be resolved in the current scope.
 
         """
-        # It's possible that there are unnamed variables within the operation's
-        # arguments, such as Python literals that were promoted to IR constants.
-        # Here, we ensure those variables receive names for the current scope.
+        # Validate that all of the operation's variables are resolvable within this block's
+        # scope stack.
         for var in operation.args:
-            if var.is_unnamed:
-                self.lowest_scope.add_var(var)
+            if not isinstance(var, (IrIntVariable, IrBytesVariable)):
+                continue
 
-        # We then validate that all of the operation's variables are resolvable
-        # within this block's scope stack.
-        for var in operation.args:
             try:
                 self.resolve_var(var.name)
             except Int3MissingEntityError as e:

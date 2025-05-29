@@ -6,18 +6,18 @@ from dataclasses import dataclass, field
 
 from int3.errors import (
     Int3ExhaustedEntropyError,
-    Int3IrAlreadyNamedError,
     Int3MissingEntityError,
 )
-from int3.ir import VAR_UNNAMED, IrVariable
+from int3.ir import IrVariable
 
 
 @dataclass
 class Scope:
     var_map: dict[str, IrVariable] = field(init=False, default_factory=dict)
+    reserved_names: set[str] = field(init=False, default_factory=set)
 
-    def _make_var_name(self, prefix: str = "") -> str:
-        """Make a unique variable name for this scope."""
+    def allocate_var_name(self, prefix: str = "") -> str:
+        """Make and reserve a unique variable name for this scope."""
         if prefix:
             prefix = f"{prefix}_"
 
@@ -25,24 +25,20 @@ class Scope:
             suffix = "".join(random.choice(string.hexdigits) for _ in range(4))
 
             name = f"{prefix}{suffix}"
-            if name in self.var_map.keys():
+            if name in self.var_map.keys() or name in self.reserved_names:
                 continue
 
+            self.reserved_names.add(name)
             return name
         else:
             raise Int3ExhaustedEntropyError(
                 f"Unable to generate unique variable name after {i} tries"
             )
 
-    def add_var(self, var: IrVariable) -> str:
-        """Register an IR variable in this scope, assigning (and returning) a name for it."""
-        if var.name != VAR_UNNAMED:
-            raise Int3IrAlreadyNamedError(f"Variable already has name: {var.name}")
-
-        var_name = self._make_var_name(prefix="var")
-        self.var_map[var_name] = var
-        var.name = var_name
-        return var_name
+    def add_var(self, var: IrVariable):
+        """Register an IR variable in this scope."""
+        self.var_map[var.name] = var
+        self.reserved_names.remove(var.name)
 
     def resolve_var(self, name: str) -> IrVariable:
         """Resolve a name into an IR variable within this scope."""
