@@ -15,6 +15,9 @@ class LinuxSyscallNumbers:
             self, "_lookup_map", self._parse_syscall_table(Path(self.table_file_path))
         )
 
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{len(self._lookup_map)} nums]>"
+
     def _parse_syscall_table(self, table_file_path: Path) -> dict[str, int | None]:
         lookup_map = {}
 
