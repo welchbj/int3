@@ -9,19 +9,19 @@ from int3._interfaces import PrintableIr
 from int3.architecture import Architecture
 from int3.ir import (
     HlirAnyType,
-    HlirVariable,
-    HlirConstant,
     HlirBranch,
-    HlirIntVariable,
+    HlirBranchOperator,
+    HlirConstant,
     HlirIntConstant,
+    HlirIntVariable,
     HlirOperation,
     HlirOperator,
-    HlirBranchOperator,
+    HlirVariable,
     LlirAnyType,
+    LlirConstant,
     LlirOperation,
     LlirOperator,
     LlirVirtualRegister,
-    LlirConstant,
 )
 
 if TYPE_CHECKING:
@@ -75,11 +75,11 @@ class FlattenedFunction(PrintableIr):
             vreg_idx += 1
             return new_vreg
 
-        def _map_llir_ops(operator: LlirOperator, vregs: list[LlirVirtualRegister]) -> list[LlirOperation]:
+        def _map_llir_ops(
+            operator: LlirOperator, vregs: list[LlirVirtualRegister]
+        ) -> list[LlirOperation]:
             return [
-                LlirOperation(
-                    operator=operator, result=None, args=(vreg,)
-                )
+                LlirOperation(operator=operator, result=None, args=(vreg,))
                 for vreg in vregs
             ]
 
@@ -89,9 +89,15 @@ class FlattenedFunction(PrintableIr):
             if isinstance(hlir_arg, HlirIntVariable):
                 llir_arg = var_to_vreg_map[hlir_arg.name]
             elif isinstance(hlir_arg, HlirIntConstant):
-                llir_arg = LlirConstant(signed=hlir_arg.signed, bit_size=hlir_arg.bit_size, value=hlir_arg.value)
+                llir_arg = LlirConstant(
+                    signed=hlir_arg.signed,
+                    bit_size=hlir_arg.bit_size,
+                    value=hlir_arg.value,
+                )
             else:
-                raise NotImplementedError(f"HLIR argument translation for {hlir_arg.__class__.__name__} not implemented")
+                raise NotImplementedError(
+                    f"HLIR argument translation for {hlir_arg.__class__.__name__} not implemented"
+                )
 
             return llir_arg
 
@@ -141,7 +147,9 @@ class FlattenedFunction(PrintableIr):
                         # TODO: Need to emit locking.
                         llir_oper = LlirOperator.Syscall
                     case _:
-                        raise NotImplementedError(f"HLIR operator {hlir_op.operator} translation not implemented")
+                        raise NotImplementedError(
+                            f"HLIR operator {hlir_op.operator} translation not implemented"
+                        )
 
                 # Translate HLIR arguments to LLIR.
                 #
@@ -156,7 +164,11 @@ class FlattenedFunction(PrintableIr):
                 else:
                     llir_result = None
 
-                llir_ops.append(LlirOperation(operator=llir_oper, result=llir_result, args=tuple(llir_args)))
+                llir_ops.append(
+                    LlirOperation(
+                        operator=llir_oper, result=llir_result, args=tuple(llir_args)
+                    )
+                )
 
             # Remove this block's reference on each of its potential scopes. For scopes
             # that have had all references removed, we can kill all of their associated vregs.
