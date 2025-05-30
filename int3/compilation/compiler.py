@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import platform
 import random
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -175,6 +176,12 @@ class Compiler:
     def _branch_if_else(self, branch: HlirBranch, if_target: Block, else_target: Block):
         branch.set_targets(if_target.label, else_target.label)
         self.add_operation(branch)
+
+    @staticmethod
+    def from_host(bad_bytes: bytes = b"") -> Compiler:
+        os_type = platform.system().lower()
+        arch = Architectures.from_host().name
+        return Compiler.from_str(f"{os_type}/{arch}", bad_bytes=bad_bytes)
 
     @overload
     @staticmethod
