@@ -30,6 +30,7 @@ from int3.errors import (
 
 from .endian import Endian
 from .instruction_width import InstructionWidth
+from .registers import RegisterDef, Registers
 
 _width_to_format_str_map = {
     0x8: "b",
@@ -62,8 +63,8 @@ class Architecture:
     capstone_arch: int
     capstone_mode: int
 
-    sp_reg: str
-    gp_regs: tuple[str, ...]
+    sp_reg: RegisterDef
+    gp_regs: tuple[RegisterDef, ...]
 
     byte_size: int = field(init=False)
 
@@ -159,8 +160,16 @@ class Architectures(Enum):
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_32,
-        sp_reg="TODO",
-        gp_regs=("TODO",),
+        sp_reg=Registers.x86.esp,
+        gp_regs=(
+            Registers.x86.ebp,
+            Registers.x86.eax,
+            Registers.x86.ebx,
+            Registers.x86.ecx,
+            Registers.x86.edx,
+            Registers.x86.esi,
+            Registers.x86.edi,
+        ),
     )
     x86_64 = Architecture(
         name="x86_64",
@@ -175,23 +184,23 @@ class Architectures(Enum):
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_64,
-        sp_reg="rsp",
+        sp_reg=Registers.x86_64.rsp,
         gp_regs=(
-            "rax",
-            "rbx",
-            "rcx",
-            "rdx",
-            "rdi",
-            "rsi",
-            "rbp",
-            "r8",
-            "r9",
-            "r10",
-            "r11",
-            "r12",
-            "r13",
-            "r14",
-            "r15",
+            Registers.x86_64.rbp,
+            Registers.x86_64.rax,
+            Registers.x86_64.rbx,
+            Registers.x86_64.rcx,
+            Registers.x86_64.rdx,
+            Registers.x86_64.rdi,
+            Registers.x86_64.rsi,
+            Registers.x86_64.r8,
+            Registers.x86_64.r9,
+            Registers.x86_64.r10,
+            Registers.x86_64.r11,
+            Registers.x86_64.r12,
+            Registers.x86_64.r13,
+            Registers.x86_64.r14,
+            Registers.x86_64.r15,
         ),
     )
     Mips = Architecture(
@@ -207,8 +216,37 @@ class Architectures(Enum):
         keystone_mode=KS_MODE_MIPS32 + KS_MODE_BIG_ENDIAN,
         capstone_arch=CS_ARCH_MIPS,
         capstone_mode=CS_MODE_MIPS32 + CS_MODE_BIG_ENDIAN,
-        sp_reg="TODO",
-        gp_regs=("TODO",),
+        sp_reg=Registers.Mips.sp,
+        gp_regs=(
+            Registers.Mips.v0,
+            Registers.Mips.v1,
+            Registers.Mips.a0,
+            Registers.Mips.a1,
+            Registers.Mips.a2,
+            Registers.Mips.a3,
+            Registers.Mips.t0,
+            Registers.Mips.t1,
+            Registers.Mips.t2,
+            Registers.Mips.t3,
+            Registers.Mips.t4,
+            Registers.Mips.t5,
+            Registers.Mips.t6,
+            Registers.Mips.t7,
+            Registers.Mips.t8,
+            Registers.Mips.t9,
+            Registers.Mips.s0,
+            Registers.Mips.s1,
+            Registers.Mips.s2,
+            Registers.Mips.s3,
+            Registers.Mips.s4,
+            Registers.Mips.s5,
+            Registers.Mips.s6,
+            Registers.Mips.s7,
+            Registers.Mips.t8,
+            Registers.Mips.t9,
+            Registers.Mips.k0,
+            Registers.Mips.k1,
+        ),
     )
 
     @staticmethod
