@@ -4,8 +4,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from int3._interfaces import PrintableIr
 from int3.architecture import Architecture
-from int3.ir import IrBranch, IrOperation
+from int3.ir import HlirBranch, HlirOperation, LlirOperation, LlirOperator
 
 if TYPE_CHECKING:
     from int3.compilation import Block, Compiler, Function
@@ -14,54 +15,51 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class FlattenedFunction:
-    # TODO
-    pass
+@dataclass(frozen=True)
+class FlattenedProgram(PrintableIr):
+    functions: tuple[FlattenedFunction, ...]
+
+    def to_str(self, indent: int = 0) -> str:
+        indent_str = self.indent_str(indent)
+        return f"\n{indent_str}".join(str(func) for func in self.functions)
 
 
-@dataclass
-class FlattenedBlock:
-    # TODO
-    pass
+@dataclass(frozen=True)
+class FlattenedFunction(PrintableIr):
+    name: str
+    ops: tuple[LlirOperation, ...]
 
+    def add_operation(self, op: LlirOperation): ...
 
-@dataclass
-class VirtualRegister:
-    # TODO
-    pass
+    @staticmethod
+    def from_func(func: "Function") -> FlattenedFunction:
+        llir_ops: list[LlirOperation] = []
+
+        for block in func.blocks:
+            # TODO
+            pass
+
+        return FlattenedFunction(name=func.name, ops=tuple(llir_ops))
+
+    def to_str(self, indent: int = 0) -> str:
+        indent_str = self.indent_str(indent)
+
+        text = f"{indent_str}func {self.name}:\n"
+        for op in self.ops:
+            text += op.to_str(indent=indent + 1)
+
+        return text
 
 
 @dataclass
 class Flattener:
     compiler: "Compiler"
 
-    def flatten(self):
-        # XXX: Can we translate the functions into a sequence of gadgets with
-        #      "register holes"? We can then leverage gadget implications to
-        #      ascertain the set of allowable registers.
-        #
-        #      So we compile our IR into a lower level variant of the IR, which
-        #      acts on a sequence of infinite registers (this is also a suitable
-        #      abstraction for the bytes data type). We then keep some registers
-        #      "in reserve" for when we eclipse the number of registers available
-        #      for the arch, to be used in stack-referencing helpers.
-        #
-        #      We are still going to have to keep track of scope somehow in order
-        #      to know when we can re-use certain registers. Can we "split" virtual
-        #      registers once they're eligible for re-use? Should we add a pseudo
-        #      instruction to "kill" a virtual register when it goes out of scope?
-        #
-        #      We should also cleanup the compiler/block/function semantics around
-        #      variable name / label generation and the semantics around variables
-        #      vs constants.
+    def flatten(self) -> FlattenedProgram:
+        flattened_functions: list[FlattenedFunction] = []
 
         for func_name, func in self.compiler.func.func_map.items():
-            self._
-            # XXX
+            logger.debug(f"Performing function flatten on {func_name}...")
+            flattened_functions.append(FlattenedFunction.from_func(func))
 
-    def _flatten_func(self, func: Function):
-        logger.debug(f"Starting function flatten on {func.name}...")
-
-        # TODO
-        pass
+        return FlattenedProgram(functions=tuple(flattened_functions))

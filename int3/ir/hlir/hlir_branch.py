@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING
 from int3._interfaces import PrintableIr
 
 if TYPE_CHECKING:
-    from .variable import AnyIrType
+    from .hlir_variable import HlirAnyType
 
 
-class IrBranchOperator(Enum):
+class HlirBranchOperator(Enum):
     LessThan = auto()
     # TODO
 
@@ -17,9 +17,9 @@ LABEL_UNSET = "<<unset>>"
 
 
 @dataclass
-class IrBranch(PrintableIr):
-    operator: IrBranchOperator
-    args: list["AnyIrType"]
+class HlirBranch(PrintableIr):
+    operator: HlirBranchOperator
+    args: list["HlirAnyType"]
 
     if_target: str = LABEL_UNSET
     else_target: str = LABEL_UNSET

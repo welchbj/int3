@@ -5,14 +5,14 @@ from typing import TYPE_CHECKING
 
 from int3._interfaces import PrintableIr
 
-from .branch import IrBranch, IrBranchOperator
+from .hlir_branch import HlirBranch, HlirBranchOperator
 
 if TYPE_CHECKING:
     from int3.compilation import Compiler
 
 
 @dataclass
-class _IrIntBase:
+class _HlirIntBase:
     compiler: "Compiler"
     signed: bool
     bit_size: int
@@ -31,11 +31,11 @@ class _IrIntBase:
 
 
 @dataclass
-class IrIntVariable(_IrIntBase, PrintableIr):
+class HlirIntVariable(_HlirIntBase, PrintableIr):
     name: str
     is_unbound: bool = field(init=False, default=False)
 
-    def _ensure_int_var(self, var: AnyIntType) -> IrIntType:
+    def _ensure_int_var(self, var: HlirAnyIntType) -> HlirIntType:
         if isinstance(var, int):
             return self.compiler._make_int_var(
                 signed=self.signed, bit_size=self.bit_size, value=var
@@ -47,17 +47,17 @@ class IrIntVariable(_IrIntBase, PrintableIr):
         indent_str = self.indent_str(indent)
         return f"{indent_str}{self.name}/{self.type_str}"
 
-    def __lt__(self, other: AnyIntType) -> IrBranch:
+    def __lt__(self, other: HlirAnyIntType) -> HlirBranch:
         other_var = self._ensure_int_var(other)
 
-        return IrBranch(
-            operator=IrBranchOperator.LessThan,
+        return HlirBranch(
+            operator=HlirBranchOperator.LessThan,
             args=[self, other_var],
         )
 
 
 @dataclass
-class IrIntConstant(_IrIntBase, PrintableIr):
+class HlirIntConstant(_HlirIntBase, PrintableIr):
     value: int
 
     def to_str(self, indent: int = 0) -> str:
@@ -66,22 +66,22 @@ class IrIntConstant(_IrIntBase, PrintableIr):
 
 
 @dataclass
-class IrBytesVariable:
+class HlirBytesVariable:
     name: str
     is_unbound: bool = field(init=False, default=False)
 
 
 @dataclass
-class IrBytesConstant(IrBytesVariable):
+class HlirBytesConstant(HlirBytesVariable):
     value: bytes
 
 
-type IrVariable = IrBytesVariable | IrIntVariable
-type IrConstant = IrBytesConstant | IrIntConstant
+type HlirVariable = HlirBytesVariable | HlirIntVariable
+type HlirConstant = HlirBytesConstant | HlirIntConstant
 
-type IrIntType = IrIntConstant | IrIntVariable
-type IrBytesType = IrBytesConstant | IrBytesVariable
+type HlirIntType = HlirIntConstant | HlirIntVariable
+type HlirBytesType = HlirBytesConstant | HlirBytesVariable
 
-type AnyIntType = IrIntType | int
-type AnyBytesType = IrIntType | bytes
-type AnyIrType = IrBytesType | IrIntType
+type HlirAnyIntType = HlirIntType | int
+type HlirAnyBytesType = HlirIntType | bytes
+type HlirAnyType = HlirBytesType | HlirIntType

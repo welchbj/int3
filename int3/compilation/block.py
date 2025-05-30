@@ -6,7 +6,13 @@ from typing import TYPE_CHECKING, ContextManager
 
 from int3._interfaces import PrintableIr
 from int3.errors import Int3MissingEntityError
-from int3.ir import IrBranch, IrBytesVariable, IrIntVariable, IrOperation, IrVariable
+from int3.ir import (
+    HlirBranch,
+    HlirBytesVariable,
+    HlirIntVariable,
+    HlirOperation,
+    HlirVariable,
+)
 
 if TYPE_CHECKING:
     from .compiler import Compiler
@@ -17,7 +23,9 @@ if TYPE_CHECKING:
 class Block(PrintableIr):
     compiler: "Compiler"
     scope_stack: list["Scope"]
-    operations: list[IrBranch | IrOperation] = field(init=False, default_factory=list)
+    operations: list[HlirBranch | HlirOperation] = field(
+        init=False, default_factory=list
+    )
     label: str
 
     current_block_cm: ContextManager[Block] | None = field(init=False, default=None)
@@ -26,7 +34,7 @@ class Block(PrintableIr):
     def lowest_scope(self) -> "Scope":
         return self.scope_stack[-1]
 
-    def resolve_var(self, var_name: str) -> IrVariable:
+    def resolve_var(self, var_name: str) -> HlirVariable:
         for scope in reversed(self.scope_stack):
             try:
                 return scope.resolve_var(var_name)
@@ -35,7 +43,7 @@ class Block(PrintableIr):
         else:
             raise Int3MissingEntityError(f"Unable to resolve var name {var_name}")
 
-    def add_operation(self, operation: IrBranch | IrOperation):
+    def add_operation(self, operation: HlirBranch | HlirOperation):
         """Record an operation or branch on this block.
 
         This method will enforce some variable naming norms. Namely, variable names will
@@ -45,7 +53,7 @@ class Block(PrintableIr):
         # Validate that all of the operation's variables are resolvable within this block's
         # scope stack.
         for var in operation.args:
-            if not isinstance(var, (IrIntVariable, IrBytesVariable)):
+            if not isinstance(var, (HlirIntVariable, HlirBytesVariable)):
                 continue
 
             try:

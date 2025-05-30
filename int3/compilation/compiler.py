@@ -10,23 +10,22 @@ from int3.architecture import Architecture, Architectures
 from int3.codegen import CodeGenerator
 from int3.errors import Int3ArgumentError, Int3ContextError, Int3InsufficientWidthError
 from int3.ir import (
-    AnyBytesType,
-    AnyIntType,
-    IrBranch,
-    IrIntConstant,
-    IrIntVariable,
-    IrOperation,
-    IrOperator,
-    IrVariable,
+    HlirAnyBytesType,
+    HlirAnyIntType,
+    HlirBranch,
+    HlirIntConstant,
+    HlirIntVariable,
+    HlirOperation,
+    HlirOperator,
+    HlirVariable,
 )
 
 if TYPE_CHECKING:
     from ._linux_compiler import LinuxCompiler
 
 from .block import Block
-from .flattener import Flattener
+from .flattener import FlattenedProgram, Flattener
 from .function import Function, FunctionFactory
-from .scope import Scope
 
 logger = logging.getLogger(__name__)
 
@@ -81,20 +80,20 @@ class Compiler:
 
     def _make_int_var(
         self, signed: bool, bit_size: int, value: int | None = None
-    ) -> IrIntVariable | IrIntConstant:
+    ) -> HlirIntVariable | HlirIntConstant:
         if bit_size > self.arch.bit_size:
             raise Int3InsufficientWidthError(
                 f"Cannot represent values of width {bit_size} on arch {self.arch.name}"
             )
 
         if value is not None:
-            return IrIntConstant(
+            return HlirIntConstant(
                 compiler=self, signed=signed, bit_size=bit_size, value=value
             )
         else:
             scope = self.current_func.current_block.lowest_scope
             new_var_name = scope.allocate_var_name(prefix="var")
-            new_var = IrIntVariable(
+            new_var = HlirIntVariable(
                 compiler=self, name=new_var_name, signed=signed, bit_size=bit_size
             )
             scope.add_var(new_var)
@@ -113,22 +112,22 @@ class Compiler:
             self._current_func = None
 
     @overload
-    def i(self, value: int) -> IrIntConstant: ...
+    def i(self, value: int) -> HlirIntConstant: ...
 
     @overload
-    def i(self, value: None = None) -> IrIntVariable: ...
+    def i(self, value: None = None) -> HlirIntVariable: ...
 
-    def i(self, value: int | None = None) -> IrIntVariable | IrIntConstant:
+    def i(self, value: int | None = None) -> HlirIntVariable | HlirIntConstant:
         """Create a signed int variable or constant for the architecture's native bit width."""
         return self._make_int_var(signed=True, bit_size=self.arch.bit_size, value=value)
 
     @overload
-    def u(self, value: int) -> IrIntConstant: ...
+    def u(self, value: int) -> HlirIntConstant: ...
 
     @overload
-    def u(self, value: None = None) -> IrIntVariable: ...
+    def u(self, value: None = None) -> HlirIntVariable: ...
 
-    def u(self, value: int | None = None) -> IrIntVariable | IrIntConstant:
+    def u(self, value: int | None = None) -> HlirIntVariable | HlirIntConstant:
         """Create an unsigned int variable or constant for the architecture's native bit width."""
         return self._make_int_var(
             signed=False, bit_size=self.arch.bit_size, value=value
@@ -137,18 +136,11 @@ class Compiler:
     def ir_str(self) -> str:
         return "\n".join(str(func) for func in self.func.func_map.values())
 
-    def flatten(self) -> str:
-        # TODO
-        pass
-
-    def compile(self) -> bytes:
-        # TODO: Error if there's no entrypoint defined.
-
-        Flattener(self).flatten()
-        return b""
+    def flatten(self) -> FlattenedProgram:
+        return Flattener(self).flatten()
 
     @contextmanager
-    def if_else(self, branch: IrBranch) -> Iterator[tuple[Block, Block]]:
+    def if_else(self, branch: HlirBranch) -> Iterator[tuple[Block, Block]]:
         if_else_block = self.current_func._spawn_block(name_hint="branch")
         inner_if_block = self.current_func._spawn_block(
             base_block=if_else_block, name_hint=f"{if_else_block.label}_if"
@@ -161,7 +153,7 @@ class Compiler:
             self._branch_if_else(branch, inner_if_block, inner_else_block)
             yield inner_if_block, inner_else_block
 
-    def mov(self, dest: IrVariable, src: AnyBytesType | AnyIntType):
+    def mov(self, dest: HlirVariable, src: HlirAnyBytesType | HlirAnyIntType):
         if isinstance(src, int):
             if src < 0:
                 src = self.i(src)
@@ -171,16 +163,16 @@ class Compiler:
             raise NotImplementedError("bytes operand support not yet implemented")
 
         self.add_operation(
-            IrOperation(operator=IrOperator.Mov, result=dest, args=[src])
+            HlirOperation(operator=HlirOperator.Mov, result=dest, args=[src])
         )
 
         dest.is_unbound = False
 
-    def add_operation(self, operation: IrBranch | IrOperation):
+    def add_operation(self, operation: HlirBranch | HlirOperation):
         """Interface for adding a raw operation to the current block."""
         self.current_func.current_block.add_operation(operation)
 
-    def _branch_if_else(self, branch: IrBranch, if_target: Block, else_target: Block):
+    def _branch_if_else(self, branch: HlirBranch, if_target: Block, else_target: Block):
         branch.set_targets(if_target.label, else_target.label)
         self.add_operation(branch)
 

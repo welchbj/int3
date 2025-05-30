@@ -5,25 +5,23 @@ from typing import TYPE_CHECKING
 from int3._interfaces import PrintableIr
 
 if TYPE_CHECKING:
-    from .variable import AnyIrType, IrVariable
+    from .llir_types import LlirAnyType
+    from .llir_virtual_register import LlirVirtualRegister
 
 
-class IrOperator(Enum):
+class LlirOperator(Enum):
     Mov = auto()
-    Add = auto()
-    Sub = auto()
-    Xor = auto()
-    Syscall = auto()
     Birth = auto()
     Kill = auto()
     Lock = auto()
+    Syscall = auto()
 
 
-@dataclass
-class IrOperation(PrintableIr):
-    operator: IrOperator
-    result: "IrVariable"
-    args: list["AnyIrType"]
+@dataclass(frozen=True)
+class LlirOperation(PrintableIr):
+    operator: LlirOperator
+    result: "LlirVirtualRegister"
+    args: tuple["LlirAnyType"]
 
     def to_str(self, indent: int = 0) -> str:
         indent_str = self.indent_str(indent)
