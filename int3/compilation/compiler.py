@@ -150,6 +150,8 @@ class Compiler:
     @contextmanager
     def if_else(self, branch: HlirBranch) -> Iterator[tuple[Block, Block]]:
         if_else_block = self.current_func._spawn_block(name_hint="branch")
+        # TODO: Do blocks need to annotate who their successor should be?
+        #       We may need this context to properly order blocks at the LLIR or codegen level.
         after_if_else_block = self.current_func._spawn_block(name_hint="after_if_else")
         inner_if_block = self.current_func._spawn_block(
             base_block=if_else_block, name_hint=f"{if_else_block.label}_if"

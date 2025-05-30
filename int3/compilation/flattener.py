@@ -94,6 +94,8 @@ class FlattenedFunction(PrintableIr):
                     bit_size=hlir_arg.bit_size,
                     value=hlir_arg.value,
                 )
+            elif isinstance(hlir_arg, HlirLabel):
+                llir_arg = LlirLabel(name=hlir_arg.name)
             else:
                 raise NotImplementedError(
                     f"HLIR argument translation for {hlir_arg.__class__.__name__} not implemented"
@@ -143,12 +145,17 @@ class FlattenedFunction(PrintableIr):
             for hlir_op in block.operations:
                 match hlir_op.operator:
                     case HlirBranchOperator.LessThan:
+                        # TODO: Emit correct code
                         llir_oper = LlirOperator.Nop
                     case HlirOperator.Mov:
                         llir_oper = LlirOperator.Mov
                     case HlirOperator.Syscall:
                         # TODO: Need to emit locking.
                         llir_oper = LlirOperator.Syscall
+                    case HlirOperator.Jump:
+                        # TODO: Control flow disruption operations break the injected Kill ops at
+                        #       the end of scope.
+                        llir_oper = LlirOperator.Jump
                     case _:
                         raise NotImplementedError(
                             f"HLIR operator {hlir_op.operator} translation not implemented"
@@ -202,7 +209,11 @@ class FlattenedFunction(PrintableIr):
 
         text = f"{indent_str}func {self.name}:\n"
         for op in self.ledger:
-            text += op.to_str(indent=indent + 1)
+            if isinstance(op, LlirLabel):
+                text += op.to_str(indent=indent)
+                text += ":"
+            else:
+                text += op.to_str(indent=indent + 1)
             text += "\n"
 
         return text
