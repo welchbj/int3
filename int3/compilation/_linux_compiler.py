@@ -7,6 +7,7 @@ from int3.ir import (
     HlirIntConstant,
     HlirIntType,
     HlirIntVariable,
+    HlirLabel,
     HlirOperation,
     HlirOperator,
 )
@@ -39,7 +40,7 @@ class LinuxCompiler(Compiler):
         else:
             syscall_num_var = sys_num
 
-        syscall_arg_vars: list[HlirAnyType] = [syscall_num_var]
+        syscall_arg_vars: list[HlirAnyType | HlirLabel] = [syscall_num_var]
         for arg in args:
             syscall_arg_var: HlirIntVariable | HlirIntConstant
 

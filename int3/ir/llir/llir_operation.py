@@ -17,6 +17,10 @@ class LlirOperator(Enum):
     Lock = auto()
     Syscall = auto()
 
+    Jump = auto()
+    JumpIf = auto()
+    JumpIfNot = auto()
+
 
 @dataclass(frozen=True)
 class LlirOperation(PrintableIr):

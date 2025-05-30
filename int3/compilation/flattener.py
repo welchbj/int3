@@ -3,22 +3,22 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, overload
+from typing import TYPE_CHECKING
 
 from int3._interfaces import PrintableIr
 from int3.architecture import Architecture
+from int3.errors import Int3IrMismatchedTypeError
 from int3.ir import (
     HlirAnyType,
-    HlirBranch,
     HlirBranchOperator,
-    HlirConstant,
     HlirIntConstant,
     HlirIntVariable,
+    HlirLabel,
     HlirOperation,
     HlirOperator,
-    HlirVariable,
     LlirAnyType,
     LlirConstant,
+    LlirLabel,
     LlirOperation,
     LlirOperator,
     LlirVirtualRegister,
@@ -43,12 +43,12 @@ class FlattenedProgram(PrintableIr):
 @dataclass(frozen=True)
 class FlattenedFunction(PrintableIr):
     name: str
-    ops: tuple[LlirOperation, ...]
+    ledger: tuple[LlirOperation | LlirLabel, ...]
     vreg_to_op_map: dict[LlirVirtualRegister, LlirOperation]
 
     @staticmethod
     def from_func(func: "Function", arch: Architecture) -> FlattenedFunction:
-        llir_ops: list[LlirOperation] = []
+        llir_ops: list[LlirOperation | LlirLabel] = []
 
         # Setup lookup tables for relationships between scopes
         # and blocks.
@@ -56,7 +56,7 @@ class FlattenedFunction(PrintableIr):
         for block in func.blocks:
             # Record the scopes this block holds a reference to.
             for scope in block.scope_stack:
-                scope_to_block_label_map[id(scope)].add(block.label)
+                scope_to_block_label_map[id(scope)].add(block.label.name)
 
         # Counter used for generating vreg names.
         vreg_idx = 0
@@ -83,7 +83,7 @@ class FlattenedFunction(PrintableIr):
                 for vreg in vregs
             ]
 
-        def _translate_hlir_arg(hlir_arg: HlirAnyType) -> LlirAnyType:
+        def _translate_hlir_arg(hlir_arg: HlirAnyType | HlirLabel) -> LlirAnyType:
             llir_arg: LlirAnyType
 
             if isinstance(hlir_arg, HlirIntVariable):
@@ -106,6 +106,9 @@ class FlattenedFunction(PrintableIr):
 
             scope_vars = list(block.lowest_scope.var_map.values())
             logger.debug(f"Block {block.label} defines {len(scope_vars)} variables")
+
+            # Record this block's label.
+            llir_ops.append(LlirLabel(name=block.label.name))
 
             # Virtual registers created for this block's scope.
             new_vregs: list[LlirVirtualRegister] = []
@@ -152,17 +155,22 @@ class FlattenedFunction(PrintableIr):
                         )
 
                 # Translate HLIR arguments to LLIR.
-                #
-                # XXX: This will likely need to be much more nuanced with more complex
-                #      HLIR types.
                 llir_args: list[LlirAnyType] = []
                 for hlir_arg in hlir_op.args:
                     llir_args.append(_translate_hlir_arg(hlir_arg))
 
                 if isinstance(hlir_op, HlirOperation):
-                    llir_result = _translate_hlir_arg(hlir_op.result)
+                    if hlir_op.result is None:
+                        llir_result = None
+                    else:
+                        llir_result = _translate_hlir_arg(hlir_op.result)
                 else:
                     llir_result = None
+
+                if isinstance(llir_result, LlirConstant):
+                    raise Int3IrMismatchedTypeError(
+                        f"Unexpected type {llir_result.__class__.__name__} as LLIR op result"
+                    )
 
                 llir_ops.append(
                     LlirOperation(
@@ -174,7 +182,7 @@ class FlattenedFunction(PrintableIr):
             # that have had all references removed, we can kill all of their associated vregs.
             for scope in block.scope_stack:
                 lingering_scope_refs = scope_to_block_label_map[id(scope)]
-                lingering_scope_refs.remove(block.label)
+                lingering_scope_refs.remove(block.label.name)
 
                 if not lingering_scope_refs:
                     # This scope no longer has any references from blocks. We
@@ -186,14 +194,14 @@ class FlattenedFunction(PrintableIr):
                     scope_to_vreg_list_map.pop(id(scope))
 
         return FlattenedFunction(
-            name=func.name, ops=tuple(llir_ops), vreg_to_op_map=vreg_to_op_map
+            name=func.name, ledger=tuple(llir_ops), vreg_to_op_map=vreg_to_op_map
         )
 
     def to_str(self, indent: int = 0) -> str:
         indent_str = self.indent_str(indent)
 
         text = f"{indent_str}func {self.name}:\n"
-        for op in self.ops:
+        for op in self.ledger:
             text += op.to_str(indent=indent + 1)
             text += "\n"
 

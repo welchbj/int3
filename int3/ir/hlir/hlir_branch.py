@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING
 
 from int3._interfaces import PrintableIr
 
+from .hlir_label import HlirLabel
+
 if TYPE_CHECKING:
     from .hlir_variable import HlirAnyType
 
@@ -13,18 +15,15 @@ class HlirBranchOperator(Enum):
     # TODO
 
 
-LABEL_UNSET = "<<unset>>"
-
-
 @dataclass
 class HlirBranch(PrintableIr):
     operator: HlirBranchOperator
     args: list["HlirAnyType"]
 
-    if_target: str = LABEL_UNSET
-    else_target: str = LABEL_UNSET
+    if_target: HlirLabel | None = None
+    else_target: HlirLabel | None = None
 
-    def set_targets(self, if_target: str, else_target: str):
+    def set_targets(self, if_target: HlirLabel, else_target: HlirLabel):
         self.if_target = if_target
         self.else_target = else_target
 

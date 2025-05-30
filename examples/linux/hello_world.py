@@ -1,6 +1,6 @@
 from int3 import Compiler
 
-cc = Compiler.from_str("linux/x86_64", bad_bytes=b"\x00")
+cc = Compiler.from_str("linux/x86_64", bad_bytes=b"\x00\xca")
 
 with cc.func.main():
     my_var = cc.i()
@@ -12,6 +12,11 @@ with cc.func.main():
         with else_:
             cc.sys_exit(1)
 
-print(cc.ir_str())
-print("=" * 80)
-print(cc.flatten())
+sep = "=" * 80 + "\n"
+print("HLIR")
+print("~~~~")
+print(cc.hlir_str())
+print(sep)
+print("LLIR")
+print("~~~~")
+print(cc.llir_str())

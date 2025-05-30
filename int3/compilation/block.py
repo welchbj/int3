@@ -10,6 +10,7 @@ from int3.ir import (
     HlirBranch,
     HlirBytesVariable,
     HlirIntVariable,
+    HlirLabel,
     HlirOperation,
     HlirVariable,
 )
@@ -26,7 +27,7 @@ class Block(PrintableIr):
     operations: list[HlirBranch | HlirOperation] = field(
         init=False, default_factory=list
     )
-    label: str
+    label: HlirLabel
 
     current_block_cm: ContextManager[Block] | None = field(init=False, default=None)
 

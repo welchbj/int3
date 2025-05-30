@@ -16,6 +16,7 @@ from int3.ir import (
     HlirBranch,
     HlirIntConstant,
     HlirIntVariable,
+    HlirLabel,
     HlirOperation,
     HlirOperator,
     HlirVariable,
@@ -45,7 +46,7 @@ class Compiler:
     func: FunctionFactory = field(init=False)
 
     # Mapping of IR labels to their associated blocks.
-    label_map: dict[str, Block] = field(init=False, default_factory=dict)
+    label_map: dict[HlirLabel, Block] = field(init=False, default_factory=dict)
 
     # The function this compiler is currently operating on.
     _current_func: Function | None = field(init=False, default=None)
@@ -62,7 +63,7 @@ class Compiler:
 
         return self._current_func
 
-    def _make_unique_label(self, hint: str) -> str:
+    def _make_unique_label(self, hint: str) -> HlirLabel:
         """Generate a label with a unique name.
 
         This method should not be used directly. Rather, _spawn_block
@@ -71,7 +72,7 @@ class Compiler:
         """
         while True:
             rand_str = "".join(random.choice("0123456789abcdef") for _ in range(4))
-            maybe_label = f"{hint}_{rand_str}"
+            maybe_label = HlirLabel(f"{hint}_{rand_str}")
 
             if maybe_label in self.label_map.keys():
                 continue
@@ -134,15 +135,22 @@ class Compiler:
             signed=False, bit_size=self.arch.bit_size, value=value
         )
 
-    def ir_str(self) -> str:
+    def hlir_str(self) -> str:
         return "\n".join(str(func) for func in self.func.func_map.values())
 
-    def flatten(self) -> FlattenedProgram:
+    def llir_str(self) -> str:
+        return str(self._flatten())
+
+    def _flatten(self) -> FlattenedProgram:
         return Flattener(self).flatten()
+
+    def asm(self) -> bytes:
+        return CodeGenerator(program=self._flatten()).emit_asm()
 
     @contextmanager
     def if_else(self, branch: HlirBranch) -> Iterator[tuple[Block, Block]]:
         if_else_block = self.current_func._spawn_block(name_hint="branch")
+        after_if_else_block = self.current_func._spawn_block(name_hint="after_if_else")
         inner_if_block = self.current_func._spawn_block(
             base_block=if_else_block, name_hint=f"{if_else_block.label}_if"
         )
@@ -153,6 +161,16 @@ class Compiler:
         with self.current_func._current_block_as(if_else_block):
             self._branch_if_else(branch, inner_if_block, inner_else_block)
             yield inner_if_block, inner_else_block
+
+        def _make_jump_op() -> HlirOperation:
+            return HlirOperation(
+                operator=HlirOperator.Jump,
+                result=None,
+                args=[after_if_else_block.label],
+            )
+
+        inner_if_block.add_operation(_make_jump_op())
+        inner_else_block.add_operation(_make_jump_op())
 
     def mov(self, dest: HlirVariable, src: HlirAnyBytesType | HlirAnyIntType):
         if isinstance(src, int):

@@ -6,15 +6,13 @@ from types import TracebackType
 from typing import TYPE_CHECKING, ContextManager, Iterator
 
 from int3._interfaces import PrintableIr
+from int3.ir import HlirLabel
 
 from .block import Block
 from .scope import Scope
 
 if TYPE_CHECKING:
     from .compiler import Compiler
-
-
-_ENTRY_LABEL_NAME = "entry"
 
 
 @dataclass
@@ -39,7 +37,7 @@ class Function(PrintableIr):
 
     def __post_init__(self):
         self.entry = Block(
-            compiler=self.compiler, scope_stack=[Scope()], label=_ENTRY_LABEL_NAME
+            compiler=self.compiler, scope_stack=[Scope()], label=HlirLabel("entry")
         )
         self.blocks = [self.entry]
         self.block_stack = [self.entry]
