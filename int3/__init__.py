@@ -9,13 +9,11 @@ if (level := os.environ.get("INT3_LOGLEVEL", None)) is not None:
     )
 
 from .architecture import *
-from .codegen import *
 from .compilation import *
 from .errors import *
 from .execution import *
 from .factor import *
 from .format import *
-from .ir import *
 from .meta import *
 from .platform import *
 from .version import *
