@@ -1,0 +1,121 @@
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+from llvmlite import ir as llvmir
+
+from int3.errors import Int3InsufficientWidthError
+
+if TYPE_CHECKING:
+    from .compiler import Compiler
+
+
+@dataclass
+class TypeManager:
+    """Manager for int3 high-level types."""
+
+    compiler: "Compiler"
+
+    void: VoidType = field(init=False)
+
+    inat: IntType = field(init=False)
+    unat: IntType = field(init=False)
+
+    i8: IntType = field(init=False)
+    i16: IntType = field(init=False)
+    i32: IntType = field(init=False)
+    i64: IntType = field(init=False)
+
+    u8: IntType = field(init=False)
+    u16: IntType = field(init=False)
+    u32: IntType = field(init=False)
+    u64: IntType = field(init=False)
+
+    def __post_init__(self):
+        self.void = VoidType()
+
+        native_bit_size = self.compiler.arch.bit_size
+        self.inat = IntType(bit_size=native_bit_size, is_signed=True)
+        self.unat = IntType(bit_size=native_bit_size, is_signed=False)
+
+        self.i8 = IntType(bit_size=8, is_signed=True)
+        self.i16 = IntType(bit_size=16, is_signed=True)
+        self.i32 = IntType(bit_size=32, is_signed=True)
+        self.i64 = IntType(bit_size=64, is_signed=True)
+
+        self.u8 = IntType(bit_size=8, is_signed=False)
+        self.u16 = IntType(bit_size=16, is_signed=False)
+        self.u32 = IntType(bit_size=32, is_signed=False)
+        self.u64 = IntType(bit_size=64, is_signed=False)
+
+
+@dataclass(frozen=True)
+class VoidType:
+    wrapped_type: llvmir.VoidType = field(init=False, default_factory=llvmir.VoidType)
+
+
+@dataclass(frozen=True)
+class IntType:
+    """Wrapper around an LLVM integer type.
+
+    For a good overview of LLVM IR int types, see:
+    https://stackoverflow.com/a/14723945
+
+    """
+
+    bit_size: int
+    is_signed: bool
+
+    wrapped_type: llvmir.IntType = field(init=False)
+
+    def __post_init__(self):
+        object.__setattr__(self, "wrapped_type", llvmir.IntType(bits=self.bit_size))
+
+
+@dataclass
+class IntValue:
+    """Base class for IntConstant and IntVariable.
+
+    Implements Python magic methods for various integer arithemtic and
+    bitwise operations.
+
+    """
+
+    compiler: "Compiler"
+    type: IntType
+    wrapped_llvm_node: llvmir.Constant | llvmir.Instruction
+
+    def make_int(self, value: int) -> IntConstant:
+        """Create an IntConstant of the same type."""
+        return self.compiler.make_int(value=value, type=self.type)
+
+    def __add__(self, other: IntArgType) -> IntVariable:
+        return self.compiler.add(self, other)
+
+
+@dataclass
+class IntConstant(IntValue):
+    value: int
+
+    def __post_init__(self):
+        # TODO: Validate bit size for value
+
+        self.wrapped_llvm_node = llvmir.Constant(
+            typ=self.type.wrapped_type, constant=self.value
+        )
+
+
+@dataclass
+class IntVariable(IntValue):
+    pass
+
+
+@dataclass
+class TypeCoercion:
+    result_type: IntType
+    args: list[IntValue]
+
+
+type IntArgType = IntValue | int
+type ArgType = IntArgType

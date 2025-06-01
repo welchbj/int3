@@ -4,7 +4,7 @@ import logging
 import platform
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Iterator, Literal, overload
+from typing import TYPE_CHECKING, Iterator, Literal, cast, overload
 
 from llvmlite import binding as llvm
 from llvmlite import ir as llvmir
@@ -16,37 +16,18 @@ if TYPE_CHECKING:
     from ._linux_compiler import LinuxCompiler
 
 from .function_proxy import FunctionFactory, FunctionProxy
+from .types import (
+    ArgType,
+    IntArgType,
+    IntConstant,
+    IntType,
+    IntValue,
+    IntVariable,
+    TypeCoercion,
+    TypeManager,
+)
 
 logger = logging.getLogger(__name__)
-
-
-type IrArgType = llvmir.Constant
-
-
-@dataclass
-class IrTypes:
-    # XXX: Likely need our own wrappers around int types.
-
-    # See: https://stackoverflow.com/a/14723945
-
-    arch: Architecture
-
-    inat: llvmir.IntType = field(init=False)
-    i8: llvmir.IntType = field(init=False)
-    i16: llvmir.IntType = field(init=False)
-    i32: llvmir.IntType = field(init=False)
-    i64: llvmir.IntType = field(init=False)
-
-    void: llvmir.VoidType = field(init=False)
-
-    def __post_init__(self):
-        self.inat = llvmir.IntType(bits=self.arch.bit_size)
-        self.i8 = llvmir.IntType(bits=8)
-        self.i16 = llvmir.IntType(bits=16)
-        self.i32 = llvmir.IntType(bits=32)
-        self.i64 = llvmir.IntType(bits=64)
-
-        self.void = llvmir.VoidType()
 
 
 @dataclass
@@ -66,7 +47,7 @@ class Compiler:
     _current_func: FunctionProxy | None = field(init=False, default=None)
 
     # Short-hand for llvmlite types.
-    types: IrTypes = field(init=False)
+    types: TypeManager = field(init=False)
 
     # Wrapped llvmlite IR module.
     llvm_module: llvmir.Module = field(init=False)
@@ -77,7 +58,7 @@ class Compiler:
         llvm.initialize_native_asmprinter()
 
         self.func = FunctionFactory(compiler=self)
-        self.types = IrTypes(arch=self.arch)
+        self.types = TypeManager(compiler=self)
         self.llvm_module = llvmir.Module()
 
     @property
@@ -88,6 +69,14 @@ class Compiler:
             )
 
         return self._current_func
+
+    @property
+    def builder(self) -> llvmir.IRBuilder:
+        return self.current_func.llvm_builder
+
+    def make_name(self, hint: str | None = None) -> str:
+        """Make an identifier for the current function."""
+        return self.current_func.make_name(hint=hint)
 
     @contextmanager
     def _current_function_as(self, func: FunctionProxy) -> Iterator[FunctionProxy]:
@@ -101,24 +90,85 @@ class Compiler:
         finally:
             self._current_func = None
 
-    def i(self, value: int) -> llvmir.Constant:
-        return self.types.inat(value)
+    def coerce(self, one: IntArgType, two: IntArgType) -> TypeCoercion:
+        # TODO: This isn't dealing with signedness yet.
 
-    def i32(self, value: int) -> llvmir.Constant:
-        return self.types.i32(value)
+        if isinstance(one, int) and isinstance(two, int):
+            # Both arguments are raw integers.
+            raise NotImplementedError("Coercion of raw integers WIP")
+        elif isinstance(one, int) and not isinstance(two, int):
+            # Promote one's value to two's type.
+            return TypeCoercion(result_type=two.type, args=[two.make_int(one), two])
+        elif not isinstance(one, int) and isinstance(two, int):
+            # Promote two's value to the one's type.
+            return TypeCoercion(result_type=one.type, args=[one, one.make_int(two)])
 
-    def add(self, one: IrArgType, two: IrArgType) -> ...:
-        name = self.current_func.make_name(hint="result")
-        return self.current_func.llvm_builder.add(one, two, name=name)
+        # We're dealing with two non-raw integers.
+        one = cast(IntValue, one)
+        two = cast(IntValue, two)
 
-    def ret(self, value: IrArgType):
-        return self.current_func.llvm_builder.ret(value)
+        if one.type == two.type:
+            # They're already the same type.
+            return TypeCoercion(result_type=one.type, args=[one, two])
+        else:
+            # Integers of different types.
+            raise NotImplementedError("Coercion of typed integers WIP")
+
+    def make_int(self, value: int, type: IntType) -> IntConstant:
+        return IntConstant(
+            compiler=self,
+            type=type,
+            wrapped_llvm_node=llvmir.Constant(typ=type.wrapped_type, constant=value),
+            value=value,
+        )
+
+    def i(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.inat)
+
+    def i32(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.i32)
+
+    def add(self, one: IntArgType, two: IntArgType) -> IntVariable:
+        # TODO: Account for signed-ness
+
+        coercion = self.coerce(one, two)
+        result_inst = self.builder.add(
+            coercion.args[0].wrapped_llvm_node,
+            coercion.args[1].wrapped_llvm_node,
+            name=self.make_name(hint="result"),
+        )
+        return IntVariable(
+            compiler=self,
+            type=coercion.result_type,
+            wrapped_llvm_node=result_inst,
+        )
+
+    def ret(self, value: ArgType | None = None):
+        # TODO: Check the function's return type and
+        #       make sure it aligns
+
+        if value is None:
+            return self.builder.ret_void()
+
+        if isinstance(value, int):
+            # TODO: We should use the function's return type.
+            value = self.i(value)
+
+        # TODO: We may still need to coerce the type depending on the return type.
+
+        return self.builder.ret(value.wrapped_llvm_node)
 
     def llvm_ir(self) -> str:
         return str(self.llvm_module)
 
-    def compile_to_asm(self) -> str:
+    def asm(self) -> str:
         return self._compile(mode="asm")
+
+    @overload
+    def _compile(self, mode: Literal["asm"]) -> str: ...
+
+    @overload
+    def _compile(self, mode: Literal["bytes"]) -> bytes: ...
 
     def _compile(self, mode: Literal["asm", "bytes"]) -> str | bytes:
         # XXX: We may need to inject the target LLVM triple here.
@@ -134,26 +184,9 @@ class Compiler:
         with llvm.create_mcjit_compiler(llvm_mod, target_machine) as engine:
             engine.finalize_object()
             if mode == "asm":
-                return target_machine.emit_assembly(llvm_mod)
+                return cast(str, target_machine.emit_assembly(llvm_mod))
             else:
-                return target_machine.emit_object(llvm_mod)
-
-    # @contextmanager
-    # def if_else(self, pred) -> Iterator[tuple[Block, Block]]:
-    #     if_else_block = self.current_func._spawn_block(name_hint="branch")
-    #     # TODO: Do blocks need to annotate who their successor should be?
-    #     #       We may need this context to properly order blocks at the LLIR or codegen level.
-    #     after_if_else_block = self.current_func._spawn_block(name_hint="after_if_else")
-    #     inner_if_block = self.current_func._spawn_block(
-    #         base_block=if_else_block, name_hint=f"{if_else_block.label}_if"
-    #     )
-    #     inner_else_block = self.current_func._spawn_block(
-    #         base_block=if_else_block, name_hint=f"{if_else_block.label}_else"
-    #     )
-
-    #     with self.current_func._current_block_as(if_else_block):
-    #         self._branch_if_else(branch, inner_if_block, inner_else_block)
-    #         yield inner_if_block, inner_else_block
+                return cast(bytes, target_machine.emit_object(llvm_mod))
 
     @staticmethod
     def from_host(bad_bytes: bytes = b"") -> Compiler:

@@ -1,4 +1,4 @@
-from int3 import Compiler, HlirIntConstant
+from int3 import Compiler
 
 
 def test_int_constant_factories_u8():

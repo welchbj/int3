@@ -5,6 +5,7 @@ from int3.meta import Int3Files
 from int3.platform import LinuxSyscallNumbers
 
 from .compiler import Compiler
+from .types import ArgType, IntArgType, IntVariable
 
 
 @dataclass
@@ -20,26 +21,24 @@ class LinuxCompiler(Compiler):
 
     def syscall(
         self,
-        sys_num: int,
-        *args: int | bytes,
+        sys_num: IntArgType,
+        *args: ArgType,
         hint: str = "",
-    ) -> ...: ...
+    ) -> IntVariable:
+        # TODO
+        return self.add(0xDEAD, 0xBEEF)
 
-    def sys_exit(self, status: int) -> ...:
+    def sys_exit(self, status: IntArgType) -> IntVariable:
         return self.syscall(self.sys_nums.exit, status, hint="exit")
 
     def sys_write(
         self,
-        fd: int,
-        buf: int,
-        count: int,
-    ) -> ...:
+        fd: IntArgType,
+        buf: IntArgType,
+        count: IntArgType,
+    ) -> IntVariable:
         # TODO: Utility options for automatically deriving the length and appending a null terminator.
         return self.syscall(self.sys_nums.write, fd, buf, count, hint="write")
 
-    def sys_execve(self, pathname: bytes) -> ...:
-        # TODO: How to annotate argv and envp style arguments?
-        return self.syscall(self.sys_nums.execve, pathname, 0, 0, hint="execve")
-
-    def sys_dup2(self, oldfd: int, newfd: int) -> ...:
+    def sys_dup2(self, oldfd: IntArgType, newfd: IntArgType) -> IntVariable:
         return self.syscall(self.sys_nums.dup2, oldfd, newfd, hint="dup2")

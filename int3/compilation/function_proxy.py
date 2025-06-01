@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, ContextManager
 
 from llvmlite import ir as llvmir
 
+from .types import IntType, VoidType
+
 if TYPE_CHECKING:
     from .compiler import Compiler
 
@@ -39,6 +41,14 @@ class FunctionProxy:
         self.llvm_entry_block = self.llvm_func.append_basic_block(name="entry")
         self.llvm_builder = llvmir.IRBuilder(self.llvm_entry_block)
 
+    @property
+    def return_type(self) -> llvmir.Type:
+        return self.llvm_func_type.return_type
+
+    @property
+    def current_block(self) -> llvmir.Block:
+        return self.llvm_builder.block
+
     def make_name(self, hint: str | None = None) -> str:
         if hint is None:
             hint = "var"
@@ -62,7 +72,7 @@ class FunctionProxy:
         else:
             if (
                 self.llvm_func_type.return_type == self.compiler.types.void
-                and not self.llvm_builder.block.is_terminated
+                and not self.current_block.is_terminated
             ):
                 # Add an implicit void return.
                 self.llvm_builder.ret_void()
@@ -78,13 +88,18 @@ class PartialFunctionDef:
     factory: FunctionFactory
 
     def __call__(
-        self, func_type: llvmir.FunctionType | None = None
+        self, return_type: IntType | VoidType | type[int] | None = None
     ) -> FunctionProxy:
-        if func_type is None:
-            func_type = llvmir.FunctionType(
-                return_type=self.factory.compiler.types.void, args=[]
-            )
+        compiler = self.factory.compiler
 
+        if return_type is None:
+            return_type = compiler.types.void
+        elif isinstance(return_type, IntType):
+            pass
+        else:
+            return_type = compiler.types.inat
+
+        func_type = llvmir.FunctionType(return_type=return_type.wrapped_type, args=[])
         new_func = FunctionProxy(
             compiler=self.factory.compiler,
             name=self.name,
@@ -99,6 +114,8 @@ class FunctionFactory:
     compiler: "Compiler"
 
     func_map: dict[str, FunctionProxy] = field(init=False, default_factory=dict)
+
+    # TODO: __call__ for decorator setup
 
     def __getattr__(self, attr: str) -> PartialFunctionDef:
         return PartialFunctionDef(name=attr, factory=self)
