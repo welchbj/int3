@@ -16,4 +16,5 @@ from .factor import *
 from .format import *
 from .meta import *
 from .platform import *
+from .triple import Triple
 from .version import *

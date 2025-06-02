@@ -56,6 +56,8 @@ class Architecture:
     qemu_name: str
     linux_kernel_name: str
     ghidra_name: str
+    # See: https://stackoverflow.com/a/39114754
+    clang_name: str
 
     keystone_arch: int
     keystone_mode: int
@@ -156,6 +158,7 @@ class Architectures(Enum):
         qemu_name="i386",
         linux_kernel_name="i386",
         ghidra_name="x86:LE:32:default",
+        clang_name="x86",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
@@ -180,6 +183,7 @@ class Architectures(Enum):
         qemu_name="x86_64",
         linux_kernel_name="x86_64",
         ghidra_name="x86:LE:64:default",
+        clang_name="x86_64",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
@@ -212,6 +216,7 @@ class Architectures(Enum):
         qemu_name="mips",
         linux_kernel_name="mipso32",
         ghidra_name="MIPS:BE:32:default",
+        clang_name="mips",
         keystone_arch=KS_ARCH_MIPS,
         keystone_mode=KS_MODE_MIPS32 + KS_MODE_BIG_ENDIAN,
         capstone_arch=CS_ARCH_MIPS,

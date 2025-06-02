@@ -11,6 +11,8 @@ from llvmlite import ir as llvmir
 
 from int3.architecture import Architecture, Architectures
 from int3.errors import Int3ArgumentError, Int3ContextError
+from int3.platform import Platform
+from int3.triple import Triple
 
 if TYPE_CHECKING:
     from ._linux_compiler import LinuxCompiler
@@ -33,6 +35,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Compiler:
     arch: Architecture
+    platform: Platform
+    triple: Triple = field(init=False)
 
     # The name of the entrypoint function for the compiler.
     entry: str = "main"
@@ -57,9 +61,14 @@ class Compiler:
         llvm.initialize_native_target()
         llvm.initialize_native_asmprinter()
 
+        self.triple = Triple.from_arch_and_platform(self.arch, self.platform)
+
         self.func = FunctionFactory(compiler=self)
         self.types = TypeManager(compiler=self)
         self.llvm_module = llvmir.Module()
+
+    def __bytes__(self) -> bytes:
+        return self.to_bytes()
 
     @property
     def current_func(self) -> FunctionProxy:
@@ -161,7 +170,10 @@ class Compiler:
     def llvm_ir(self) -> str:
         return str(self.llvm_module)
 
-    def asm(self) -> str:
+    def to_bytes(self) -> bytes:
+        return self._compile(mode="bytes")
+
+    def to_asm(self) -> str:
         return self._compile(mode="asm")
 
     @overload
@@ -174,8 +186,7 @@ class Compiler:
         # XXX: We may need to inject the target LLVM triple here.
         #
         # See: https://stackoverflow.com/a/40890321
-        target = llvm.Target.from_triple("x86_64-pc-linux-gnu")
-        # XXX: opt is disabled for dev purposes.
+        target = llvm.Target.from_triple(str(self.triple))
         target_machine = target.create_target_machine(opt=0)
 
         llvm_mod = llvm.parse_assembly(str(self.llvm_module))
@@ -210,16 +221,14 @@ class Compiler:
         if len(parts) != 2:
             raise Int3ArgumentError(f"Invalid platform spec: {platform_spec}")
 
-        os_name = parts[0]
-        match os_name.lower():
-            case "linux":
+        platform = Platform.from_str(parts[0])
+        match platform:
+            case Platform.Linux:
                 from ._linux_compiler import LinuxCompiler
 
                 compiler_cls = LinuxCompiler
-            case "windows":
+            case Platform.Windows:
                 raise NotImplementedError(f"Windows support not yet implemented")
-            case _:
-                raise Int3ArgumentError(f"Unknown platform string {os_name}")
 
         arch = Architectures.from_str(parts[1])
-        return compiler_cls(arch=arch, bad_bytes=bad_bytes)
+        return compiler_cls(arch=arch, platform=platform, bad_bytes=bad_bytes)
