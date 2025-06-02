@@ -32,6 +32,23 @@ from .types import (
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class CodeSection:
+    name: str
+    address: int
+    size: int
+    data: bytes
+
+    @staticmethod
+    def from_section_ref(ref: llvm.SectionIteratorRef) -> CodeSection:
+        return CodeSection(
+            name=ref.name(),
+            address=ref.address(),
+            size=ref.size(),
+            data=ref.data(),
+        )
+
+
 @dataclass
 class Compiler:
     arch: Architecture
@@ -171,7 +188,24 @@ class Compiler:
         return str(self.llvm_module)
 
     def to_bytes(self) -> bytes:
-        return self._compile(mode="bytes")
+        raw_obj_data = self._compile(mode="bytes")
+
+        obj_file_ref = llvm.ObjectFileRef.from_data(raw_obj_data)
+
+        code_sections: list[CodeSection] = []
+        for section_ref in obj_file_ref.sections():
+            if not section_ref.is_text():
+                logger.debug(f"Skipping non-text section {section_ref.name()}")
+                continue
+
+            code_sections.append(CodeSection.from_section_ref(section_ref))
+
+        data = b""
+        for code_section in code_sections:
+            # XXX: We need to validate that all of the sections are contiguous.
+            data += code_section.data
+
+        return data
 
     def to_asm(self) -> str:
         return self._compile(mode="asm")
@@ -188,6 +222,7 @@ class Compiler:
         # See: https://stackoverflow.com/a/40890321
         target = llvm.Target.from_triple(str(self.triple))
         target_machine = target.create_target_machine(opt=0)
+        target_machine.set_asm_verbosity(verbose=True)
 
         llvm_mod = llvm.parse_assembly(str(self.llvm_module))
         llvm_mod.verify()
@@ -195,6 +230,7 @@ class Compiler:
         with llvm.create_mcjit_compiler(llvm_mod, target_machine) as engine:
             engine.finalize_object()
             if mode == "asm":
+                llvm.SectionIteratorRef
                 return cast(str, target_machine.emit_assembly(llvm_mod))
             else:
                 return cast(bytes, target_machine.emit_object(llvm_mod))

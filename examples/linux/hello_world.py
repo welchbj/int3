@@ -1,8 +1,9 @@
+import sys
+
 from int3 import Compiler
 
 cc = Compiler.from_str("linux/x86_64", bad_bytes=b"\x00")
 
-from llvmlite import ir as llvmir
 
 # @cc.func()
 # def my_func(x: int) -> int:
@@ -10,12 +11,8 @@ from llvmlite import ir as llvmir
 
 
 with cc.func.main(return_type=int):
-    # TODO: Could this be overloaded __add__?
-    var_one = cc.add(cc.i(0xDEAD0000), cc.i(0x0000BEEF))
+    var_one = cc.i(0xDEAD0000) + 0x0000BEEF
     var_two = var_one + 123
-
-    print(f"{var_one = }")
-    print(f"{var_two = }")
 
     cc.ret(var_two)
 
@@ -27,6 +24,8 @@ with cc.func.main(return_type=int):
 
 
 sep = "=" * 80 + "\n"
-print(cc.llvm_ir())
-print(sep)
-print(cc.asm())
+print(cc.llvm_ir(), file=sys.stderr)
+print(sep, file=sys.stderr)
+print(cc.to_asm(), file=sys.stderr)
+print(sep, file=sys.stderr)
+sys.stdout.buffer.write(cc.to_bytes())
