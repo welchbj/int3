@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from int3.architecture import Architecture, Architectures
+from int3.architecture import Architecture
 from int3.platform import Platform
 
 
