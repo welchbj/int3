@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from int3.errors import Int3UnsupportedSyscall
+from int3.errors import Int3MissingEntityError
 
 
 @dataclass(frozen=True)
@@ -38,7 +38,7 @@ class LinuxSyscallNumbers:
     def _lookup(self, syscall_name: str) -> int:
         syscall_number = self._lookup_map.get(syscall_name, None)
         if syscall_number is None:
-            raise Int3UnsupportedSyscall(f"No syscall number for {syscall_name}")
+            raise Int3MissingEntityError(f"No syscall number for {syscall_name}")
 
         return syscall_number
 

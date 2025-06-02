@@ -9,14 +9,6 @@ class Int3MissingEntityError(Int3Error):
     """Exception type for missing entities."""
 
 
-class Int3UnsupportedArchitecture(Int3MissingEntityError):
-    """Exception type for unsupported architectures."""
-
-
-class Int3UnsupportedPlatform(Int3MissingEntityError):
-    """Exception type for unsupported platforms."""
-
-
 class Int3UnsupportedSyscall(Int3MissingEntityError):
     """Except type for an unsupported syscall in a given context."""
 
@@ -25,16 +17,12 @@ class Int3WrappedKeystoneError(Int3Error):
     """A thin wrapper around KsError."""
 
 
-class Int3AssemblyError(Int3Error):
-    """Assembly errors that didn't originate from a keystone exception."""
-
-
-class Int3CorruptedStackScopeError(Int3AssemblyError):
-    """Assembly errors that result from untrackable stack scopes."""
-
-
 class Int3WrappedCapstoneError(Int3Error):
     """A thin wrapper around CsError."""
+
+
+class Int3ContextError(Int3Error):
+    """Exception type for invalid use of context managers."""
 
 
 class Int3ArgumentError(Int3Error):
@@ -49,29 +37,13 @@ class Int3UnsupportedFormatError(Int3ArgumentError):
     """Exception type for formats not supported in some functionality."""
 
 
-class Int3LockedRegisterError(Int3ArgumentError):
-    """Exception type for attempting to use a locked register."""
-
-
-class Int3ContextError(Int3Error):
-    """Exception type for misuse or invalid state with context managers."""
-
-
 class Int3SatError(Int3Error):
     """Exception type for satisfiability errors."""
 
 
-class Int3ExhaustedEntropyError(Int3Error):
-    """Exception type for exhausted entropy."""
+class Int3CompilationError(Int3Error):
+    """Exception type for IR compilation errors."""
 
 
-class Int3IrError(Int3Error):
-    """Exception type for invalid IR nodes."""
-
-
-class Int3IrMismatchedTypeError(Int3IrError):
-    """Exception type for mismatched IR node type and value."""
-
-
-class Int3IrAlreadyNamedError(Int3IrError):
-    """Exception type for assigning a name to an already-named entity."""
+class Int3TypeCoercionError(Int3Error):
+    """Exception type for type coercion errors and failures."""

@@ -8,6 +8,14 @@ if (level := os.environ.get("INT3_LOGLEVEL", None)) is not None:
         level=level.upper(),
     )
 
+# Initialize LLVM within llvmlite.
+from llvmlite import binding as llvm
+
+llvm.initialize()
+llvm.initialize_native_target()
+llvm.initialize_native_asmprinter()
+
+# Expose int3 library interface.
 from .architecture import *
 from .compilation import *
 from .errors import *

@@ -19,6 +19,8 @@ class FunctionProxy:
 
     compiler: "Compiler"
     name: str
+    return_type: IntType | VoidType
+    # TODO: We should be able to construct llvm_func_type from high-level arguments
     llvm_func_type: llvmir.FunctionType
 
     llvm_func: llvmir.Function = field(init=False)
@@ -40,10 +42,6 @@ class FunctionProxy:
         )
         self.llvm_entry_block = self.llvm_func.append_basic_block(name="entry")
         self.llvm_builder = llvmir.IRBuilder(self.llvm_entry_block)
-
-    @property
-    def return_type(self) -> llvmir.Type:
-        return self.llvm_func_type.return_type
 
     @property
     def current_block(self) -> llvmir.Block:

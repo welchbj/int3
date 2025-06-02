@@ -68,9 +68,33 @@ class IntType:
     is_signed: bool
 
     wrapped_type: llvmir.IntType = field(init=False)
+    max_value: int = field(init=False)
+    min_value: int = field(init=False)
 
     def __post_init__(self):
         object.__setattr__(self, "wrapped_type", llvmir.IntType(bits=self.bit_size))
+        object.__setattr__(self, "max_value", self._max_value())
+        object.__setattr__(self, "min_value", self._min_value())
+
+    def can_represent_value(self, value: int) -> bool:
+        return self.min_value <= value <= self.max_value
+
+    def can_represent_type(self, other: IntType) -> bool:
+        return self.min_value <= other.min_value and self.max_value >= other.max_value
+
+    def _max_value(self) -> int:
+        if self.is_signed:
+            magnitude = 1 << (self.bit_size - 1)
+            return magnitude - 1
+        else:
+            return (1 << self.bit_size) - 1
+
+    def _min_value(self) -> int:
+        if self.is_signed:
+            magnitude = 1 << (self.bit_size - 1)
+            return -magnitude
+        else:
+            return 0
 
 
 @dataclass
@@ -99,7 +123,10 @@ class IntConstant(IntValue):
     value: int
 
     def __post_init__(self):
-        # TODO: Validate bit size for value
+        if not self.type.can_represent_value(self.value):
+            raise Int3InsufficientWidthError(
+                f"{self.type} cannot represent value {self.value:#x}"
+            )
 
         self.wrapped_llvm_node = llvmir.Constant(
             typ=self.type.wrapped_type, constant=self.value

@@ -74,10 +74,6 @@ class Compiler:
     llvm_module: llvmir.Module = field(init=False)
 
     def __post_init__(self):
-        llvm.initialize()
-        llvm.initialize_native_target()
-        llvm.initialize_native_asmprinter()
-
         self.triple = Triple.from_arch_and_platform(self.arch, self.platform)
 
         self.func = FunctionFactory(compiler=self)
@@ -116,9 +112,21 @@ class Compiler:
         finally:
             self._current_func = None
 
-    def coerce(self, one: IntArgType, two: IntArgType) -> TypeCoercion:
-        # TODO: This isn't dealing with signedness yet.
+    @overload
+    def coerce_to_type(
+        self, value: IntConstant | int, type: IntType
+    ) -> IntConstant: ...
 
+    @overload
+    def coerce_to_type(self, value: IntVariable, type: IntType) -> IntVariable: ...
+
+    def coerce_to_type(
+        self, value: IntArgType, type: IntType
+    ) -> IntConstant | IntVariable:
+        # TODO
+        pass
+
+    def coerce(self, one: IntArgType, two: IntArgType) -> TypeCoercion:
         if isinstance(one, int) and isinstance(two, int):
             # Both arguments are raw integers.
             raise NotImplementedError("Coercion of raw integers WIP")
@@ -151,12 +159,34 @@ class Compiler:
     def i(self, value: int) -> IntConstant:
         return self.make_int(value, type=self.types.inat)
 
+    def i8(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.i8)
+
+    def i16(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.i16)
+
     def i32(self, value: int) -> IntConstant:
         return self.make_int(value, type=self.types.i32)
 
-    def add(self, one: IntArgType, two: IntArgType) -> IntVariable:
-        # TODO: Account for signed-ness
+    def i64(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.i64)
 
+    def u(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.unat)
+
+    def u8(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.u8)
+
+    def u16(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.u16)
+
+    def u32(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.u32)
+
+    def u64(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.u64)
+
+    def add(self, one: IntArgType, two: IntArgType) -> IntVariable:
         coercion = self.coerce(one, two)
         result_inst = self.builder.add(
             coercion.args[0].wrapped_llvm_node,
@@ -170,19 +200,11 @@ class Compiler:
         )
 
     def ret(self, value: ArgType | None = None):
-        # TODO: Check the function's return type and
-        #       make sure it aligns
-
         if value is None:
             return self.builder.ret_void()
-
-        if isinstance(value, int):
-            # TODO: We should use the function's return type.
-            value = self.i(value)
-
-        # TODO: We may still need to coerce the type depending on the return type.
-
-        return self.builder.ret(value.wrapped_llvm_node)
+        else:
+            value = self.coerce_to_type(value, type=self.current_func.return_type)
+            return self.builder.ret(value.wrapped_llvm_node)
 
     def llvm_ir(self) -> str:
         return str(self.llvm_module)
