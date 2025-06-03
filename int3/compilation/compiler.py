@@ -297,7 +297,10 @@ class Compiler:
         #
         # See: https://stackoverflow.com/a/40890321
         target = llvm.Target.from_triple(str(self.triple))
-        target_machine = target.create_target_machine(opt=0)
+        # codemodel influences the range of relative branches/calls.
+        #
+        # See: https://stackoverflow.com/a/40498306
+        target_machine = target.create_target_machine(opt=0, reloc="pic", codemodel="large")
         target_machine.set_asm_verbosity(verbose=True)
 
         llvm_mod = llvm.parse_assembly(str(self.llvm_module))
@@ -306,7 +309,6 @@ class Compiler:
         with llvm.create_mcjit_compiler(llvm_mod, target_machine) as engine:
             engine.finalize_object()
             if mode == "asm":
-                llvm.SectionIteratorRef
                 return cast(str, target_machine.emit_assembly(llvm_mod))
             else:
                 return cast(bytes, target_machine.emit_object(llvm_mod))
