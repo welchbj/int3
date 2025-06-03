@@ -293,10 +293,8 @@ class Compiler:
     def _compile(self, mode: Literal["bytes"]) -> bytes: ...
 
     def _compile(self, mode: Literal["asm", "bytes"]) -> str | bytes:
-        # XXX: We may need to inject the target LLVM triple here.
-        #
-        # See: https://stackoverflow.com/a/40890321
         target = llvm.Target.from_triple(str(self.triple))
+
         # codemodel influences the range of relative branches/calls.
         #
         # See: https://stackoverflow.com/a/40498306
