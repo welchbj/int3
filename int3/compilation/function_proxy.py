@@ -100,6 +100,10 @@ class FunctionProxy:
     ) -> None:
         if self._current_function_cm is None:
             raise RuntimeError("This should be unreachable!")
+        elif exc_type is not None:
+            # An exception is already bubbling up, let's not further inspect
+            # the state of this function.
+            pass
         else:
             if not self.current_block.is_terminated:
                 if self.return_type == self.compiler.types.void:
