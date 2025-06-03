@@ -9,10 +9,10 @@ with cc.func.increment(int, cc.types.inat):
     cc.ret(cc.args[0] + 1)
 
 
-with cc.func.main(return_type=int):
-    var = cc.i(0xDEAD0000) + 0x0000BEEF
+with cc.func.main():
+    var = cc.i(0xDEAD) + 0xBEEF
     result = cc.func.increment(var)
-    cc.ret(cc.sys_exit(result))
+    cc.sys_exit(result)
 
     # with cc.if_else(my_var < 0xCAFEBABE) as (if_, else_):
     #     with if_:
