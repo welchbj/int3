@@ -14,6 +14,8 @@ from llvmlite import binding as llvm
 llvm.initialize()
 llvm.initialize_all_targets()
 llvm.initialize_all_asmprinters()
+# XXX: We may need to fork llvmlite to have initialize_all_asmparsers.
+llvm.initialize_native_asmparser()
 
 # Expose int3 library interface.
 from .architecture import *
