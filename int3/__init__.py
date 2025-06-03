@@ -12,8 +12,8 @@ if (level := os.environ.get("INT3_LOGLEVEL", None)) is not None:
 from llvmlite import binding as llvm
 
 llvm.initialize()
-llvm.initialize_native_target()
-llvm.initialize_native_asmprinter()
+llvm.initialize_all_targets()
+llvm.initialize_all_asmprinters()
 
 # Expose int3 library interface.
 from .architecture import *
