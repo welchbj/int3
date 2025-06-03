@@ -47,11 +47,20 @@ In order to run tests and build some utilities, a suite of cross-compilation too
 
 #### Python Dependencies
 
-TODO
+Install required Python packages and activate the corresponding virtual environment with:
+
+```sh
+uv sync
+source .venv/bin/activate
+```
 
 ### Releases
 
-TODO
+The PyPI package can be published with:
+
+```sh
+uv publish
+```
 
 ### Debugging
 
