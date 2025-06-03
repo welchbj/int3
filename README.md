@@ -2,14 +2,12 @@
 
 ## Synopsis
 
-`int3` is a Python library and command-line tool for generating, transforming, and encoding shellcode payloads:
+`int3` is a Python library and command-line tool for writing and working with shellcode:
 
 ```sh
 echo -n "int3" | int3 assemble | int3 format
 b"\xcc"
 ```
-
-This library's initial release is focused on Windows 32-bit and 64-bit environments.
 
 ## Installation
 
@@ -19,57 +17,13 @@ This library's initial release is focused on Windows 32-bit and 64-bit environme
 pip install int3
 ```
 
+## License
+
+`int3` is should never be used to target machines and/or networks without explicit prior consent. `int3`'s unique code is released under the [GPLv2 license](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html), as per the [`LICENSE.txt`](./LICENSE.txt) file.
+
 ## Usage
 
-### Formatting
-
 TODO
-
-### Encoding
-
-TODO
-
-### Factoring
-
-TODO
-
-## Design
-
-### Terminology
-
-* Basic Block: TODO
-* Predicate: TODO
-* Branch: TODO
-* Jump: TODO
-
-### Workflow
-
-Flow:
-
-* `int3` top-level Python library interface (mainly, a `Compiler` instance for the appropriate platform and architecture)
-* Generation of `int3` IR as a graph of basic blocks, variables, and abstract operations
-* Multiple optimization passes over the graph, translating abstract operations to concrete operations
-  * The translation of abstract to concrete operations is where architecture-dependent considerations are applied
-* Translation of `int3` IR basic blocks to machine code
-* Stitching together emiited machine code with optimal relocations
-
-When avoiding bad bytes, there's three categories of things we need to avoid them in:
-
-* Instruction opcodes
-* Registers selected to represent variables
-* Immediate values (accounting for encoding of architecture-dependent encoding)
-* Relocations/offsets to branch targets and global data
-
-### Relationship with LLVM IR
-
-TODO
-
-```
-https://llvmlite.readthedocs.io/en/latest/user-guide/ir/index.html
-https://mcyoung.xyz/2023/08/01/llvm-ir/
-https://docs.angr.io/en/latest/faq.html#why-did-you-choose-vex-instead-of-another-ir-such-as-llvm-reil-bap-etc
-https://github.com/lifting-bits/mcsema?tab=readme-ov-file#comparison-with-other-machine-code-to-llvm-bitcode-lifters
-```
 
 ## Development
 
@@ -93,33 +47,19 @@ In order to run tests and build some utilities, a suite of cross-compilation too
 
 #### Python Dependencies
 
-This project uses [Poetry](https://python-poetry.org) to manage its Python dependencies. Follow [the Poetry installation instructions](https://python-poetry.org/docs/#installing-with-the-official-installer) for its setup.
-
-You can then install this project's Python dependencies with:
-
-```sh
-poetry install
-```
+TODO
 
 ### Releases
 
-Assuming [Poetry credentials are properly setup](https://python-poetry.org/docs/repositories/#configuring-credentials), publishing to PyPI should be simple:
-
-```sh
-poetry publish --build
-```
+TODO
 
 ### Debugging
 
 Testing shellcode payloads compatible with the host platform and architecture can be done with GDB (assuming the payload has a breakpoint embdedded within it):
 
 ```sh
-x=$(mktemp) ; python3 -m int3 payload --payload linux/reverse_shell --strategy CodeSize --bad-bytes "\x41\x42\x43\x00\x01\x02" --format-out Raw > $x ; gdb -ex "handle SIGUSR1 nostop" -ex "run" --args python -m int3 execute --input $x
+x=$(mktemp) ; python3 examples/linux/hello_world.py > $x ; gdb -ex "handle SIGUSR1 nostop" -ex "run" --args python -m int3 execute --input $x
 ```
-
-## License
-
-`int3` is intended for educational purposes and events such as CTFs only. It should never be used to target machines and/or networks without explicit prior consent. `int3`'s unique code is released under the [MIT license](https://opensource.org/licenses/MIT), as per the [`LICENSE.txt`](./LICENSE.txt) file.
 
 ## References
 
@@ -137,3 +77,4 @@ Many helpful resources were used in the development of this tool, including:
 * [Phrack - Writing ia32 alphanumeric shellcodes](http://phrack.org/issues/57/15.html)
 * [MazeGen's x86 reference](http://ref.x86asm.net/coder32.html)
 * [NASM](https://www.nasm.us/)
+* [`angr` library discussion on VEX IR](https://docs.angr.io/en/latest/faq.html#why-did-you-choose-vex-instead-of-another-ir-such-as-llvm-reil-bap-etc)

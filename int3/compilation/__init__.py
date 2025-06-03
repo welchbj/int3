@@ -1,1 +1,2 @@
-from .linux import *  # noqa
+from .compiler import Compiler
+from .function_proxy import FunctionProxy

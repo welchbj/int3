@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from int3.architectures import ArchitectureMeta, ArchitectureMetas
+from int3.architecture import Architecture, Architectures
 
 
 class FilePaths:
@@ -22,9 +22,7 @@ class QemuResult:
 
 
 QEMU_ARCHES = [
-    arch_meta.value
-    for arch_meta in ArchitectureMetas
-    if arch_meta.value.qemu_name != "unsupported"
+    arch.value for arch in Architectures if arch.value.qemu_name != "unsupported"
 ]
 
 
@@ -35,10 +33,8 @@ def _name_getter(obj):
 parametrize_qemu_arch = pytest.mark.parametrize("arch", QEMU_ARCHES, ids=_name_getter)
 
 
-def compile_src(
-    arch_meta: ArchitectureMeta, in_file: Path, out_file: Path, static: bool = True
-):
-    cc_bin = f"{arch_meta.toolchain_triple}-gcc"
+def compile_src(arch: Architecture, in_file: Path, out_file: Path, static: bool = True):
+    cc_bin = f"{arch.toolchain_triple}-gcc"
     if (cc_path := shutil.which(cc_bin)) is None:
         pytest.fail(f"No available gcc binary {cc_bin}")
 
@@ -49,8 +45,8 @@ def compile_src(
     subprocess.check_output(args)
 
 
-def run_in_qemu(shellcode: bytes, arch_meta: ArchitectureMeta, strace: bool = True):
-    qemu_bin = f"qemu-{arch_meta.qemu_name}"
+def run_in_qemu(shellcode: bytes, arch: Architecture, strace: bool = True):
+    qemu_bin = f"qemu-{arch.qemu_name}"
     if (qemu_path := shutil.which(qemu_bin)) is None:
         pytest.fail(f"No available qemu binary {qemu_bin}")
 
@@ -64,7 +60,7 @@ def run_in_qemu(shellcode: bytes, arch_meta: ArchitectureMeta, strace: bool = Tr
         shellcode_file.write(shellcode)
 
         compile_src(
-            arch_meta=arch_meta,
+            arch=arch,
             in_file=FilePaths.INT3_SHELLCODE_RUNNER_SRC,
             out_file=Path(runner_bin.name),
         )

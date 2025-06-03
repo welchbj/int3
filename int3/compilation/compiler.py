@@ -1,148 +1,348 @@
-import random
+from __future__ import annotations
+
+import logging
+import platform
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Iterator, Literal
+from typing import TYPE_CHECKING, Iterator, Literal, cast, overload
 
-from int3.architectures import ArchitectureMeta, ArchitectureMetas
-from int3.errors import Int3MissingEntityError
-from int3.ir import (
-    IrAbstractBranch,
-    IrAbstractPredicate,
-    IrBasicBlock,
-    IrBytesConstant,
-    IrBytesType,
-    IrGlobalVar,
-    IrIntConstant,
-    IrIntType,
-    IrLocalVar,
-    IrVar,
+from llvmlite import binding as llvm
+from llvmlite import ir as llvmir
+
+from int3.architecture import Architecture, Architectures
+from int3.errors import Int3ArgumentError, Int3CompilationError, Int3ContextError
+from int3.platform import Platform
+from int3.triple import Triple
+
+if TYPE_CHECKING:
+    from ._linux_compiler import LinuxCompiler
+
+from .function_proxy import FunctionFactory, FunctionProxy
+from .types import (
+    ArgType,
+    IntArgType,
+    IntConstant,
+    IntType,
+    IntValueType,
+    IntVariable,
+    TypeCoercion,
+    TypeManager,
 )
-from int3.strategy import Strategy
 
-from .compiler_scope import CompilerScope
+logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class CodeSection:
+    name: str
+    address: int
+    size: int
+    data: bytes
+
+    @staticmethod
+    def from_section_ref(ref: llvm.SectionIteratorRef) -> CodeSection:
+        return CodeSection(
+            name=ref.name(),
+            address=ref.address(),
+            size=ref.size(),
+            data=ref.data(),
+        )
 
 
 @dataclass
 class Compiler:
-    arch: str
+    arch: Architecture
+    platform: Platform
+    triple: Triple = field(init=False)
 
-    strategy: Strategy = Strategy.CodeSize
+    # The name of the entrypoint function for the compiler.
+    entry: str = "main"
+
+    # Bytes that must be avoided when generating assembly.
     bad_bytes: bytes = b""
 
-    active_bb_stack: list[IrBasicBlock] = field(init=False, default_factory=list)
-    used_labels: set[str] = field(init=False, default_factory=set)
+    # Interface for creating functions on this compiler.
+    func: FunctionFactory = field(init=False)
 
-    entry_bb: IrBasicBlock = field(init=False)
-    arch_meta: ArchitectureMeta = field(init=False)
+    # The function this compiler is currently operating on.
+    _current_func: FunctionProxy | None = field(init=False, default=None)
+
+    # Short-hand for llvmlite types.
+    types: TypeManager = field(init=False)
+
+    # Wrapped llvmlite IR module.
+    llvm_module: llvmir.Module = field(init=False)
 
     def __post_init__(self):
-        self.arch_meta = ArchitectureMetas.from_str(self.arch)
+        self.triple = Triple.from_arch_and_platform(self.arch, self.platform)
 
-        self.entry_bb = IrBasicBlock(label="entry", cc_scope=CompilerScope(cc=self))
-        self.used_labels.add("entry")
-        self.active_bb_stack.append(self.entry_bb)
+        self.func = FunctionFactory(compiler=self)
+        self.types = TypeManager(compiler=self)
+        self.llvm_module = llvmir.Module()
 
-    def compile_ir(self) -> str:
-        return str(self.entry_bb)
+    def __bytes__(self) -> bytes:
+        return self.to_bytes()
+
+    @property
+    def current_func(self) -> FunctionProxy:
+        if self._current_func is None:
+            raise Int3ContextError(
+                "Attempted to modify program definition without a current function set"
+            )
+
+        return self._current_func
+
+    @property
+    def builder(self) -> llvmir.IRBuilder:
+        return self.current_func.llvm_builder
+
+    @property
+    def args(self) -> list[IntVariable]:
+        """Interface into the current function's arguments."""
+        return self.current_func.args
+
+    def make_name(self, hint: str | None = None) -> str:
+        """Make an identifier for the current function."""
+        return self.current_func.make_name(hint=hint)
 
     @contextmanager
-    def active_bb_cm(self, bb: IrBasicBlock) -> Iterator[IrBasicBlock]:
+    def _current_function_as(self, func: FunctionProxy) -> Iterator[FunctionProxy]:
+        """Context manager to set the compiler's current function."""
+        if self._current_func is not None:
+            raise Int3ContextError("Cannot have nested current functions")
+
+        self._current_func = func
         try:
-            self.active_bb_stack.append(bb)
-            yield bb
+            yield func
         finally:
-            self.active_bb_stack.pop()
+            self._current_func = None
 
-    @property
-    def active_bb(self) -> IrBasicBlock:
-        return self.active_bb_stack[-1]
+    @overload
+    def coerce_to_type(self, value: IntConstant, type: IntType) -> IntConstant: ...
 
-    @property
-    def active_scope(self) -> CompilerScope:
-        return self.active_bb.cc_scope
+    @overload
+    def coerce_to_type(self, value: int, type: IntType) -> IntConstant: ...
 
-    def as_int_constant(self, value: int, signed: bool = False) -> IrIntConstant:
-        match bit_size := self.arch_meta.bit_size:
-            case 32:
-                return IrIntConstant.i32(value) if signed else IrIntConstant.u32(value)
-            case 64:
-                return IrIntConstant.i64(value) if signed else IrIntConstant.u64(value)
-            case _:
-                raise Int3MissingEntityError(f"Unexpected bit size {bit_size}")
+    @overload
+    def coerce_to_type(self, value: IntVariable, type: IntType) -> IntVariable: ...
 
-    def make_native_int_var(
-        self, signed: bool = False, scope: Literal["local", "global"] = "local"
-    ) -> IrVar:
-        match bit_size := self.arch_meta.bit_size:
-            case 32:
-                type_ = IrIntType.i32() if signed else IrIntType.u32()
-            case 64:
-                type_ = IrIntType.i64() if signed else IrIntType.u64()
-            case _:
-                raise Int3MissingEntityError(f"Unexpected bit size {bit_size}")
+    def coerce_to_type(
+        self, value: IntArgType, type: IntType
+    ) -> IntConstant | IntVariable:
+        if isinstance(value, (int, IntConstant)):
+            if isinstance(value, IntConstant):
+                raw_value = value.value
+            else:
+                raw_value = value
 
-        name = self.active_scope.make_var_name(prefix=scope)
-        if scope == "local":
-            return IrLocalVar(name=name, type_=type_)
+            return IntConstant(
+                compiler=self,
+                type=type,
+                value=raw_value,
+                wrapped_llvm_node=llvmir.Constant(
+                    typ=type.wrapped_type, constant=raw_value
+                ),
+            )
         else:
-            return IrGlobalVar(name=name, type_=type_)
+            is_extension = value.type.bit_size < type.bit_size
+            is_truncation = value.type.bit_size > type.bit_size
+            should_be_signed_operation = value.type.is_signed and type.is_signed
+            old_wrapped_node = value.wrapped_llvm_node
+            target_llvm_type = type.wrapped_type
 
-    def as_bytes_constant(self, value: bytes) -> IrBytesConstant:
-        return IrBytesConstant(type_=IrBytesType(), value=value)
+            if is_extension:
+                if should_be_signed_operation:
+                    new_wrapped_node = self.builder.sext(
+                        old_wrapped_node, target_llvm_type
+                    )
+                else:
+                    new_wrapped_node = self.builder.zext(
+                        old_wrapped_node, target_llvm_type
+                    )
+            elif is_truncation:
+                new_wrapped_node = self.builder.trunc(
+                    old_wrapped_node, target_llvm_type
+                )
+            else:
+                # We aren't changing the number of bits.
+                new_wrapped_node = old_wrapped_node
 
-    def make_label(self, hint: str) -> str:
-        """Generate a unique label."""
-        while True:
-            rand_str = "".join(random.choice("0123456789abcdef") for _ in range(4))
-            maybe_label = f"{hint}_{rand_str}"
+            return IntVariable(
+                compiler=self, type=type, wrapped_llvm_node=new_wrapped_node
+            )
 
-            if maybe_label in self.used_labels:
+    def coerce(self, one: IntArgType, two: IntArgType) -> TypeCoercion:
+        if isinstance(one, int) and isinstance(two, int):
+            # Both arguments are raw integers.
+            raise NotImplementedError("Coercion of raw integers WIP")
+        elif isinstance(one, int) and not isinstance(two, int):
+            # Promote one's value to two's type.
+            return TypeCoercion(result_type=two.type, args=[two.make_int(one), two])
+        elif not isinstance(one, int) and isinstance(two, int):
+            # Promote two's value to the one's type.
+            return TypeCoercion(result_type=one.type, args=[one, one.make_int(two)])
+
+        # We're dealing with two non-raw integers.
+        one = cast(IntValueType, one)
+        two = cast(IntValueType, two)
+
+        if one.type == two.type:
+            # They're already the same type.
+            return TypeCoercion(result_type=one.type, args=[one, two])
+        else:
+            # Integers of different types.
+            raise NotImplementedError("Coercion of typed integers WIP")
+
+    def make_int(self, value: int, type: IntType) -> IntConstant:
+        return IntConstant(
+            compiler=self,
+            type=type,
+            wrapped_llvm_node=llvmir.Constant(typ=type.wrapped_type, constant=value),
+            value=value,
+        )
+
+    def i(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.inat)
+
+    def i8(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.i8)
+
+    def i16(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.i16)
+
+    def i32(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.i32)
+
+    def i64(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.i64)
+
+    def u(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.unat)
+
+    def u8(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.u8)
+
+    def u16(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.u16)
+
+    def u32(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.u32)
+
+    def u64(self, value: int) -> IntConstant:
+        return self.make_int(value, type=self.types.u64)
+
+    def add(self, one: IntArgType, two: IntArgType) -> IntVariable:
+        coercion = self.coerce(one, two)
+        result_inst = self.builder.add(
+            coercion.args[0].wrapped_llvm_node,
+            coercion.args[1].wrapped_llvm_node,
+            name=self.make_name(hint="result"),
+        )
+        return IntVariable(
+            compiler=self,
+            type=coercion.result_type,
+            wrapped_llvm_node=result_inst,
+        )
+
+    def ret(self, value: ArgType | None = None):
+        if value is None and self.current_func.return_type == self.types.void:
+            return self.builder.ret_void()
+        elif value is None:
+            raise Int3CompilationError(
+                "No return value specified for non-void function"
+            )
+        elif self.current_func.return_type == self.types.void:
+            raise Int3CompilationError(
+                f"Attempting to return value from void function: {value}"
+            )
+        else:
+            return_type = cast(IntType, self.current_func.return_type)
+            value = self.coerce_to_type(value, type=return_type)
+            return self.builder.ret(value.wrapped_llvm_node)
+
+    def llvm_ir(self) -> str:
+        return str(self.llvm_module)
+
+    def to_bytes(self) -> bytes:
+        raw_obj_data = self._compile(mode="bytes")
+
+        obj_file_ref = llvm.ObjectFileRef.from_data(raw_obj_data)
+
+        code_sections: list[CodeSection] = []
+        for section_ref in obj_file_ref.sections():
+            if not section_ref.is_text():
+                logger.debug(f"Skipping non-text section {section_ref.name()}")
                 continue
 
-            self.used_labels.add(maybe_label)
-            return maybe_label
+            code_sections.append(CodeSection.from_section_ref(section_ref))
 
-    def spawn_bb(
-        self,
-        new_scope: bool = False,
-        set_as_active: bool = False,
-        label_hint: str | None = None,
-    ) -> IrBasicBlock:
-        label_hint = "bb" if label_hint is None else label_hint
-        label = self.make_label(label_hint)
+        data = b""
+        for code_section in code_sections:
+            # XXX: We need to validate that all of the sections are contiguous.
+            data += code_section.data
 
-        cc_scope = self.spawn_scope() if new_scope else self.active_scope
-        bb = IrBasicBlock(label=label, cc_scope=cc_scope)
+        return data
 
-        if set_as_active:
-            self.active_bb_stack.append(bb)
+    def to_asm(self) -> str:
+        return self._compile(mode="asm")
 
-        return bb
+    @overload
+    def _compile(self, mode: Literal["asm"]) -> str: ...
 
-    def spawn_scope(
-        self, inherit_locals: bool = True, inherit_globals: bool = True
-    ) -> CompilerScope:
-        return self.active_scope.clone(
-            inherit_locals=inherit_locals, inherit_globals=inherit_globals
-        )
+    @overload
+    def _compile(self, mode: Literal["bytes"]) -> bytes: ...
 
-    @contextmanager
-    def if_else(
-        self, predicate: IrAbstractPredicate
-    ) -> Iterator[tuple[IrBasicBlock, IrBasicBlock]]:
-        if_bb = self.spawn_bb(new_scope=True, label_hint="then")
-        if_bb.add_incoming_edge(self.active_bb)
+    def _compile(self, mode: Literal["asm", "bytes"]) -> str | bytes:
+        # XXX: We may need to inject the target LLVM triple here.
+        #
+        # See: https://stackoverflow.com/a/40890321
+        target = llvm.Target.from_triple(str(self.triple))
+        # codemodel influences the range of relative branches/calls.
+        #
+        # See: https://stackoverflow.com/a/40498306
+        target_machine = target.create_target_machine(opt=0, reloc="pic", codemodel="large")
+        target_machine.set_asm_verbosity(verbose=True)
 
-        else_bb = self.spawn_bb(new_scope=True, label_hint="otherwise")
-        else_bb.add_incoming_edge(self.active_bb)
+        llvm_mod = llvm.parse_assembly(str(self.llvm_module))
+        llvm_mod.verify()
 
-        self.active_bb.add_operation(predicate)
-        self.active_bb.add_operation(IrAbstractBranch(taken=if_bb, not_taken=else_bb))
+        with llvm.create_mcjit_compiler(llvm_mod, target_machine) as engine:
+            engine.finalize_object()
+            if mode == "asm":
+                return cast(str, target_machine.emit_assembly(llvm_mod))
+            else:
+                return cast(bytes, target_machine.emit_object(llvm_mod))
 
-        next_bb = self.spawn_bb(
-            set_as_active=True, label_hint=f"after_{self.active_bb.label}"
-        )
-        if_bb.add_outgoing_edge(next_bb)
-        else_bb.add_outgoing_edge(next_bb)
+    @staticmethod
+    def from_host(bad_bytes: bytes = b"") -> Compiler:
+        os_type = platform.system().lower()
+        arch = Architectures.from_host().name
+        return Compiler.from_str(f"{os_type}/{arch}", bad_bytes=bad_bytes)
 
-        yield if_bb, else_bb
+    @overload
+    @staticmethod
+    def from_str(
+        platform_spec: Literal["linux/x86_64"], bad_bytes: bytes = b""
+    ) -> "LinuxCompiler": ...
+
+    @overload
+    @staticmethod
+    def from_str(platform_spec: str, bad_bytes: bytes = b"") -> Compiler: ...
+
+    @staticmethod
+    def from_str(platform_spec: str, bad_bytes: bytes = b"") -> Compiler:
+        parts = platform_spec.split("/")
+        if len(parts) != 2:
+            raise Int3ArgumentError(f"Invalid platform spec: {platform_spec}")
+
+        platform = Platform.from_str(parts[0])
+        match platform:
+            case Platform.Linux:
+                from ._linux_compiler import LinuxCompiler
+
+                compiler_cls = LinuxCompiler
+            case Platform.Windows:
+                raise NotImplementedError(f"Windows support not yet implemented")
+
+        arch = Architectures.from_str(parts[1])
+        return compiler_cls(arch=arch, platform=platform, bad_bytes=bad_bytes)
