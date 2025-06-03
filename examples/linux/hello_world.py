@@ -10,6 +10,8 @@ with cc.func.increment(int, cc.types.inat):
 
 
 with cc.func.main():
+    cc.breakpoint()
+
     var = cc.i(0xDEAD) + 0xBEEF
     result = cc.func.increment(var)
     cc.sys_exit(result)

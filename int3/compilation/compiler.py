@@ -238,6 +238,21 @@ class Compiler:
     def u64(self, value: int) -> IntConstant:
         return self.make_int(value, type=self.types.u64)
 
+    def breakpoint(self):
+        llvm_func_type = llvmir.FunctionType(
+            return_type=self.types.void.wrapped_type,
+            args=[],
+        )
+
+        self.builder.comment("breakpoint")
+        self.builder.asm(
+            ftype=llvm_func_type,
+            asm=self.codegen.breakpoint(),
+            constraint="",
+            args=[],
+            side_effect=True,
+        )
+
     def add(self, one: IntArgType, two: IntArgType) -> IntVariable:
         coercion = self.coerce(one, two)
         result_inst = self.builder.add(
