@@ -1,6 +1,6 @@
 import pytest
 
-from int3.architectures import Architectures
+from int3.architecture import Architectures
 from int3.errors import Int3ArgumentError, Int3InsufficientWidthError
 
 

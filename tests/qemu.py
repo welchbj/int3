@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from int3.architectures import Architecture, Architectures
+from int3.architecture import Architecture, Architectures
 
 
 class FilePaths:
