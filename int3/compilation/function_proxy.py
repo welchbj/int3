@@ -101,12 +101,16 @@ class FunctionProxy:
         if self._current_function_cm is None:
             raise RuntimeError("This should be unreachable!")
         else:
-            if (
-                self.llvm_func_type.return_type == self.compiler.types.void
-                and not self.current_block.is_terminated
-            ):
-                # Add an implicit void return.
-                self.llvm_builder.ret_void()
+            if not self.current_block.is_terminated:
+                if self.return_type == self.compiler.types.void:
+                    # Add an implicit void return.
+                    self.llvm_builder.ret_void()
+                else:
+                    # No return specified despite a non-void return type.
+                    raise Int3CompilationError(
+                        f"No return specified in {self.name} despite non-void return "
+                        f"type {self.return_type}"
+                    )
 
             self._current_function_cm.__exit__(None, None, None)
             self._current_function_cm = None
@@ -127,9 +131,11 @@ class PartialFunctionDef:
 
         if return_type is None:
             return_type = compiler.types.void
-        elif isinstance(return_type, IntType):
+        elif isinstance(return_type, (VoidType, IntType)):
+            # Leave as is.
             pass
         else:
+            # Promote the literal type[int] to the target's native integer.
             return_type = compiler.types.inat
 
         new_func = FunctionProxy(

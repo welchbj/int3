@@ -76,6 +76,10 @@ class IntType:
         object.__setattr__(self, "max_value", self._max_value())
         object.__setattr__(self, "min_value", self._min_value())
 
+    def __str__(self) -> str:
+        sign_str = "i" if self.is_signed else "u"
+        return f"{sign_str}{self.bit_size}"
+
     def can_represent_value(self, value: int) -> bool:
         return self.min_value <= value <= self.max_value
 
