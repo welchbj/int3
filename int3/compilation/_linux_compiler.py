@@ -1,11 +1,13 @@
 from dataclasses import dataclass, field
 
+from llvmlite import ir as llvmir
+
 from int3.errors import Int3ArgumentError
 from int3.meta import Int3Files
 from int3.platform import LinuxSyscallNumbers
 
 from .compiler import Compiler
-from .types import ArgType, IntArgType, IntVariable
+from .types import ArgType, IntArgType, IntValueType, IntVariable
 
 
 @dataclass
@@ -25,8 +27,33 @@ class LinuxCompiler(Compiler):
         *args: ArgType,
         hint: str = "",
     ) -> IntVariable:
-        # TODO
-        return self.add(0xDEAD, 0xBEEF)
+        """Emit a syscall instruction for the specified set of arguments."""
+
+        combined_args: list[IntValueType] = []
+
+        # Coerce all arguments to be of the native unsigned int.
+        combined_args.append(self.coerce_to_type(sys_num, self.types.unat))
+        combined_args.extend(
+            [self.coerce_to_type(arg, self.types.unat) for arg in args]
+        )
+
+        # Create llvmlite FunctionType.
+        llvm_func_type = llvmir.FunctionType(
+            return_type=self.types.unat.wrapped_type,
+            args=[arg.type.wrapped_type for arg in combined_args],
+        )
+
+        # Emit the actual LLVM IR inline assembly.
+        self.builder.comment(f"SYS_{hint}")
+        res = self.builder.asm(
+            ftype=llvm_func_type,
+            asm=self.codegen.syscall(),
+            constraint=self.syscall_conv.llvm_constraint_str(num_args=len(args)),
+            args=[arg.wrapped_llvm_node for arg in combined_args],
+            side_effect=True,
+        )
+
+        return IntVariable(compiler=self, type=self.types.unat, wrapped_llvm_node=res)
 
     def sys_exit(self, status: IntArgType) -> IntVariable:
         return self.syscall(self.sys_nums.exit, status, hint="exit")

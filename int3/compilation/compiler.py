@@ -10,9 +10,9 @@ from llvmlite import binding as llvm
 from llvmlite import ir as llvmir
 
 from int3.architecture import Architecture, Architectures
+from int3.codegen import CodeGenerator
 from int3.errors import Int3ArgumentError, Int3CompilationError, Int3ContextError
-from int3.platform import Platform
-from int3.triple import Triple
+from int3.platform import Platform, SyscallConvention, Triple
 
 if TYPE_CHECKING:
     from ._linux_compiler import LinuxCompiler
@@ -64,20 +64,27 @@ class Compiler:
     # Interface for creating functions on this compiler.
     func: FunctionFactory = field(init=False)
 
+    # Short-hand for compiler types.
+    types: TypeManager = field(init=False)
+
+    # Assembly code generatgor
+    codegen: CodeGenerator = field(init=False)
+
+    # Syscall convention for this arch/platform combination.
+    syscall_conv: SyscallConvention = field(init=False)
+
+    # Wrapped llvmlite LLVM IR module.
+    llvm_module: llvmir.Module = field(init=False)
+
     # The function this compiler is currently operating on.
     _current_func: FunctionProxy | None = field(init=False, default=None)
 
-    # Short-hand for llvmlite types.
-    types: TypeManager = field(init=False)
-
-    # Wrapped llvmlite IR module.
-    llvm_module: llvmir.Module = field(init=False)
-
     def __post_init__(self):
-        self.triple = Triple.from_arch_and_platform(self.arch, self.platform)
-
+        self.triple = Triple(self.arch, self.platform)
         self.func = FunctionFactory(compiler=self)
         self.types = TypeManager(compiler=self)
+        self.codegen = CodeGenerator(compiler=self)
+        self.syscall_conv = self.triple.resolve_syscall_convention()
         self.llvm_module = llvmir.Module()
 
     def __bytes__(self) -> bytes:

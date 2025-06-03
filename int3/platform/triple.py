@@ -51,9 +51,10 @@ class Triple:
 
         """
         if self.platform == Platform.Linux:
+            syscall_conv: SyscallConvention
             match self.arch:
                 case Architectures.x86.value:
-                    return SyscallConvention(
+                    syscall_conv = SyscallConvention(
                         sys_num=Registers.x86.eax,
                         result=Registers.x86.eax,
                         args=(
@@ -66,7 +67,7 @@ class Triple:
                         ),
                     )
                 case Architectures.x86_64.value:
-                    return SyscallConvention(
+                    syscall_conv = SyscallConvention(
                         sys_num=Registers.x86_64.rax,
                         result=Registers.x86_64.rax,
                         args=(
@@ -79,7 +80,7 @@ class Triple:
                         ),
                     )
                 case Architectures.Mips.value:
-                    return SyscallConvention(
+                    syscall_conv = SyscallConvention(
                         sys_num=Registers.Mips.v0,
                         result=Registers.Mips.v0,
                         args=(
@@ -90,6 +91,8 @@ class Triple:
                             # TODO: How do pass additinal arguments on the stack?
                         ),
                     )
+
+            return syscall_conv
         else:
             raise NotImplementedError(
                 "Non-Linux Syscall convention resolution not yet implemented"

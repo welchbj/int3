@@ -12,7 +12,7 @@ with cc.func.increment(int, cc.types.inat):
 with cc.func.main(return_type=int):
     var = cc.i(0xDEAD0000) + 0x0000BEEF
     result = cc.func.increment(var)
-    cc.ret(result)
+    cc.ret(cc.sys_exit(result))
 
     # with cc.if_else(my_var < 0xCAFEBABE) as (if_, else_):
     #     with if_:
