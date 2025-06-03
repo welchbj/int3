@@ -3,11 +3,13 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import TYPE_CHECKING, ContextManager
+from typing import TYPE_CHECKING, ContextManager, cast
 
 from llvmlite import ir as llvmir
 
-from .types import IntType, VoidType
+from int3.errors import Int3CompilationError
+
+from .types import IntType, IntValueType, IntVariable, ReturnType, VoidType
 
 if TYPE_CHECKING:
     from .compiler import Compiler
@@ -19,14 +21,15 @@ class FunctionProxy:
 
     compiler: "Compiler"
     name: str
-    return_type: IntType | VoidType
-    # TODO: We should be able to construct llvm_func_type from high-level arguments
-    llvm_func_type: llvmir.FunctionType
+    return_type: ReturnType
+    arg_types: list[IntType] = field(default_factory=list)
+    args: list[IntVariable] = field(init=False)
 
+    name_counter: Counter = field(init=False, default_factory=Counter)
     llvm_func: llvmir.Function = field(init=False)
+    llvm_func_type: llvmir.FunctionType = field(init=False)
     llvm_entry_block: llvmir.Block = field(init=False)
     llvm_builder: llvmir.IRBuilder = field(init=False)
-    name_counter: Counter = field(init=False, default_factory=Counter)
 
     # Internal context manager used to manage shared lifetimes between function
     # and compiler utilities.
@@ -35,11 +38,26 @@ class FunctionProxy:
     )
 
     def __post_init__(self):
+        self.llvm_func_type = llvmir.FunctionType(
+            return_type=self.return_type.wrapped_type,
+            args=[arg.wrapped_type for arg in self.arg_types],
+        )
         self.llvm_func = llvmir.Function(
             module=self.compiler.llvm_module,
             ftype=self.llvm_func_type,
             name=self.name,
         )
+
+        self.args = []
+        for idx, arg_type in enumerate(self.arg_types):
+            self.args.append(
+                IntVariable(
+                    compiler=self.compiler,
+                    type=arg_type,
+                    wrapped_llvm_node=self.llvm_func.args[idx],
+                )
+            )
+
         self.llvm_entry_block = self.llvm_func.append_basic_block(name="entry")
         self.llvm_builder = llvmir.IRBuilder(self.llvm_entry_block)
 
@@ -54,6 +72,21 @@ class FunctionProxy:
         self.name_counter.update((hint,))
         idx = self.name_counter[hint]
         return f"{hint}{idx}"
+
+    def __call__(self, *args: IntValueType) -> IntVariable | None:
+        llvm_ret_value = self.compiler.current_func.llvm_builder.call(
+            fn=self.llvm_func,
+            args=[arg.wrapped_llvm_node for arg in args],
+        )
+
+        if self.return_type == self.compiler.types.void:
+            return None
+        else:
+            return_type = cast(IntType, self.return_type)
+
+        return IntVariable(
+            compiler=self.compiler, type=return_type, wrapped_llvm_node=llvm_ret_value
+        )
 
     def __enter__(self) -> FunctionProxy:
         self._current_function_cm = self.compiler._current_function_as(self)
@@ -86,7 +119,9 @@ class PartialFunctionDef:
     factory: FunctionFactory
 
     def __call__(
-        self, return_type: IntType | VoidType | type[int] | None = None
+        self,
+        return_type: IntType | VoidType | type[int] | None = None,
+        *arg_types: IntType | type[int],
     ) -> FunctionProxy:
         compiler = self.factory.compiler
 
@@ -97,11 +132,14 @@ class PartialFunctionDef:
         else:
             return_type = compiler.types.inat
 
-        func_type = llvmir.FunctionType(return_type=return_type.wrapped_type, args=[])
         new_func = FunctionProxy(
             compiler=self.factory.compiler,
             name=self.name,
-            llvm_func_type=func_type,
+            return_type=return_type,
+            arg_types=[
+                arg if isinstance(arg, IntType) else compiler.types.inat
+                for arg in arg_types
+            ],
         )
         self.factory.func_map[self.name] = new_func
         return new_func
@@ -113,7 +151,11 @@ class FunctionFactory:
 
     func_map: dict[str, FunctionProxy] = field(init=False, default_factory=dict)
 
-    # TODO: __call__ for decorator setup
-
-    def __getattr__(self, attr: str) -> PartialFunctionDef:
-        return PartialFunctionDef(name=attr, factory=self)
+    def __getattr__(self, attr: str) -> PartialFunctionDef | FunctionProxy:
+        func_proxy = self.func_map.get(attr, None)
+        if func_proxy is None:
+            # We're defining a new function.
+            return PartialFunctionDef(name=attr, factory=self)
+        else:
+            # We're accessing a function that was already defined.
+            return func_proxy

@@ -10,7 +10,7 @@ from llvmlite import binding as llvm
 from llvmlite import ir as llvmir
 
 from int3.architecture import Architecture, Architectures
-from int3.errors import Int3ArgumentError, Int3ContextError
+from int3.errors import Int3ArgumentError, Int3CompilationError, Int3ContextError
 from int3.platform import Platform
 from int3.triple import Triple
 
@@ -23,7 +23,7 @@ from .types import (
     IntArgType,
     IntConstant,
     IntType,
-    IntValue,
+    IntValueType,
     IntVariable,
     TypeCoercion,
     TypeManager,
@@ -96,6 +96,11 @@ class Compiler:
     def builder(self) -> llvmir.IRBuilder:
         return self.current_func.llvm_builder
 
+    @property
+    def args(self) -> list[IntVariable]:
+        """Interface into the current function's arguments."""
+        return self.current_func.args
+
     def make_name(self, hint: str | None = None) -> str:
         """Make an identifier for the current function."""
         return self.current_func.make_name(hint=hint)
@@ -113,9 +118,10 @@ class Compiler:
             self._current_func = None
 
     @overload
-    def coerce_to_type(
-        self, value: IntConstant | int, type: IntType
-    ) -> IntConstant: ...
+    def coerce_to_type(self, value: IntConstant, type: IntType) -> IntConstant: ...
+
+    @overload
+    def coerce_to_type(self, value: int, type: IntType) -> IntConstant: ...
 
     @overload
     def coerce_to_type(self, value: IntVariable, type: IntType) -> IntVariable: ...
@@ -123,8 +129,47 @@ class Compiler:
     def coerce_to_type(
         self, value: IntArgType, type: IntType
     ) -> IntConstant | IntVariable:
-        # TODO
-        pass
+        if isinstance(value, (int, IntConstant)):
+            if isinstance(value, IntConstant):
+                raw_value = value.value
+            else:
+                raw_value = value
+
+            return IntConstant(
+                compiler=self,
+                type=type,
+                value=raw_value,
+                wrapped_llvm_node=llvmir.Constant(
+                    typ=type.wrapped_type, constant=raw_value
+                ),
+            )
+        else:
+            is_extension = value.type.bit_size < type.bit_size
+            is_truncation = value.type.bit_size > type.bit_size
+            should_be_signed_operation = value.type.is_signed and type.is_signed
+            old_wrapped_node = value.wrapped_llvm_node
+            target_llvm_type = type.wrapped_type
+
+            if is_extension:
+                if should_be_signed_operation:
+                    new_wrapped_node = self.builder.sext(
+                        old_wrapped_node, target_llvm_type
+                    )
+                else:
+                    new_wrapped_node = self.builder.zext(
+                        old_wrapped_node, target_llvm_type
+                    )
+            elif is_truncation:
+                new_wrapped_node = self.builder.trunc(
+                    old_wrapped_node, target_llvm_type
+                )
+            else:
+                # We aren't changing the number of bits.
+                new_wrapped_node = old_wrapped_node
+
+            return IntVariable(
+                compiler=self, type=type, wrapped_llvm_node=new_wrapped_node
+            )
 
     def coerce(self, one: IntArgType, two: IntArgType) -> TypeCoercion:
         if isinstance(one, int) and isinstance(two, int):
@@ -138,8 +183,8 @@ class Compiler:
             return TypeCoercion(result_type=one.type, args=[one, one.make_int(two)])
 
         # We're dealing with two non-raw integers.
-        one = cast(IntValue, one)
-        two = cast(IntValue, two)
+        one = cast(IntValueType, one)
+        two = cast(IntValueType, two)
 
         if one.type == two.type:
             # They're already the same type.
@@ -200,10 +245,19 @@ class Compiler:
         )
 
     def ret(self, value: ArgType | None = None):
-        if value is None:
+        if value is None and self.current_func.return_type == self.types.void:
             return self.builder.ret_void()
+        elif value is None:
+            raise Int3CompilationError(
+                "No return value specified for non-void function"
+            )
+        elif self.current_func.return_type == self.types.void:
+            raise Int3CompilationError(
+                f"Attempting to return value from void function: {value}"
+            )
         else:
-            value = self.coerce_to_type(value, type=self.current_func.return_type)
+            return_type = cast(IntType, self.current_func.return_type)
+            value = self.coerce_to_type(value, type=return_type)
             return self.builder.ret(value.wrapped_llvm_node)
 
     def llvm_ir(self) -> str:

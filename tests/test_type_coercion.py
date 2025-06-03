@@ -56,11 +56,3 @@ def test_coerce_raw_int_to_type():
 
     with pytest.raises(Int3InsufficientWidthError):
         cc.coerce_to_type(value=-1, type=cc.types.u8)
-
-
-def test_coerce_int_variable_to_type():
-    # XXX: Do we need to validate that sign extension operations were
-    #      emitted?
-
-    # TODO
-    assert False

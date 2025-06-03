@@ -5,16 +5,14 @@ from int3 import Compiler
 cc = Compiler.from_str("linux/x86_64", bad_bytes=b"\x00")
 
 
-# @cc.func()
-# def my_func(x: int) -> int:
-#     return x + 1
+with cc.func.increment(int, cc.types.inat):
+    cc.ret(cc.args[0] + 1)
 
 
 with cc.func.main(return_type=int):
-    var_one = cc.i(0xDEAD0000) + 0x0000BEEF
-    var_two = var_one + 123
-
-    cc.ret(var_two)
+    var = cc.i(0xDEAD0000) + 0x0000BEEF
+    result = cc.func.increment(var)
+    cc.ret(result)
 
     # with cc.if_else(my_var < 0xCAFEBABE) as (if_, else_):
     #     with if_:

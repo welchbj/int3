@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from llvmlite import ir as llvmir
 
@@ -98,7 +98,7 @@ class IntType:
 
 
 @dataclass
-class IntValue:
+class _IntBase:
     """Base class for IntConstant and IntVariable.
 
     Implements Python magic methods for various integer arithemtic and
@@ -115,11 +115,11 @@ class IntValue:
         return self.compiler.make_int(value=value, type=self.type)
 
     def __add__(self, other: IntArgType) -> IntVariable:
-        return self.compiler.add(self, other)
+        return self.compiler.add(cast(IntValueType, self), other)
 
 
 @dataclass
-class IntConstant(IntValue):
+class IntConstant(_IntBase):
     value: int
 
     def __post_init__(self):
@@ -128,21 +128,19 @@ class IntConstant(IntValue):
                 f"{self.type} cannot represent value {self.value:#x}"
             )
 
-        self.wrapped_llvm_node = llvmir.Constant(
-            typ=self.type.wrapped_type, constant=self.value
-        )
-
 
 @dataclass
-class IntVariable(IntValue):
+class IntVariable(_IntBase):
     pass
 
 
 @dataclass
 class TypeCoercion:
     result_type: IntType
-    args: list[IntValue]
+    args: list[IntValueType]
 
 
-type IntArgType = IntValue | int
+type IntValueType = IntVariable | IntConstant
+type IntArgType = IntValueType | int
+type ReturnType = IntType | VoidType
 type ArgType = IntArgType
