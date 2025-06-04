@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import logging
 import platform
+import random
+import string
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Iterator, Literal, cast, overload
@@ -41,8 +43,14 @@ class CodeSection:
 
     @staticmethod
     def from_section_ref(ref: llvm.SectionIteratorRef) -> CodeSection:
+        maybe_name: bytes | None = ref.name()
+        if maybe_name is None:
+            name = ""
+        else:
+            name = maybe_name.decode()
+
         return CodeSection(
-            name=ref.name(),
+            name=name,
             address=ref.address(),
             size=ref.size(),
             data=ref.data(),
@@ -60,6 +68,9 @@ class Compiler:
 
     # Bytes that must be avoided when generating assembly.
     bad_bytes: bytes = b""
+
+    # Printable ASCII string used to mark the entrypoint.
+    entry_prefix_marker: str = field(init=False)
 
     # Interface for creating functions on this compiler.
     func: FunctionFactory = field(init=False)
@@ -83,9 +94,12 @@ class Compiler:
         self.triple = Triple(self.arch, self.platform)
         self.func = FunctionFactory(compiler=self)
         self.types = TypeManager(compiler=self)
-        self.codegen = CodeGenerator(compiler=self)
+        self.codegen = CodeGenerator(arch=self.arch)
         self.syscall_conv = self.triple.resolve_syscall_convention()
         self.llvm_module = llvmir.Module()
+        self.entry_prefix_marker = "".join(
+            random.choice(string.ascii_letters) for _ in range(8)
+        )
 
     def __bytes__(self) -> bytes:
         return self.to_bytes()
@@ -283,27 +297,49 @@ class Compiler:
             return self.builder.ret(value.wrapped_llvm_node)
 
     def llvm_ir(self) -> str:
-        return str(self.llvm_module)
+        llvm_mod_str = str(self.llvm_module)
+
+        # We hot patch in LLVM IR to include a prefix before our entrypoint, so that
+        # we can identify it in the module's compiled form later on.
+        entrypoint_func_needle = f'@"{self.entry}"()'
+        if llvm_mod_str.find(entrypoint_func_needle) == -1:
+            raise Int3CompilationError("Unable to find entrypoint needle in LLVM IR")
+
+        prefix_ir = f'prefix [{len(self.entry_prefix_marker)} x i8] c"{self.entry_prefix_marker}"'
+        llvm_mod_str = llvm_mod_str.replace(
+            entrypoint_func_needle, f"{entrypoint_func_needle} {prefix_ir}"
+        )
+
+        return llvm_mod_str
 
     def to_bytes(self) -> bytes:
         raw_obj_data = self._compile(mode="bytes")
-
         obj_file_ref = llvm.ObjectFileRef.from_data(raw_obj_data)
 
-        code_sections: list[CodeSection] = []
+        sections: list[CodeSection] = []
         for section_ref in obj_file_ref.sections():
             if not section_ref.is_text():
                 logger.debug(f"Skipping non-text section {section_ref.name()}")
                 continue
 
-            code_sections.append(CodeSection.from_section_ref(section_ref))
+            sections.append(CodeSection.from_section_ref(section_ref))
 
-        data = b""
-        for code_section in code_sections:
-            # XXX: We need to validate that all of the sections are contiguous.
-            data += code_section.data
+        if len(sections) != 1:
+            raise Int3CompilationError(
+                f"Expected 1 code section after compilation but got {len(sections)}"
+            )
+        section = sections[0]
+        code = section.data
 
-        return data
+        # Stub to jump to the entrypoint of our actual code.
+        entrypoint_offset = code.find(self.entry_prefix_marker.encode()) + len(
+            self.entry_prefix_marker
+        )
+
+        # TODO: We need to properly calculate the jump operand based on the length
+        #       of the instruction
+        code = self.codegen.jump(entrypoint_offset).bytes + code
+        return code
 
     def to_asm(self) -> str:
         return self._compile(mode="asm")
@@ -325,7 +361,7 @@ class Compiler:
         )
         target_machine.set_asm_verbosity(verbose=True)
 
-        llvm_mod = llvm.parse_assembly(str(self.llvm_module))
+        llvm_mod = llvm.parse_assembly(self.llvm_ir())
         llvm_mod.verify()
 
         with llvm.create_mcjit_compiler(llvm_mod, target_machine) as engine:

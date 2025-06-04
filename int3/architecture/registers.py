@@ -6,6 +6,9 @@ class RegisterDef:
     name: str
     bit_size: int
 
+    def __str__(self) -> str:
+        return self.name
+
 
 class x86_64Registers:
     rsp = RegisterDef(name="rsp", bit_size=64)
