@@ -328,17 +328,17 @@ class Compiler:
             raise Int3CompilationError(
                 f"Expected 1 code section after compilation but got {len(sections)}"
             )
-        section = sections[0]
-        code = section.data
+        code = sections[0].data
 
-        # Stub to jump to the entrypoint of our actual code.
-        entrypoint_offset = code.find(self.entry_prefix_marker.encode()) + len(
-            self.entry_prefix_marker
-        )
+        # Stub to jump to the entrypoint of our actual generated assembly.
+        marker_len = len(self.entry_prefix_marker)
+        entrypoint_offset = code.find(self.entry_prefix_marker.encode()) + marker_len
+        code = code.replace(self.entry_prefix_marker.encode(), self.codegen.nop_pad(marker_len))
 
-        # TODO: We need to properly calculate the jump operand based on the length
-        #       of the instruction
-        code = self.codegen.jump(entrypoint_offset).bytes + code
+        logger.debug(f"Computed offset to entrypoint function {entrypoint_offset:#x}")
+        # TODO: Don't hardcode this 2-byte offset, which corresponds to x86 short jump instruction length.
+        jump_asm = self.codegen.jump(entrypoint_offset + 2)
+        code = jump_asm.bytes + code
         return code
 
     def to_asm(self) -> str:
@@ -356,9 +356,7 @@ class Compiler:
         # codemodel influences the range of relative branches/calls.
         #
         # See: https://stackoverflow.com/a/40498306
-        target_machine = target.create_target_machine(
-            opt=0, reloc="pic", codemodel="large"
-        )
+        target_machine = target.create_target_machine(opt=0, reloc="pic", codemodel="small")
         target_machine.set_asm_verbosity(verbose=True)
 
         llvm_mod = llvm.parse_assembly(self.llvm_ir())
