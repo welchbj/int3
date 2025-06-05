@@ -39,7 +39,7 @@ class CodeGenerator:
         nop_bytes = self.gadget("nop").bytes
         if pad_len % len(nop_bytes):
             # TODO
-            1/0
+            1 / 0
 
         num_repeats = pad_len // len(nop_bytes)
         return nop_bytes * num_repeats

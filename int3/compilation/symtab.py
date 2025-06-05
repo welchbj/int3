@@ -14,6 +14,7 @@ class SymbolTable:
     Only one SymbolTable instance should be created for a given Compiler.
 
     """
+
     compiler: "Compiler"
 
     entry_slot_map: dict[str, int] = field(init=False, default_factory=dict)
@@ -33,12 +34,14 @@ class SymbolTable:
         # Define our wrapped LLVM struct.
         ctx = self.compiler.llvm_module.context
         symtab_struct = ctx.get_identified_type("struct.symtab", packed=False)
-        symtab_struct.set_body(*[
-            llvmir.PointerType() for _ in range(len(self.entry_slot_map))
-        ])
+        symtab_struct.set_body(
+            *[llvmir.PointerType() for _ in range(len(self.entry_slot_map))]
+        )
         self.wrapped_struct = symtab_struct
 
-    def func_slot_ptr(self, struct_ptr: llvmir.PointerType, func_name: str) -> llvmir.Instruction:
+    def func_slot_ptr(
+        self, struct_ptr: llvmir.PointerType, func_name: str
+    ) -> llvmir.Instruction:
         def _make_gep_idx(value: int) -> llvmir.Constant:
             return self.compiler.i32(value).wrapped_llvm_node
 

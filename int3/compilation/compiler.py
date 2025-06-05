@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import logging
+import operator
 import platform
-import random
-import string
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Iterator, Literal, cast, overload
@@ -15,6 +14,8 @@ from int3.architecture import Architecture, Architectures
 from int3.codegen import CodeGenerator
 from int3.errors import Int3ArgumentError, Int3CompilationError, Int3ContextError
 from int3.platform import Platform, SyscallConvention, Triple
+
+from .symtab import SymbolTable
 
 if TYPE_CHECKING:
     from ._linux_compiler import LinuxCompiler
@@ -63,14 +64,15 @@ class Compiler:
     platform: Platform
     triple: Triple = field(init=False)
 
-    # The name of the entrypoint function for the compiler.
+    # The name of the entrypoint function for the user-defined program.
     entry: str = "main"
 
     # Bytes that must be avoided when generating assembly.
     bad_bytes: bytes = b""
 
-    # Printable ASCII string used to mark the entrypoint.
-    entry_prefix_marker: str = field(init=False)
+    # The number of bytes the entry stub will be padded to. This is required
+    # to ensure the entry stub remains a static length for relocation computation.
+    entry_stub_pad_len: int = 100
 
     # Interface for creating functions on this compiler.
     func: FunctionFactory = field(init=False)
@@ -97,12 +99,6 @@ class Compiler:
         self.codegen = CodeGenerator(arch=self.arch)
         self.syscall_conv = self.triple.resolve_syscall_convention()
         self.llvm_module = llvmir.Module()
-        self.entry_prefix_marker = "".join(
-            random.choice(string.ascii_letters) for _ in range(8)
-        )
-
-    def __bytes__(self) -> bytes:
-        return self.to_bytes()
 
     @property
     def current_func(self) -> FunctionProxy:
@@ -121,6 +117,10 @@ class Compiler:
     def args(self) -> list[IntVariable]:
         """Interface into the current function's arguments."""
         return self.current_func.args
+
+    @property
+    def has_entry_stub(self) -> bool:
+        return self.func.func_map.get("entry_stub", None) is not None
 
     def make_name(self, hint: str | None = None) -> str:
         """Make an identifier for the current function."""
@@ -297,24 +297,46 @@ class Compiler:
             return self.builder.ret(value.wrapped_llvm_node)
 
     def llvm_ir(self) -> str:
+        if not self.has_entry_stub:
+            self._init_entry_stub()
+
         llvm_mod_str = str(self.llvm_module)
 
-        # We hot patch in LLVM IR to include a prefix before our entrypoint, so that
-        # we can identify it in the module's compiled form later on.
-        entrypoint_func_needle = f'@"{self.entry}"()'
-        if llvm_mod_str.find(entrypoint_func_needle) == -1:
-            raise Int3CompilationError("Unable to find entrypoint needle in LLVM IR")
-
-        prefix_ir = f'prefix [{len(self.entry_prefix_marker)} x i8] c"{self.entry_prefix_marker}"'
-        llvm_mod_str = llvm_mod_str.replace(
-            entrypoint_func_needle, f"{entrypoint_func_needle} {prefix_ir}"
-        )
+        # We hot patch the preliminary LLVM IR to include a prefix before each function. This
+        # allows us to map functions to their compiled bytes in LLVM's output format.
+        #
+        # XXX: Should consider submitting a patch to llvmlite to allow for API-level
+        #      prefix definitions, which would make this hack unnecessary.
+        for func in self.func.func_map.values():
+            llvm_mod_str = self._patch_in_func_prefix(llvm_mod_str, func)
 
         return llvm_mod_str
 
-    def to_bytes(self) -> bytes:
-        raw_obj_data = self._compile(mode="bytes")
-        obj_file_ref = llvm.ObjectFileRef.from_data(raw_obj_data)
+    def _patch_in_func_prefix(self, llvm_ir_str: str, func: FunctionProxy) -> str:
+        """LLVM IR source-level patching to add function prefixes."""
+        func_def_start = f'@"{func.name}"('
+
+        func_def_start_idx = llvm_ir_str.find(func_def_start)
+        if func_def_start_idx == -1:
+            raise Int3CompilationError(
+                f"Unable to find function start needle in LLVM IR: {func_def_start}"
+            )
+
+        func_def_end_idx = llvm_ir_str.find(")", func_def_start_idx)
+        if func_def_end_idx == -1:
+            raise Int3CompilationError("Unable to find function end needle in LLVM IR")
+
+        prefix_ir = f' prefix [{len(func.prefix_marker)} x i8] c"{func.prefix_marker}"'
+        llvm_ir_str = (
+            llvm_ir_str[: func_def_end_idx + 1]
+            + prefix_ir
+            + llvm_ir_str[func_def_end_idx + 1 :]
+        )
+        return llvm_ir_str
+
+    def _get_text_from_object(self, raw_object: bytes) -> bytes:
+        """Extract the text section from an object file."""
+        obj_file_ref = llvm.ObjectFileRef.from_data(raw_object)
 
         sections: list[CodeSection] = []
         for section_ref in obj_file_ref.sections():
@@ -328,46 +350,80 @@ class Compiler:
             raise Int3CompilationError(
                 f"Expected 1 code section after compilation but got {len(sections)}"
             )
-        code = sections[0].data
 
-        # Stub to jump to the entrypoint of our actual generated assembly.
-        marker_len = len(self.entry_prefix_marker)
-        entrypoint_offset = code.find(self.entry_prefix_marker.encode()) + marker_len
-        code = code.replace(self.entry_prefix_marker.encode(), self.codegen.nop_pad(marker_len))
+        return sections[0].data
 
-        logger.debug(f"Computed offset to entrypoint function {entrypoint_offset:#x}")
-        # TODO: Don't hardcode this 2-byte offset, which corresponds to x86 short jump instruction length.
-        jump_asm = self.codegen.jump(entrypoint_offset + 2)
-        code = jump_asm.bytes + code
-        return code
+    def _llvm_module_to_text(self) -> bytes:
+        # TODO
+        ...
 
-    def to_asm(self) -> str:
-        return self._compile(mode="asm")
+    def compile(self) -> bytes:
+        # TODO: We probably need to compile the entry_stub only after we've compiled the
+        #       rest of the functions.
 
-    @overload
-    def _compile(self, mode: Literal["asm"]) -> str: ...
-
-    @overload
-    def _compile(self, mode: Literal["bytes"]) -> bytes: ...
-
-    def _compile(self, mode: Literal["asm", "bytes"]) -> str | bytes:
         target = llvm.Target.from_triple(str(self.triple))
 
         # codemodel influences the range of relative branches/calls.
         #
         # See: https://stackoverflow.com/a/40498306
-        target_machine = target.create_target_machine(opt=0, reloc="pic", codemodel="small")
+        target_machine = target.create_target_machine(
+            opt=0, reloc="pic", codemodel="small"
+        )
         target_machine.set_asm_verbosity(verbose=True)
 
         llvm_mod = llvm.parse_assembly(self.llvm_ir())
         llvm_mod.verify()
 
-        with llvm.create_mcjit_compiler(llvm_mod, target_machine) as engine:
-            engine.finalize_object()
-            if mode == "asm":
-                return cast(str, target_machine.emit_assembly(llvm_mod))
-            else:
-                return cast(bytes, target_machine.emit_object(llvm_mod))
+        raw_object = cast(bytes, target_machine.emit_object(llvm_mod))
+        text_bytes = self._get_text_from_object(raw_object)
+
+        print(f"{text_bytes = }")
+
+        # Deduce each function's bytes by identifying all locations of prefix strings.
+        func_bytes: dict[str, bytes] = {}
+        prefix_indexes = []
+        for func in self.func.func_map.values():
+            idx = text_bytes.find(func.prefix_marker.encode())
+            if idx == -1:
+                raise Int3CompilationError(
+                    f"Unable to find expected prefix string in compiled code: {func.prefix_marker}"
+                )
+
+            # TODO: How do we resolve the function back from this?
+            prefix_indexes.append((idx + len(func.prefix_marker), func))
+
+        for prefix_index in sorted(prefix_indexes, key=operator.itemgetter(0)):
+            print(prefix_index[0])
+
+        1 / 0
+        # TODO
+
+        # Pad the entry stub to a static length so it can use predictable offsets.
+        program = func_bytes.pop("entry_sub")
+        self.codegen.nop_pad(
+            func_bytes["entry_stub"], pad_len=self.entry_stub_pad_len
+        )
+
+        # Add the remaining TODO.
+
+        # TODO
+
+    def _init_entry_stub(self, func_offsets: dict[str, int]):
+        # XXX: We may want to refresh the entry stub if new functions have been defined.
+
+        with self.func.entry_stub():
+            # TODO: Inline assembly to get current PC
+
+            symtab = SymbolTable(compiler=self)
+            symtab_ptr = symtab.alloc()
+
+            for func_name in symtab.entry_slot_map.keys():
+                func_obj = self.func.func_map[func_name]
+
+                self.builder.comment(f"Setup symtab for function {func_name}")
+                func_ptr = symtab.func_slot_ptr(symtab_ptr, func_name)
+                # TODO: Compute function offset and store in slot; below is incorrect
+                self.builder.store(func_obj.llvm_func, func_ptr)
 
     @staticmethod
     def from_host(bad_bytes: bytes = b"") -> Compiler:

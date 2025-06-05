@@ -9,6 +9,7 @@ if (level := os.environ.get("INT3_LOGLEVEL", None)) is not None:
     )
 
 import llvmlite
+
 # See: https://github.com/numba/llvmlite/issues/1162
 llvmlite.opaque_pointers_enabled = True
 

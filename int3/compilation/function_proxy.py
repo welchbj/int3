@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import random
+import string
 from collections import Counter
 from dataclasses import dataclass, field
 from types import TracebackType
@@ -15,6 +17,10 @@ if TYPE_CHECKING:
     from .compiler import Compiler
 
 
+def _make_prefix_marker() -> str:
+    return "".join(random.choice(string.ascii_letters) for _ in range(8))
+
+
 @dataclass
 class FunctionProxy:
     """Wrapper around an LLVM IR function."""
@@ -25,6 +31,7 @@ class FunctionProxy:
     arg_types: list[IntType] = field(default_factory=list)
     args: list[IntVariable] = field(init=False)
 
+    prefix_marker: str = field(init=False, default_factory=_make_prefix_marker)
     name_counter: Counter = field(init=False, default_factory=Counter)
     llvm_func: llvmir.Function = field(init=False)
     llvm_func_type: llvmir.FunctionType = field(init=False)
@@ -72,6 +79,10 @@ class FunctionProxy:
         self.name_counter.update((hint,))
         idx = self.name_counter[hint]
         return f"{hint}{idx}"
+
+    def __str__(self) -> str:
+        # TODO: Show full signature
+        return f"func {self.name}"
 
     def __call__(self, *args: IntValueType) -> IntVariable | None:
         llvm_ret_value = self.compiler.current_func.llvm_builder.call(
