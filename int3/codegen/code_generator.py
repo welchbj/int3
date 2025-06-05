@@ -6,9 +6,6 @@ from typing import TYPE_CHECKING
 from int3.architecture import Architecture, Architectures, RegisterDef
 from int3.assembly import assemble
 
-if TYPE_CHECKING:
-    from int3.compilation import Compiler
-
 
 @dataclass(frozen=True)
 class AsmGadget:
