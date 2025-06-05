@@ -4,7 +4,7 @@ from int3 import Compiler
 
 cc = Compiler.from_str("linux/x86_64", bad_bytes=b"\x00")
 
-with cc.func.increment(int, cc.types.i64):
+with cc.func.increment(int, int):
     cc.ret(cc.args[0] + 1)
 
 with cc.func.main():
@@ -12,7 +12,4 @@ with cc.func.main():
     result = cc.func.increment(var)
     cc.sys_exit(result)
 
-sep = "=" * 80 + "\n"
-print(cc.llvm_ir(), file=sys.stderr)
-print(sep, file=sys.stderr)
 sys.stdout.buffer.write(cc.compile())
