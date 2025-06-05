@@ -5,6 +5,7 @@ from llvmlite import ir as llvmir
 
 if TYPE_CHECKING:
     from .compiler import Compiler
+    from .function_proxy import FunctionFactory
 
 
 @dataclass
@@ -15,19 +16,19 @@ class SymbolTable:
 
     """
 
+    # We don't load funcs implicitly from the compiler due to the nuances
+    # of the entry stub generation, where we spawn a sub-compiler that
+    # needs to reference the top-level compiler's function definitions.
+    funcs: "FunctionFactory"
     compiler: "Compiler"
 
     entry_slot_map: dict[str, int] = field(init=False, default_factory=dict)
-    entry_stub_name: str = "entry_stub"
     wrapped_struct: llvmir.LiteralStructType = field(init=False)
 
     def __post_init__(self):
         # Setup our lookup table of symbol names to indexes.
         idx = 0
-        for func_name, func in self.compiler.func.func_map.items():
-            if func_name == self.entry_stub_name:
-                continue
-
+        for func_name, func in self.funcs.func_map.items():
             self.entry_slot_map[func_name] = idx
             idx += 1
 

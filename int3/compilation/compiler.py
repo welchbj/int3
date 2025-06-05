@@ -5,6 +5,7 @@ import operator
 import platform
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from itertools import pairwise
 from typing import TYPE_CHECKING, Iterator, Literal, cast, overload
 
 from llvmlite import binding as llvm
@@ -62,6 +63,7 @@ class CodeSection:
 class Compiler:
     arch: Architecture
     platform: Platform
+    platform_spec: str
     triple: Triple = field(init=False)
 
     # The name of the entrypoint function for the user-defined program.
@@ -72,7 +74,7 @@ class Compiler:
 
     # The number of bytes the entry stub will be padded to. This is required
     # to ensure the entry stub remains a static length for relocation computation.
-    entry_stub_pad_len: int = 100
+    entry_stub_pad_len: int = 0x20
 
     # Interface for creating functions on this compiler.
     func: FunctionFactory = field(init=False)
@@ -272,7 +274,7 @@ class Compiler:
         result_inst = self.builder.add(
             coercion.args[0].wrapped_llvm_node,
             coercion.args[1].wrapped_llvm_node,
-            name=self.make_name(hint="result"),
+            name=self.make_name(hint="res"),
         )
         return IntVariable(
             compiler=self,
@@ -297,9 +299,6 @@ class Compiler:
             return self.builder.ret(value.wrapped_llvm_node)
 
     def llvm_ir(self) -> str:
-        if not self.has_entry_stub:
-            self._init_entry_stub()
-
         llvm_mod_str = str(self.llvm_module)
 
         # We hot patch the preliminary LLVM IR to include a prefix before each function. This
@@ -354,13 +353,6 @@ class Compiler:
         return sections[0].data
 
     def _llvm_module_to_text(self) -> bytes:
-        # TODO
-        ...
-
-    def compile(self) -> bytes:
-        # TODO: We probably need to compile the entry_stub only after we've compiled the
-        #       rest of the functions.
-
         target = llvm.Target.from_triple(str(self.triple))
 
         # codemodel influences the range of relative branches/calls.
@@ -371,59 +363,107 @@ class Compiler:
         )
         target_machine.set_asm_verbosity(verbose=True)
 
-        llvm_mod = llvm.parse_assembly(self.llvm_ir())
+        llvm_ir_str = self.llvm_ir()
+        logger.debug(f"Generated LLVM IR program:\n{llvm_ir_str}")
+
+        llvm_mod = llvm.parse_assembly(llvm_ir_str)
         llvm_mod.verify()
 
         raw_object = cast(bytes, target_machine.emit_object(llvm_mod))
-        text_bytes = self._get_text_from_object(raw_object)
+        return self._get_text_from_object(raw_object)
 
-        print(f"{text_bytes = }")
+    def compile_funcs(self) -> dict[str, bytes]:
+        # Compile the raw object.
+        text_bytes = self._llvm_module_to_text()
 
         # Deduce each function's bytes by identifying all locations of prefix strings.
-        func_bytes: dict[str, bytes] = {}
-        prefix_indexes = []
+        prefix_indexes: list[tuple[int, FunctionProxy]] = []
         for func in self.func.func_map.values():
             idx = text_bytes.find(func.prefix_marker.encode())
             if idx == -1:
                 raise Int3CompilationError(
                     f"Unable to find expected prefix string in compiled code: {func.prefix_marker}"
                 )
-
-            # TODO: How do we resolve the function back from this?
             prefix_indexes.append((idx + len(func.prefix_marker), func))
 
-        for prefix_index in sorted(prefix_indexes, key=operator.itemgetter(0)):
-            print(prefix_index[0])
+        # Iterate over the functions sorted by positions and leverage
+        # their intervals to infer compiled code.
+        sorted_funcs = list(sorted(prefix_indexes, key=operator.itemgetter(0)))
+        func_bytes: dict[str, bytes] = {}
+        for this_func_tuple, next_func_tuple in pairwise(sorted_funcs):
+            this_func_pos, this_func = this_func_tuple
+            next_func_pos, next_func = next_func_tuple
 
-        1 / 0
-        # TODO
+            func_bytes[this_func.name] = text_bytes[
+                this_func_pos : next_func_pos - len(next_func.prefix_marker)
+            ]
+
+        last_func_pos, last_func = sorted_funcs[-1]
+        func_bytes[last_func.name] = text_bytes[last_func_pos:]
+
+        return func_bytes
+
+    def compile(self) -> bytes:
+        # TODO: We need to add automatic symtab index generation upon first
+        #       reference / definition in FunctionFactory.
+
+        # Compile all of our functions into raw bytes.
+        compiled_funcs = self.compile_funcs()
+
+        # Combine our compiled functions, making note of the offset of each
+        # function for use in constructing the symtab.
+        func_offsets: dict[str, int] = {}
+        program = b""
+        for func_name, func_bytes in compiled_funcs.items():
+            pos = len(program)
+            func_offsets[func_name] = pos
+            program += func_bytes
+
+        logger.debug(f"Function offsets: {func_offsets}")
+
+        # Using the offset of each function, we construct our entry stub that
+        # setups up our symtab construct.
+        entry_stub = self._make_entry_stub(func_offsets)
 
         # Pad the entry stub to a static length so it can use predictable offsets.
-        program = func_bytes.pop("entry_sub")
-        self.codegen.nop_pad(
-            func_bytes["entry_stub"], pad_len=self.entry_stub_pad_len
-        )
+        if len(entry_stub) > self.entry_stub_pad_len:
+            raise Int3CompilationError(
+                f"Compilation of symtab used {len(entry_stub)} bytes when only "
+                f"{self.entry_stub_pad_len} reserved"
+            )
+        pad_len = self.entry_stub_pad_len - len(entry_stub)
+        preamble = entry_stub + self.codegen.nop_pad(pad_len)
 
-        # Add the remaining TODO.
+        # Add the remaining function definitions. Its important that they're added here
+        # in the same order that they were passed to the entry stub generation.
+        return preamble + program
 
-        # TODO
-
-    def _init_entry_stub(self, func_offsets: dict[str, int]):
-        # XXX: We may want to refresh the entry stub if new functions have been defined.
-
-        with self.func.entry_stub():
+    def _make_entry_stub(self, func_offsets: dict[str, int]) -> bytes:
+        sub_cc = self.clean_slate()
+        with sub_cc.func.entry_stub():
             # TODO: Inline assembly to get current PC
+            stored_pc = sub_cc.i64(0xBEEF)
 
-            symtab = SymbolTable(compiler=self)
+            symtab = SymbolTable(funcs=self.func, compiler=sub_cc)
             symtab_ptr = symtab.alloc()
 
             for func_name in symtab.entry_slot_map.keys():
-                func_obj = self.func.func_map[func_name]
-
-                self.builder.comment(f"Setup symtab for function {func_name}")
+                sub_cc.builder.comment(f"Setup symtab for function {func_name}")
                 func_ptr = symtab.func_slot_ptr(symtab_ptr, func_name)
-                # TODO: Compute function offset and store in slot; below is incorrect
-                self.builder.store(func_obj.llvm_func, func_ptr)
+                # XXX: Is it an llvmlite bug that alloca returns a typed pointer?
+                func_ptr.type.is_opaque = True
+
+                # TODO: We need to account for an additional offset for the length
+                #       of the stub. Will the get_pc routine be variable length?
+                #       We can try to pad that as well.
+                relocated_addr = sub_cc.add(stored_pc, func_offsets[func_name])
+                sub_cc.builder.store(relocated_addr.wrapped_llvm_node, func_ptr)
+
+        return sub_cc.compile_funcs()["entry_stub"]
+
+    def clean_slate(self) -> Compiler:
+        """Create a fresh compiler targeting the same platform."""
+        return self.from_str(platform_spec=self.platform_spec, bad_bytes=self.bad_bytes)
 
     @staticmethod
     def from_host(bad_bytes: bytes = b"") -> Compiler:
@@ -457,4 +497,9 @@ class Compiler:
                 raise NotImplementedError(f"Windows support not yet implemented")
 
         arch = Architectures.from_str(parts[1])
-        return compiler_cls(arch=arch, platform=platform, bad_bytes=bad_bytes)
+        return compiler_cls(
+            arch=arch,
+            platform=platform,
+            platform_spec=platform_spec,
+            bad_bytes=bad_bytes,
+        )
