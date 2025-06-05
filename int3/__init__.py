@@ -8,9 +8,13 @@ if (level := os.environ.get("INT3_LOGLEVEL", None)) is not None:
         level=level.upper(),
     )
 
-# Initialize LLVM within llvmlite.
+import llvmlite
+# See: https://github.com/numba/llvmlite/issues/1162
+llvmlite.opaque_pointers_enabled = True
+
 from llvmlite import binding as llvm
 
+# Initialize LLVM features within llvmlite.
 llvm.initialize()
 llvm.initialize_all_targets()
 llvm.initialize_all_asmprinters()
