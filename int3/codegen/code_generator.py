@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
 
 from int3.architecture import Architecture, Architectures, RegisterDef
 from int3.assembly import assemble
