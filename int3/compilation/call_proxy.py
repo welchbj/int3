@@ -17,19 +17,45 @@ class CallProxy:
     func: "FunctionProxy"
 
     def __call__(self, *args: PyIntValueType) -> IntVariable | None:
-        func = self.func
-        compiler = func.compiler
+        compiler = self.func.compiler
         symtab_ptr = compiler.current_func.args[0].wrapped_llvm_node
+        return self.call_func(
+            func=self.func,
+            compiler=compiler,
+            symtab_ptr=symtab_ptr,
+            args=args,
+        )
 
+    @staticmethod
+    def call_func(
+        func: "FunctionProxy",
+        compiler: "Compiler",
+        symtab_ptr: llvmir.Instruction,
+        args: tuple[PyIntValueType, ...],
+    ) -> IntVariable | None:
+        """Worker method for setting up LLVM IR to call a relocated function.
+
+        func, compiler, and symtab_ptr are split up as different arguments to
+        give us the flexibility of generating calls to one compiler's symtab
+        from a different compiler (like we do in the entry stub).
+
+        """
+        # Add the implicit symtab pointer into the function call.
         func_args = [symtab_ptr]
         func_args.extend([arg.wrapped_llvm_node for arg in args])
 
         # Emit stub to resolve the pointer of the function we want to call.
-        symtab_idx = compiler.i32(func.symtab_index).wrapped_llvm_node
-        func_ptr = compiler.builder.gep(
+        def _make_gep_idx(value: int) -> llvmir.Constant:
+            return compiler.i32(value).wrapped_llvm_node
+
+        indices = [_make_gep_idx(func.symtab_index)]
+        func_ptr_ptr = compiler.builder.gep(
             ptr=symtab_ptr,
-            indices=[symtab_idx],
+            indices=indices,
             source_etype=compiler.types.ptr.wrapped_type,
+        )
+        func_ptr = compiler.builder.load(
+            func_ptr_ptr, typ=compiler.types.ptr.wrapped_type
         )
 
         # This is a bad hack to trick llvmlite into generating LLVM IR that

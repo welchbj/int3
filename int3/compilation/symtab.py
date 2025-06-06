@@ -47,7 +47,6 @@ class SymbolTable:
         # llvmlite gep examples:
         # https://github.com/numba/llvmlite/issues/442#issuecomment-459690710
         idx = self.entry_slot_map[func_name]
-        # indices = [_make_gep_idx(0), _make_gep_idx(idx)]
         indices = [_make_gep_idx(idx)]
         return self.compiler.builder.gep(
             struct_ptr,

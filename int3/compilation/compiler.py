@@ -17,7 +17,7 @@ from int3.codegen import CodeGenerator
 from int3.errors import Int3ArgumentError, Int3CompilationError, Int3ContextError
 from int3.platform import Platform, SyscallConvention, Triple
 
-from .call_proxy import CallFactory
+from .call_proxy import CallFactory, CallProxy
 from .function_proxy import FunctionFactory, FunctionProxy, FunctionStore
 from .symtab import SymbolTable
 from .types import (
@@ -75,7 +75,7 @@ class Compiler:
 
     # The number of bytes the entry stub will be padded to. This is required
     # to ensure the entry stub remains a static length for relocation computation.
-    entry_stub_pad_len: int = 0x30
+    entry_stub_pad_len: int = 0x38
 
     # Interface for defining new functions on this compiler.
     def_func: FunctionFactory = field(init=False)
@@ -458,7 +458,7 @@ class Compiler:
 
     def _make_entry_stub(self, func_offsets: dict[str, int]) -> bytes:
         pc_transfer_reg = random.choice(self.arch.gp_regs)
-        stub_program = self.codegen.compute_pc(result=pc_transfer_reg).bytes
+        get_pc_stub = self.codegen.compute_pc(result=pc_transfer_reg).bytes
 
         sub_cc = self.clean_slate()
         with sub_cc.def_func.entry_stub():
@@ -487,13 +487,22 @@ class Compiler:
                 # XXX: Is it an llvmlite bug that alloca returns a typed pointer?
                 func_ptr.type.is_opaque = True
 
-                relocated_addr = sub_cc.add(
-                    stored_pc, self.entry_stub_pad_len + func_offsets[func_name]
+                relative_func_offset = (
+                    self.entry_stub_pad_len - len(get_pc_stub) + func_offsets[func_name]
                 )
+                relocated_addr = sub_cc.add(stored_pc, relative_func_offset)
                 sub_cc.builder.store(relocated_addr.wrapped_llvm_node, func_ptr)
 
-            # TODO: We need to actually call into the user entrypoint
+            # Call the user entrypoint function.
+            entry_func = self.func.func_map[self.entry]
+            CallProxy.call_func(
+                func=entry_func,
+                compiler=sub_cc,
+                symtab_ptr=symtab_ptr,
+                args=tuple(),
+            )
 
+        stub_program = get_pc_stub
         stub_program += sub_cc.compile_funcs()["entry_stub"]
         return stub_program
 
