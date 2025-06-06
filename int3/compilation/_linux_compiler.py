@@ -2,12 +2,11 @@ from dataclasses import dataclass, field
 
 from llvmlite import ir as llvmir
 
-from int3.errors import Int3ArgumentError
 from int3.meta import Int3Files
 from int3.platform import LinuxSyscallNumbers
 
 from .compiler import Compiler
-from .types import ArgType, IntArgType, IntValueType, IntVariable
+from .types import IntVariable, PyArgType, PyIntArgType, PyIntValueType
 
 
 @dataclass
@@ -23,13 +22,13 @@ class LinuxCompiler(Compiler):
 
     def syscall(
         self,
-        sys_num: IntArgType,
-        *args: ArgType,
+        sys_num: PyIntArgType,
+        *args: PyArgType,
         hint: str = "",
     ) -> IntVariable:
         """Emit a syscall instruction for the specified set of arguments."""
 
-        combined_args: list[IntValueType] = []
+        combined_args: list[PyIntValueType] = []
 
         # Coerce all arguments to be of the native unsigned int.
         combined_args.append(self.coerce_to_type(sys_num, self.types.unat))
@@ -55,17 +54,17 @@ class LinuxCompiler(Compiler):
 
         return IntVariable(compiler=self, type=self.types.unat, wrapped_llvm_node=res)
 
-    def sys_exit(self, status: IntArgType) -> IntVariable:
+    def sys_exit(self, status: PyIntArgType) -> IntVariable:
         return self.syscall(self.sys_nums.exit, status, hint="exit")
 
     def sys_write(
         self,
-        fd: IntArgType,
-        buf: IntArgType,
-        count: IntArgType,
+        fd: PyIntArgType,
+        buf: PyIntArgType,
+        count: PyIntArgType,
     ) -> IntVariable:
         # TODO: Utility options for automatically deriving the length and appending a null terminator.
         return self.syscall(self.sys_nums.write, fd, buf, count, hint="write")
 
-    def sys_dup2(self, oldfd: IntArgType, newfd: IntArgType) -> IntVariable:
+    def sys_dup2(self, oldfd: PyIntArgType, newfd: PyIntArgType) -> IntVariable:
         return self.syscall(self.sys_nums.dup2, oldfd, newfd, hint="dup2")

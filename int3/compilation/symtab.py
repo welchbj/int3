@@ -5,7 +5,7 @@ from llvmlite import ir as llvmir
 
 if TYPE_CHECKING:
     from .compiler import Compiler
-    from .function_proxy import FunctionFactory
+    from .function_proxy import FunctionStore
 
 
 @dataclass
@@ -19,7 +19,7 @@ class SymbolTable:
     # We don't load funcs implicitly from the compiler due to the nuances
     # of the entry stub generation, where we spawn a sub-compiler that
     # needs to reference the top-level compiler's function definitions.
-    funcs: "FunctionFactory"
+    funcs: "FunctionStore"
     compiler: "Compiler"
 
     entry_slot_map: dict[str, int] = field(init=False, default_factory=dict)
@@ -27,10 +27,8 @@ class SymbolTable:
 
     def __post_init__(self):
         # Setup our lookup table of symbol names to indexes.
-        idx = 0
         for func_name, func in self.funcs.func_map.items():
-            self.entry_slot_map[func_name] = idx
-            idx += 1
+            self.entry_slot_map[func_name] = func.symtab_index
 
         # Define our wrapped LLVM struct.
         ctx = self.compiler.llvm_module.context

@@ -18,6 +18,7 @@ class TypeManager:
     compiler: "Compiler"
 
     void: VoidType = field(init=False)
+    ptr: PointerType = field(init=False)
 
     inat: IntType = field(init=False)
     unat: IntType = field(init=False)
@@ -34,6 +35,7 @@ class TypeManager:
 
     def __post_init__(self):
         self.void = VoidType()
+        self.ptr = PointerType()
 
         native_bit_size = self.compiler.arch.bit_size
         self.inat = IntType(bit_size=native_bit_size, is_signed=True)
@@ -52,7 +54,16 @@ class TypeManager:
 
 @dataclass(frozen=True)
 class VoidType:
+    """Wrapper around the LLVM IR void type."""
+
     wrapped_type: llvmir.VoidType = field(init=False, default_factory=llvmir.VoidType)
+
+
+@dataclass(frozen=True)
+class PointerType:
+    """Wrapper around an LLVM IR opaque pointer type."""
+
+    wrapped_type: llvmir.PointerType = field(default_factory=llvmir.PointerType)
 
 
 @dataclass(frozen=True)
@@ -118,8 +129,8 @@ class _IntBase:
         """Create an IntConstant of the same type."""
         return self.compiler.make_int(value=value, type=self.type)
 
-    def __add__(self, other: IntArgType) -> IntVariable:
-        return self.compiler.add(cast(IntValueType, self), other)
+    def __add__(self, other: PyIntArgType) -> IntVariable:
+        return self.compiler.add(cast(PyIntValueType, self), other)
 
 
 @dataclass
@@ -141,10 +152,15 @@ class IntVariable(_IntBase):
 @dataclass
 class TypeCoercion:
     result_type: IntType
-    args: list[IntValueType]
+    args: list[PyIntValueType]
 
 
-type IntValueType = IntVariable | IntConstant
-type IntArgType = IntValueType | int
-type ReturnType = IntType | VoidType
-type ArgType = IntArgType
+# Types intended for the user-facing Python API.
+type PyIntValueType = IntVariable | IntConstant
+type PyIntArgType = PyIntValueType | int
+type PyArgType = PyIntArgType
+type PyReturnType = IntVariable | IntConstant
+
+# Types intended for defining LLVM IR related constructs.
+type IrArgType = IntType | PointerType
+type IrReturnType = IntType | PointerType | VoidType

@@ -16,22 +16,22 @@ from int3.codegen import CodeGenerator
 from int3.errors import Int3ArgumentError, Int3CompilationError, Int3ContextError
 from int3.platform import Platform, SyscallConvention, Triple
 
+from .call_proxy import CallFactory
+from .function_proxy import FunctionFactory, FunctionProxy, FunctionStore
 from .symtab import SymbolTable
+from .types import (
+    IntConstant,
+    IntType,
+    IntVariable,
+    PyIntArgType,
+    PyIntValueType,
+    TypeCoercion,
+    TypeManager,
+)
 
 if TYPE_CHECKING:
     from ._linux_compiler import LinuxCompiler
 
-from .function_proxy import FunctionFactory, FunctionProxy
-from .types import (
-    ArgType,
-    IntArgType,
-    IntConstant,
-    IntType,
-    IntValueType,
-    IntVariable,
-    TypeCoercion,
-    TypeManager,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +76,14 @@ class Compiler:
     # to ensure the entry stub remains a static length for relocation computation.
     entry_stub_pad_len: int = 0x20
 
-    # Interface for creating functions on this compiler.
-    func: FunctionFactory = field(init=False)
+    # Interface for defining new functions on this compiler.
+    def_func: FunctionFactory = field(init=False)
+
+    # Interface for accessing created functions on this compiler.
+    func: FunctionStore = field(init=False)
+
+    # Interface for calling defined functions.
+    call: CallFactory = field(init=False)
 
     # Short-hand for compiler types.
     types: TypeManager = field(init=False)
@@ -94,9 +100,14 @@ class Compiler:
     # The function this compiler is currently operating on.
     _current_func: FunctionProxy | None = field(init=False, default=None)
 
+    # The next index for a pointer in the symbol table.
+    _current_symbol_index: int = field(init=False, default=0)
+
     def __post_init__(self):
         self.triple = Triple(self.arch, self.platform)
-        self.func = FunctionFactory(compiler=self)
+        self.func = FunctionStore(compiler=self)
+        self.def_func = FunctionFactory(store=self.func)
+        self.call = CallFactory(compiler=self)
         self.types = TypeManager(compiler=self)
         self.codegen = CodeGenerator(arch=self.arch)
         self.syscall_conv = self.triple.resolve_syscall_convention()
@@ -118,11 +129,17 @@ class Compiler:
     @property
     def args(self) -> list[IntVariable]:
         """Interface into the current function's arguments."""
-        return self.current_func.args
+        return self.current_func.user_arg_view
 
     @property
     def has_entry_stub(self) -> bool:
         return self.func.func_map.get("entry_stub", None) is not None
+
+    def reserve_symbol_index(self) -> int:
+        """Reserve an index to store a pointer in the symbol table."""
+        current_index = self._current_symbol_index
+        self._current_symbol_index += 1
+        return current_index
 
     def make_name(self, hint: str | None = None) -> str:
         """Make an identifier for the current function."""
@@ -150,7 +167,7 @@ class Compiler:
     def coerce_to_type(self, value: IntVariable, type: IntType) -> IntVariable: ...
 
     def coerce_to_type(
-        self, value: IntArgType, type: IntType
+        self, value: PyIntArgType, type: IntType
     ) -> IntConstant | IntVariable:
         if isinstance(value, (int, IntConstant)):
             if isinstance(value, IntConstant):
@@ -194,7 +211,7 @@ class Compiler:
                 compiler=self, type=type, wrapped_llvm_node=new_wrapped_node
             )
 
-    def coerce(self, one: IntArgType, two: IntArgType) -> TypeCoercion:
+    def coerce(self, one: PyIntArgType, two: PyIntArgType) -> TypeCoercion:
         if isinstance(one, int) and isinstance(two, int):
             # Both arguments are raw integers.
             raise NotImplementedError("Coercion of raw integers WIP")
@@ -202,12 +219,12 @@ class Compiler:
             # Promote one's value to two's type.
             return TypeCoercion(result_type=two.type, args=[two.make_int(one), two])
         elif not isinstance(one, int) and isinstance(two, int):
-            # Promote two's value to the one's type.
+            # Promote two's value to one's type.
             return TypeCoercion(result_type=one.type, args=[one, one.make_int(two)])
 
         # We're dealing with two non-raw integers.
-        one = cast(IntValueType, one)
-        two = cast(IntValueType, two)
+        one = cast(PyIntValueType, one)
+        two = cast(PyIntValueType, two)
 
         if one.type == two.type:
             # They're already the same type.
@@ -269,7 +286,7 @@ class Compiler:
             side_effect=True,
         )
 
-    def add(self, one: IntArgType, two: IntArgType) -> IntVariable:
+    def add(self, one: PyIntArgType, two: PyIntArgType) -> IntVariable:
         coercion = self.coerce(one, two)
         result_inst = self.builder.add(
             coercion.args[0].wrapped_llvm_node,
@@ -282,7 +299,7 @@ class Compiler:
             wrapped_llvm_node=result_inst,
         )
 
-    def ret(self, value: ArgType | None = None):
+    def ret(self, value: PyIntArgType | None = None):
         if value is None and self.current_func.return_type == self.types.void:
             return self.builder.ret_void()
         elif value is None:
@@ -404,9 +421,6 @@ class Compiler:
         return func_bytes
 
     def compile(self) -> bytes:
-        # TODO: We need to add automatic symtab index generation upon first
-        #       reference / definition in FunctionFactory.
-
         # Compile all of our functions into raw bytes.
         compiled_funcs = self.compile_funcs()
 
@@ -440,7 +454,7 @@ class Compiler:
 
     def _make_entry_stub(self, func_offsets: dict[str, int]) -> bytes:
         sub_cc = self.clean_slate()
-        with sub_cc.func.entry_stub():
+        with sub_cc.def_func.entry_stub():
             # TODO: Inline assembly to get current PC
             stored_pc = sub_cc.i64(0xBEEF)
 
