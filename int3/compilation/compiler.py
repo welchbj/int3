@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import operator
 import platform
+import random
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import pairwise
@@ -74,7 +75,7 @@ class Compiler:
 
     # The number of bytes the entry stub will be padded to. This is required
     # to ensure the entry stub remains a static length for relocation computation.
-    entry_stub_pad_len: int = 0x20
+    entry_stub_pad_len: int = 0x30
 
     # Interface for defining new functions on this compiler.
     def_func: FunctionFactory = field(init=False)
@@ -431,6 +432,9 @@ class Compiler:
         for func_name, func_bytes in compiled_funcs.items():
             pos = len(program)
             func_offsets[func_name] = pos
+            logger.debug(
+                f"Wrote function {func_name} of length {len(func_bytes)} to position {pos}"
+            )
             program += func_bytes
 
         logger.debug(f"Function offsets: {func_offsets}")
@@ -453,10 +457,26 @@ class Compiler:
         return preamble + program
 
     def _make_entry_stub(self, func_offsets: dict[str, int]) -> bytes:
+        pc_transfer_reg = random.choice(self.arch.gp_regs)
+        stub_program = self.codegen.compute_pc(result=pc_transfer_reg).bytes
+
         sub_cc = self.clean_slate()
         with sub_cc.def_func.entry_stub():
-            # TODO: Inline assembly to get current PC
-            stored_pc = sub_cc.i64(0xBEEF)
+            # Inline assembly to get the result of the compute PC assembly above.
+            llvm_func_type = llvmir.FunctionType(
+                return_type=self.types.unat.wrapped_type, args=[]
+            )
+            stored_pc_inst = sub_cc.builder.asm(
+                ftype=llvm_func_type,
+                # XXX: This may need to be changed for different architectures.
+                asm=f"mov %{pc_transfer_reg}, $0",
+                constraint="=r",
+                args=[],
+                side_effect=False,
+            )
+            stored_pc = IntVariable(
+                compiler=self, type=self.types.unat, wrapped_llvm_node=stored_pc_inst
+            )
 
             symtab = SymbolTable(funcs=self.func, compiler=sub_cc)
             symtab_ptr = symtab.alloc()
@@ -467,13 +487,15 @@ class Compiler:
                 # XXX: Is it an llvmlite bug that alloca returns a typed pointer?
                 func_ptr.type.is_opaque = True
 
-                # TODO: We need to account for an additional offset for the length
-                #       of the stub. Will the get_pc routine be variable length?
-                #       We can try to pad that as well.
-                relocated_addr = sub_cc.add(stored_pc, func_offsets[func_name])
+                relocated_addr = sub_cc.add(
+                    stored_pc, self.entry_stub_pad_len + func_offsets[func_name]
+                )
                 sub_cc.builder.store(relocated_addr.wrapped_llvm_node, func_ptr)
 
-        return sub_cc.compile_funcs()["entry_stub"]
+            # TODO: We need to actually call into the user entrypoint
+
+        stub_program += sub_cc.compile_funcs()["entry_stub"]
+        return stub_program
 
     def clean_slate(self) -> Compiler:
         """Create a fresh compiler targeting the same platform."""

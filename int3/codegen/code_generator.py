@@ -48,6 +48,14 @@ class CodeGenerator:
         # XXX: Arch-specific code
         return self.gadget("int3")
 
+    def compute_pc(self, result: RegisterDef) -> AsmGadget:
+        """Compute the program counter for the instruction following this gadget."""
+        match self.arch:
+            case Architectures.x86_64.value:
+                return self.gadget(f"lea {result}, [rip]")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch}")
+
     def jump(self, value: int | RegisterDef) -> AsmGadget:
         match self.arch:
             case Architectures.x86.value:
