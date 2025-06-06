@@ -1,0 +1,60 @@
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
+
+from llvmlite import ir as llvmir
+
+if TYPE_CHECKING:
+    from .compiler import Compiler
+    from .function_proxy import FunctionStore
+
+
+@dataclass
+class SymbolTable:
+    """Implementation of basic table for runtime resolution of symbols.
+
+    Only one SymbolTable instance should be created for a given Compiler.
+
+    """
+
+    # We don't load funcs implicitly from the compiler due to the nuances
+    # of the entry stub generation, where we spawn a sub-compiler that
+    # needs to reference the top-level compiler's function definitions.
+    funcs: "FunctionStore"
+    compiler: "Compiler"
+
+    entry_slot_map: dict[str, int] = field(init=False, default_factory=dict)
+    wrapped_struct: llvmir.LiteralStructType = field(init=False)
+
+    def __post_init__(self):
+        # Setup our lookup table of symbol names to indexes.
+        for func_name, func in self.funcs.func_map.items():
+            self.entry_slot_map[func_name] = func.symtab_index
+
+        # Define our wrapped LLVM struct.
+        ctx = self.compiler.llvm_module.context
+        symtab_struct = ctx.get_identified_type("struct.symtab", packed=False)
+        symtab_struct.set_body(
+            *[llvmir.PointerType() for _ in range(len(self.entry_slot_map))]
+        )
+        self.wrapped_struct = symtab_struct
+
+    def func_slot_ptr(
+        self, struct_ptr: llvmir.PointerType, func_name: str
+    ) -> llvmir.Instruction:
+        def _make_gep_idx(value: int) -> llvmir.Constant:
+            return self.compiler.i32(value).wrapped_llvm_node
+
+        # llvmlite gep examples:
+        # https://github.com/numba/llvmlite/issues/442#issuecomment-459690710
+        idx = self.entry_slot_map[func_name]
+        indices = [_make_gep_idx(idx)]
+        return self.compiler.builder.gep(
+            struct_ptr,
+            indices=indices,
+            inbounds=True,
+            source_etype=self.compiler.types.ptr.wrapped_type,
+        )
+
+    def alloc(self) -> llvmir.Instruction:
+        """Allocate and setup within the compiler's current function."""
+        return self.compiler.builder.alloca(typ=self.wrapped_struct)

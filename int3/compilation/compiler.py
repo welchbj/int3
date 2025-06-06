@@ -1,33 +1,38 @@
 from __future__ import annotations
 
 import logging
+import operator
 import platform
+import random
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from itertools import pairwise
 from typing import TYPE_CHECKING, Iterator, Literal, cast, overload
 
 from llvmlite import binding as llvm
 from llvmlite import ir as llvmir
 
 from int3.architecture import Architecture, Architectures
+from int3.codegen import CodeGenerator
 from int3.errors import Int3ArgumentError, Int3CompilationError, Int3ContextError
-from int3.platform import Platform
-from int3.triple import Triple
+from int3.platform import Platform, SyscallConvention, Triple
+
+from .call_proxy import CallFactory, CallProxy
+from .function_proxy import FunctionFactory, FunctionProxy, FunctionStore
+from .symtab import SymbolTable
+from .types import (
+    IntConstant,
+    IntType,
+    IntVariable,
+    PyIntArgType,
+    PyIntValueType,
+    TypeCoercion,
+    TypeManager,
+)
 
 if TYPE_CHECKING:
     from ._linux_compiler import LinuxCompiler
 
-from .function_proxy import FunctionFactory, FunctionProxy
-from .types import (
-    ArgType,
-    IntArgType,
-    IntConstant,
-    IntType,
-    IntValueType,
-    IntVariable,
-    TypeCoercion,
-    TypeManager,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +46,14 @@ class CodeSection:
 
     @staticmethod
     def from_section_ref(ref: llvm.SectionIteratorRef) -> CodeSection:
+        maybe_name: bytes | None = ref.name()
+        if maybe_name is None:
+            name = ""
+        else:
+            name = maybe_name.decode()
+
         return CodeSection(
-            name=ref.name(),
+            name=name,
             address=ref.address(),
             size=ref.size(),
             data=ref.data(),
@@ -53,35 +64,55 @@ class CodeSection:
 class Compiler:
     arch: Architecture
     platform: Platform
+    platform_spec: str
     triple: Triple = field(init=False)
 
-    # The name of the entrypoint function for the compiler.
+    # The name of the entrypoint function for the user-defined program.
     entry: str = "main"
 
     # Bytes that must be avoided when generating assembly.
     bad_bytes: bytes = b""
 
-    # Interface for creating functions on this compiler.
-    func: FunctionFactory = field(init=False)
+    # The number of bytes the entry stub will be padded to. This is required
+    # to ensure the entry stub remains a static length for relocation computation.
+    entry_stub_pad_len: int = 0x38
+
+    # Interface for defining new functions on this compiler.
+    def_func: FunctionFactory = field(init=False)
+
+    # Interface for accessing created functions on this compiler.
+    func: FunctionStore = field(init=False)
+
+    # Interface for calling defined functions.
+    call: CallFactory = field(init=False)
+
+    # Short-hand for compiler types.
+    types: TypeManager = field(init=False)
+
+    # Assembly code generatgor
+    codegen: CodeGenerator = field(init=False)
+
+    # Syscall convention for this arch/platform combination.
+    syscall_conv: SyscallConvention = field(init=False)
+
+    # Wrapped llvmlite LLVM IR module.
+    llvm_module: llvmir.Module = field(init=False)
 
     # The function this compiler is currently operating on.
     _current_func: FunctionProxy | None = field(init=False, default=None)
 
-    # Short-hand for llvmlite types.
-    types: TypeManager = field(init=False)
-
-    # Wrapped llvmlite IR module.
-    llvm_module: llvmir.Module = field(init=False)
+    # The next index for a pointer in the symbol table.
+    _current_symbol_index: int = field(init=False, default=0)
 
     def __post_init__(self):
-        self.triple = Triple.from_arch_and_platform(self.arch, self.platform)
-
-        self.func = FunctionFactory(compiler=self)
+        self.triple = Triple(self.arch, self.platform)
+        self.func = FunctionStore(compiler=self)
+        self.def_func = FunctionFactory(store=self.func)
+        self.call = CallFactory(compiler=self)
         self.types = TypeManager(compiler=self)
+        self.codegen = CodeGenerator(arch=self.arch)
+        self.syscall_conv = self.triple.resolve_syscall_convention()
         self.llvm_module = llvmir.Module()
-
-    def __bytes__(self) -> bytes:
-        return self.to_bytes()
 
     @property
     def current_func(self) -> FunctionProxy:
@@ -99,7 +130,17 @@ class Compiler:
     @property
     def args(self) -> list[IntVariable]:
         """Interface into the current function's arguments."""
-        return self.current_func.args
+        return self.current_func.user_arg_view
+
+    @property
+    def has_entry_stub(self) -> bool:
+        return self.func.func_map.get("entry_stub", None) is not None
+
+    def reserve_symbol_index(self) -> int:
+        """Reserve an index to store a pointer in the symbol table."""
+        current_index = self._current_symbol_index
+        self._current_symbol_index += 1
+        return current_index
 
     def make_name(self, hint: str | None = None) -> str:
         """Make an identifier for the current function."""
@@ -127,7 +168,7 @@ class Compiler:
     def coerce_to_type(self, value: IntVariable, type: IntType) -> IntVariable: ...
 
     def coerce_to_type(
-        self, value: IntArgType, type: IntType
+        self, value: PyIntArgType, type: IntType
     ) -> IntConstant | IntVariable:
         if isinstance(value, (int, IntConstant)):
             if isinstance(value, IntConstant):
@@ -171,7 +212,7 @@ class Compiler:
                 compiler=self, type=type, wrapped_llvm_node=new_wrapped_node
             )
 
-    def coerce(self, one: IntArgType, two: IntArgType) -> TypeCoercion:
+    def coerce(self, one: PyIntArgType, two: PyIntArgType) -> TypeCoercion:
         if isinstance(one, int) and isinstance(two, int):
             # Both arguments are raw integers.
             raise NotImplementedError("Coercion of raw integers WIP")
@@ -179,12 +220,12 @@ class Compiler:
             # Promote one's value to two's type.
             return TypeCoercion(result_type=two.type, args=[two.make_int(one), two])
         elif not isinstance(one, int) and isinstance(two, int):
-            # Promote two's value to the one's type.
+            # Promote two's value to one's type.
             return TypeCoercion(result_type=one.type, args=[one, one.make_int(two)])
 
         # We're dealing with two non-raw integers.
-        one = cast(IntValueType, one)
-        two = cast(IntValueType, two)
+        one = cast(PyIntValueType, one)
+        two = cast(PyIntValueType, two)
 
         if one.type == two.type:
             # They're already the same type.
@@ -231,12 +272,27 @@ class Compiler:
     def u64(self, value: int) -> IntConstant:
         return self.make_int(value, type=self.types.u64)
 
-    def add(self, one: IntArgType, two: IntArgType) -> IntVariable:
+    def breakpoint(self):
+        llvm_func_type = llvmir.FunctionType(
+            return_type=self.types.void.wrapped_type,
+            args=[],
+        )
+
+        self.builder.comment("breakpoint")
+        self.builder.asm(
+            ftype=llvm_func_type,
+            asm=self.codegen.breakpoint(),
+            constraint="",
+            args=[],
+            side_effect=True,
+        )
+
+    def add(self, one: PyIntArgType, two: PyIntArgType) -> IntVariable:
         coercion = self.coerce(one, two)
         result_inst = self.builder.add(
             coercion.args[0].wrapped_llvm_node,
             coercion.args[1].wrapped_llvm_node,
-            name=self.make_name(hint="result"),
+            name=self.make_name(hint="res"),
         )
         return IntVariable(
             compiler=self,
@@ -244,7 +300,7 @@ class Compiler:
             wrapped_llvm_node=result_inst,
         )
 
-    def ret(self, value: ArgType | None = None):
+    def ret(self, value: PyIntArgType | None = None):
         if value is None and self.current_func.return_type == self.types.void:
             return self.builder.ret_void()
         elif value is None:
@@ -261,57 +317,198 @@ class Compiler:
             return self.builder.ret(value.wrapped_llvm_node)
 
     def llvm_ir(self) -> str:
-        return str(self.llvm_module)
+        llvm_mod_str = str(self.llvm_module)
 
-    def to_bytes(self) -> bytes:
-        raw_obj_data = self._compile(mode="bytes")
+        # We hot patch the preliminary LLVM IR to include a prefix before each function. This
+        # allows us to map functions to their compiled bytes in LLVM's output format.
+        #
+        # XXX: Should consider submitting a patch to llvmlite to allow for API-level
+        #      prefix definitions, which would make this hack unnecessary.
+        for func in self.func.func_map.values():
+            llvm_mod_str = self._patch_in_func_prefix(llvm_mod_str, func)
 
-        obj_file_ref = llvm.ObjectFileRef.from_data(raw_obj_data)
+        return llvm_mod_str
 
-        code_sections: list[CodeSection] = []
+    def _patch_in_func_prefix(self, llvm_ir_str: str, func: FunctionProxy) -> str:
+        """LLVM IR source-level patching to add function prefixes."""
+        func_def_start = f'@"{func.name}"('
+
+        func_def_start_idx = llvm_ir_str.find(func_def_start)
+        if func_def_start_idx == -1:
+            raise Int3CompilationError(
+                f"Unable to find function start needle in LLVM IR: {func_def_start}"
+            )
+
+        func_def_end_idx = llvm_ir_str.find(")", func_def_start_idx)
+        if func_def_end_idx == -1:
+            raise Int3CompilationError("Unable to find function end needle in LLVM IR")
+
+        prefix_ir = f' prefix [{len(func.prefix_marker)} x i8] c"{func.prefix_marker}"'
+        llvm_ir_str = (
+            llvm_ir_str[: func_def_end_idx + 1]
+            + prefix_ir
+            + llvm_ir_str[func_def_end_idx + 1 :]
+        )
+        return llvm_ir_str
+
+    def _get_text_from_object(self, raw_object: bytes) -> bytes:
+        """Extract the text section from an object file."""
+        obj_file_ref = llvm.ObjectFileRef.from_data(raw_object)
+
+        sections: list[CodeSection] = []
         for section_ref in obj_file_ref.sections():
             if not section_ref.is_text():
                 logger.debug(f"Skipping non-text section {section_ref.name()}")
                 continue
 
-            code_sections.append(CodeSection.from_section_ref(section_ref))
+            sections.append(CodeSection.from_section_ref(section_ref))
 
-        data = b""
-        for code_section in code_sections:
-            # XXX: We need to validate that all of the sections are contiguous.
-            data += code_section.data
+        if len(sections) != 1:
+            raise Int3CompilationError(
+                f"Expected 1 code section after compilation but got {len(sections)}"
+            )
 
-        return data
+        return sections[0].data
 
-    def to_asm(self) -> str:
-        return self._compile(mode="asm")
-
-    @overload
-    def _compile(self, mode: Literal["asm"]) -> str: ...
-
-    @overload
-    def _compile(self, mode: Literal["bytes"]) -> bytes: ...
-
-    def _compile(self, mode: Literal["asm", "bytes"]) -> str | bytes:
-        # XXX: We may need to inject the target LLVM triple here.
-        #
-        # See: https://stackoverflow.com/a/40890321
+    def _llvm_module_to_text(self) -> bytes:
         target = llvm.Target.from_triple(str(self.triple))
+
         # codemodel influences the range of relative branches/calls.
         #
         # See: https://stackoverflow.com/a/40498306
-        target_machine = target.create_target_machine(opt=0, reloc="pic", codemodel="large")
+        target_machine = target.create_target_machine(
+            opt=0, reloc="pic", codemodel="small"
+        )
         target_machine.set_asm_verbosity(verbose=True)
 
-        llvm_mod = llvm.parse_assembly(str(self.llvm_module))
+        llvm_ir_str = self.llvm_ir()
+        logger.debug(f"Generated LLVM IR program:\n{llvm_ir_str}")
+
+        llvm_mod = llvm.parse_assembly(llvm_ir_str)
         llvm_mod.verify()
 
-        with llvm.create_mcjit_compiler(llvm_mod, target_machine) as engine:
-            engine.finalize_object()
-            if mode == "asm":
-                return cast(str, target_machine.emit_assembly(llvm_mod))
-            else:
-                return cast(bytes, target_machine.emit_object(llvm_mod))
+        raw_object = cast(bytes, target_machine.emit_object(llvm_mod))
+        return self._get_text_from_object(raw_object)
+
+    def compile_funcs(self) -> dict[str, bytes]:
+        # Compile the raw object.
+        text_bytes = self._llvm_module_to_text()
+
+        # Deduce each function's bytes by identifying all locations of prefix strings.
+        prefix_indexes: list[tuple[int, FunctionProxy]] = []
+        for func in self.func.func_map.values():
+            idx = text_bytes.find(func.prefix_marker.encode())
+            if idx == -1:
+                raise Int3CompilationError(
+                    f"Unable to find expected prefix string in compiled code: {func.prefix_marker}"
+                )
+            prefix_indexes.append((idx + len(func.prefix_marker), func))
+
+        # Iterate over the functions sorted by positions and leverage
+        # their intervals to infer compiled code.
+        sorted_funcs = list(sorted(prefix_indexes, key=operator.itemgetter(0)))
+        func_bytes: dict[str, bytes] = {}
+        for this_func_tuple, next_func_tuple in pairwise(sorted_funcs):
+            this_func_pos, this_func = this_func_tuple
+            next_func_pos, next_func = next_func_tuple
+
+            func_bytes[this_func.name] = text_bytes[
+                this_func_pos : next_func_pos - len(next_func.prefix_marker)
+            ]
+
+        last_func_pos, last_func = sorted_funcs[-1]
+        func_bytes[last_func.name] = text_bytes[last_func_pos:]
+
+        return func_bytes
+
+    def compile(self) -> bytes:
+        # Compile all of our functions into raw bytes.
+        compiled_funcs = self.compile_funcs()
+
+        # Combine our compiled functions, making note of the offset of each
+        # function for use in constructing the symtab.
+        func_offsets: dict[str, int] = {}
+        program = b""
+        for func_name, func_bytes in compiled_funcs.items():
+            pos = len(program)
+            func_offsets[func_name] = pos
+            logger.debug(
+                f"Wrote function {func_name} of length {len(func_bytes)} to position {pos}"
+            )
+            program += func_bytes
+
+        logger.debug(f"Function offsets: {func_offsets}")
+
+        # Using the offset of each function, we construct our entry stub that
+        # setups up our symtab construct.
+        entry_stub = self._make_entry_stub(func_offsets)
+
+        # Pad the entry stub to a static length so it can use predictable offsets.
+        if len(entry_stub) > self.entry_stub_pad_len:
+            raise Int3CompilationError(
+                f"Compilation of symtab used {len(entry_stub)} bytes when only "
+                f"{self.entry_stub_pad_len} reserved"
+            )
+        pad_len = self.entry_stub_pad_len - len(entry_stub)
+        preamble = entry_stub + self.codegen.nop_pad(pad_len)
+
+        # Add the remaining function definitions. Its important that they're added here
+        # in the same order that they were passed to the entry stub generation.
+        return preamble + program
+
+    def _make_entry_stub(self, func_offsets: dict[str, int]) -> bytes:
+        pc_transfer_reg = random.choice(self.arch.gp_regs)
+        get_pc_stub = self.codegen.compute_pc(result=pc_transfer_reg).bytes
+
+        sub_cc = self.clean_slate()
+        with sub_cc.def_func.entry_stub():
+            # Inline assembly to get the result of the compute PC assembly above.
+            llvm_func_type = llvmir.FunctionType(
+                return_type=self.types.unat.wrapped_type, args=[]
+            )
+            stored_pc_inst = sub_cc.builder.asm(
+                ftype=llvm_func_type,
+                # XXX: This may need to be changed for different architectures.
+                asm=f"mov %{pc_transfer_reg}, $0",
+                constraint="=r",
+                args=[],
+                side_effect=False,
+            )
+            stored_pc = IntVariable(
+                compiler=self, type=self.types.unat, wrapped_llvm_node=stored_pc_inst
+            )
+
+            symtab = SymbolTable(funcs=self.func, compiler=sub_cc)
+            symtab_ptr = symtab.alloc()
+
+            for func_name in symtab.entry_slot_map.keys():
+                sub_cc.builder.comment(f"Setup symtab for function {func_name}")
+                func_ptr = symtab.func_slot_ptr(symtab_ptr, func_name)
+                # XXX: Is it an llvmlite bug that alloca returns a typed pointer?
+                func_ptr.type.is_opaque = True
+
+                relative_func_offset = (
+                    self.entry_stub_pad_len - len(get_pc_stub) + func_offsets[func_name]
+                )
+                relocated_addr = sub_cc.add(stored_pc, relative_func_offset)
+                sub_cc.builder.store(relocated_addr.wrapped_llvm_node, func_ptr)
+
+            # Call the user entrypoint function.
+            entry_func = self.func.func_map[self.entry]
+            CallProxy.call_func(
+                func=entry_func,
+                compiler=sub_cc,
+                symtab_ptr=symtab_ptr,
+                args=tuple(),
+            )
+
+        stub_program = get_pc_stub
+        stub_program += sub_cc.compile_funcs()["entry_stub"]
+        return stub_program
+
+    def clean_slate(self) -> Compiler:
+        """Create a fresh compiler targeting the same platform."""
+        return self.from_str(platform_spec=self.platform_spec, bad_bytes=self.bad_bytes)
 
     @staticmethod
     def from_host(bad_bytes: bytes = b"") -> Compiler:
@@ -345,4 +542,9 @@ class Compiler:
                 raise NotImplementedError(f"Windows support not yet implemented")
 
         arch = Architectures.from_str(parts[1])
-        return compiler_cls(arch=arch, platform=platform, bad_bytes=bad_bytes)
+        return compiler_cls(
+            arch=arch,
+            platform=platform,
+            platform_spec=platform_spec,
+            bad_bytes=bad_bytes,
+        )

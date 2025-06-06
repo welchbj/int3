@@ -45,5 +45,9 @@ class Int3CompilationError(Int3Error):
     """Exception type for IR compilation errors."""
 
 
+class Int3ProgramDefinitionError(Int3Error):
+    """Exception type for program definition errors."""
+
+
 class Int3TypeCoercionError(Int3Error):
     """Exception type for type coercion errors and failures."""
