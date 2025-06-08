@@ -1,3 +1,4 @@
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -10,7 +11,11 @@ from pathlib import Path
 
 DOCS_DIR = Path(__file__).resolve().parent
 INT3_ROOT_DIR = DOCS_DIR.parent
-VERSION_FILE = INT3_ROOT_DIR / "int3" / "version.py"
+INT3_MODULE_DIR = INT3_ROOT_DIR / "int3"
+VERSION_FILE = INT3_MODULE_DIR / "version.py"
+
+# Ensure the int3 module is findable during Sphinx autodoc generation.
+sys.path.insert(0, str(INT3_ROOT_DIR))
 
 # Expose __version__ and __version_info__
 exec(VERSION_FILE.read_text())
