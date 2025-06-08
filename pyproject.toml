@@ -101,7 +101,10 @@ docstring-code-format = true
 [dependency-groups]
 dev = [
     "keystone>=27.0.0",
+    "livereload>=2.7.1",
     "mypy>=1.15.0",
     "pytest>=8.3.5",
     "ruff>=0.11.9",
+    "sphinx>=8.2.3",
+    "sphinx-rtd-theme>=3.0.2",
 ]
