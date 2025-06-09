@@ -22,7 +22,11 @@ class QemuResult:
 
 
 QEMU_ARCHES = [
-    arch.value for arch in Architectures if arch.value.qemu_name != "unsupported"
+    arch.value
+    for arch in Architectures
+    # XXX
+    # if arch.value.qemu_name != "unsupported"
+    if arch.name == "x86_64"
 ]
 
 

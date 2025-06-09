@@ -5,6 +5,12 @@ Development
 Environment Setup
 -----------------
 
+To setup the full development environment, some additional system packages are needed:
+
+.. code-block:: bash
+
+    sudo apt-get install qemu-user
+
 Install required Python packages and activate the corresponding virtual environment with:
 
 .. code-block:: bash
