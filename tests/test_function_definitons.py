@@ -19,7 +19,7 @@ def test_argument_annotation_conversion():
         cc.ret(12345)
 
     assert cc.func.my_func.return_type == cc.types.inat
-    assert cc.func.my_func.arg_types == [cc.types.inat]
+    assert cc.func.my_func.arg_types[1:] == [cc.types.inat]
 
 
 def test_invalid_function_dont_return_value_with_non_void_return_type():

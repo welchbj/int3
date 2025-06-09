@@ -112,7 +112,11 @@ class Compiler:
         self.types = TypeManager(compiler=self)
         self.codegen = CodeGenerator(arch=self.arch)
         self.syscall_conv = self.triple.resolve_syscall_convention()
-        self.llvm_module = llvmir.Module()
+
+        # We create a fresh llvmlite context for our module. Otherwise, multiple
+        # compiler instances will reference the same llvmlite library-level global
+        # context.
+        self.llvm_module = llvmir.Module(context=llvmir.Context())
 
     @property
     def current_func(self) -> FunctionProxy:
@@ -494,7 +498,25 @@ class Compiler:
                 sub_cc.builder.store(relocated_addr.wrapped_llvm_node, func_ptr)
 
             # Call the user entrypoint function.
-            entry_func = self.func.func_map[self.entry]
+            entry_func = self.func.func_map.get(self.entry, None)
+            if entry_func is None:
+                raise Int3CompilationError(
+                    f"No definition for entrypoint: {self.entry}"
+                )
+
+            # Entry the conventions of the entrypoint function match our desired characteristics.
+            #
+            # We allow one argument for the entrypoint function to account for the implicit symtab
+            # pointer that will be passed to it.
+            if len(entry_func.arg_types) != 1:
+                raise Int3CompilationError(
+                    f"Expected no arguments for entrypoint but got: {entry_func.arg_types}"
+                )
+            elif entry_func.return_type != self.types.void:
+                raise Int3CompilationError(
+                    f"Expected void return type for entrypoint but got: {entry_func.return_type}"
+                )
+
             CallProxy.call_func(
                 func=entry_func,
                 compiler=sub_cc,

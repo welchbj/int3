@@ -1,5 +1,7 @@
-from int3 import Compiler, LinuxCompiler
-from int3.architecture import Architecture
+import pytest
+
+from int3 import Architecture, Compiler, LinuxCompiler
+from int3.errors import Int3CompilationError
 
 from .qemu import parametrize_qemu_arch, run_in_qemu
 
@@ -7,19 +9,21 @@ from .qemu import parametrize_qemu_arch, run_in_qemu
 def test_not_defining_an_entrypoint():
     cc = Compiler.from_host()
 
-    # TODO
+    with cc.def_func.not_the_entrypoint():
+        ...
 
-    assert False
-
-
-def test_custom_entrypoint():
-    # TODO
-    assert False
+    with pytest.raises(Int3CompilationError):
+        cc.compile()
 
 
 def test_non_void_entrypoint():
-    # TODO
-    assert False
+    cc = Compiler.from_host()
+
+    with cc.def_func.main(int):
+        cc.ret(0xCAFE)
+
+    with pytest.raises(Int3CompilationError):
+        cc.compile()
 
 
 @parametrize_qemu_arch
