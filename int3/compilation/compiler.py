@@ -31,7 +31,7 @@ from .types import (
 )
 
 if TYPE_CHECKING:
-    from ._linux_compiler import LinuxCompiler
+    from .linux_compiler import LinuxCompiler
 
 
 logger = logging.getLogger(__name__)
@@ -535,7 +535,7 @@ class Compiler:
         platform = Platform.from_str(parts[0])
         match platform:
             case Platform.Linux:
-                from ._linux_compiler import LinuxCompiler
+                from .linux_compiler import LinuxCompiler
 
                 compiler_cls = LinuxCompiler
             case Platform.Windows:
