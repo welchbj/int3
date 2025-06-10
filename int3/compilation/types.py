@@ -148,7 +148,7 @@ class IntConstant(_IntBase):
 class BytesPointer:
     compiler: "Compiler"
     type: PointerType
-    len: int
+    len_: int
 
     symtab_index: int = field(init=False)
 
@@ -164,7 +164,7 @@ class BytesPointer:
 
         # Emit stub that loads a pointer to this bytes pointer from the symtab.
         compiler.builder.comment(
-            f"Load bytes pointer of length {self.len} from slot {self.symtab_index}"
+            f"Load bytes pointer of length {self.len_} from slot {self.symtab_index}"
         )
         symtab_ptr = compiler.current_func.raw_symtab_ptr
         indices = [_make_gep_idx(self.symtab_index)]
@@ -183,7 +183,7 @@ class BytesPointer:
         self.symtab_index = self.compiler.reserve_symbol_index()
 
     def __len__(self) -> int:
-        return self.len
+        return self.len_
 
 
 @dataclass
