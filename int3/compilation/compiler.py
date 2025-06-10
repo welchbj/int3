@@ -222,7 +222,11 @@ class Compiler:
             )
         elif isinstance(value, (bytes, BytesPointer)):
             # Error if trying to condense to a non-native width type.
-            # TODO
+            if type.bit_size < self.arch.bit_size:
+                raise Int3ProgramDefinitionError(
+                    f"Cannot coerce pointer of size {self.arch.bit_size} bits to type with "
+                    f"only {type.bit_size} bits"
+                )
 
             if isinstance(value, bytes):
                 value = self.b(value)
