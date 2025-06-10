@@ -16,8 +16,7 @@ def test_sys_exit(arch: Architecture):
         exit_code += 0xBEEF
         cc.sys_exit(exit_code)
 
-    program = cc.compile()
-    qemu_result = run_in_qemu(program, arch=arch, strace=True)
+    qemu_result = run_in_qemu(cc, strace=True)
     lines = qemu_result.log.splitlines()
 
     # Ensure our custom exit code was observed.
@@ -35,5 +34,5 @@ def test_sys_write_with_varying_lengths(arch: Architecture, bytes_len: int):
         num_written = cc.sys_write(fd=1, buf=msg)
         cc.sys_exit(num_written)
 
-    result = run_in_qemu(shellcode=cc.compile(), arch=cc.arch)
+    result = run_in_qemu(cc)
     assert result.stdout == data

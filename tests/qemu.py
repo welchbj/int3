@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from int3.architecture import Architecture, Architectures
+from int3 import Architecture, Architectures, Compiler
 
 
 class FilePaths:
@@ -51,7 +51,10 @@ def compile_src(arch: Architecture, in_file: Path, out_file: Path, static: bool 
     subprocess.check_output(args)
 
 
-def run_in_qemu(shellcode: bytes, arch: Architecture, strace: bool = True):
+def run_in_qemu(compiler: Compiler, strace: bool = True):
+    arch = compiler.arch
+    asm = compiler.compile()
+
     qemu_bin = f"qemu-{arch.qemu_name}"
     if (qemu_path := shutil.which(qemu_bin)) is None:
         pytest.fail(f"No available qemu binary {qemu_bin}")
@@ -63,7 +66,7 @@ def run_in_qemu(shellcode: bytes, arch: Architecture, strace: bool = True):
             "wb", delete=False, buffering=False
         ) as shellcode_file,
     ):
-        shellcode_file.write(shellcode)
+        shellcode_file.write(asm)
 
         compile_src(
             arch=arch,
