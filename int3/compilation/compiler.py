@@ -82,7 +82,7 @@ class Compiler:
 
     # The number of bytes the entry stub will be padded to. This is required
     # to ensure the entry stub remains a static length for relocation computation.
-    entry_stub_pad_len: int = 0x38
+    entry_stub_pad_len: int = 0x40
 
     # Interface for defining new functions on this compiler.
     def_func: FunctionFactory = field(init=False)
@@ -521,7 +521,9 @@ class Compiler:
             # It's important that we don't initialize the SymbolTable instance until
             # now, as it derives its number of required slots from the compiler's
             # current state.
-            symtab = SymbolTable(funcs=self.func, compiler=sub_cc)
+            symtab = SymbolTable(
+                funcs=self.func, num_slots=self._current_symbol_index, compiler=sub_cc
+            )
             symtab_ptr = symtab.alloc()
 
             # Initialize bytes objects in the symbol table.
@@ -535,8 +537,6 @@ class Compiler:
                 bytes_allocated_stack_ptr = sub_cc.builder.alloca(
                     typ=byte_type, size=len(bytes_ptr)
                 )
-                # XXX: Is it an llvmlite bug that alloca returns a typed pointer?
-                bytes_allocated_stack_ptr.type.is_opaque = True
 
                 # Fill the allocated stack space with the user-specified initial value (if one exists).
                 # TODO
@@ -545,6 +545,8 @@ class Compiler:
                 symtab_slot_ptr = symtab.slot_ptr(
                     symtab_ptr, idx=bytes_ptr.symtab_index
                 )
+                # XXX: Is it an llvmlite bug that alloca returns a typed pointer?
+                symtab_slot_ptr.type.is_opaque = True
                 sub_cc.builder.store(bytes_allocated_stack_ptr, symtab_slot_ptr)
 
             # Initialize function pointers in the symbol table.
