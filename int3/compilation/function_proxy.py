@@ -67,8 +67,10 @@ class FunctionProxy:
         )
 
         self.args = []
-        # TODO: How does the pointer type mess with this?
         for idx, arg_type in enumerate(self.arg_types):
+            if isinstance(arg_type, PointerType):
+                raise NotImplementedError("Pointer argument types still WIP")
+
             self.args.append(
                 IntVariable(
                     compiler=self.compiler,
