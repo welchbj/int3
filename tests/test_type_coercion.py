@@ -56,3 +56,8 @@ def test_coerce_raw_int_to_type():
 
     with pytest.raises(Int3InsufficientWidthError):
         cc.coerce_to_type(value=-1, type=cc.types.u8)
+
+
+def test_coercing_pointer_to_narrow_int_type():
+    # TODO
+    assert False

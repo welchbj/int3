@@ -18,6 +18,8 @@ class FilePaths:
 
 @dataclass(frozen=True)
 class QemuResult:
+    stdout: bytes
+    stderr: bytes
     log: str
 
 
@@ -81,6 +83,10 @@ def run_in_qemu(shellcode: bytes, arch: Architecture, strace: bool = True):
             '-ex "gef-remote --qemu-user 127.0.0.1 12345" -ex "continue"'
         )
 
-        subprocess.run(args, capture_output=True)
+        result = subprocess.run(args, capture_output=True)
         qemu_log_file.seek(0)
-        return QemuResult(qemu_log_file.read())
+        return QemuResult(
+            stdout=result.stdout,
+            stderr=result.stderr,
+            log=qemu_log_file.read(),
+        )

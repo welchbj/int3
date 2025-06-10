@@ -21,10 +21,6 @@ class Int3WrappedCapstoneError(Int3Error):
     """A thin wrapper around CsError."""
 
 
-class Int3ContextError(Int3Error):
-    """Exception type for invalid use of context managers."""
-
-
 class Int3ArgumentError(Int3Error):
     """Exception type for invalid arguments."""
 
@@ -49,5 +45,9 @@ class Int3ProgramDefinitionError(Int3Error):
     """Exception type for program definition errors."""
 
 
-class Int3TypeCoercionError(Int3Error):
+class Int3ContextError(Int3ProgramDefinitionError):
+    """Exception type for invalid use of context managers."""
+
+
+class Int3TypeCoercionError(Int3ProgramDefinitionError):
     """Exception type for type coercion errors and failures."""
