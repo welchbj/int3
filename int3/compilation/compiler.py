@@ -6,6 +6,7 @@ import platform
 import random
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from io import BytesIO
 from itertools import pairwise
 from typing import TYPE_CHECKING, Iterator, Literal, cast, overload
 
@@ -68,6 +69,19 @@ class CodeSection:
 
 
 @dataclass
+class BytesPointerWithValue:
+    bytes_ptr: BytesPointer
+    value: bytes | None
+
+    def __post_init__(self):
+        if self.value is not None and len(self.value) > len(self.bytes_ptr):
+            raise Int3ProgramDefinitionError(
+                f"Attempted to load bytes of length {len(self.value)} into allocated space "
+                f"of size {len(self.bytes_ptr)}"
+            )
+
+
+@dataclass
 class Compiler:
     arch: Architecture
     platform: Platform
@@ -82,7 +96,7 @@ class Compiler:
 
     # The number of bytes the entry stub will be padded to. This is required
     # to ensure the entry stub remains a static length for relocation computation.
-    entry_stub_pad_len: int = 0x40
+    entry_stub_pad_len: int = 0x60
 
     # Interface for defining new functions on this compiler.
     def_func: FunctionFactory = field(init=False)
@@ -106,7 +120,9 @@ class Compiler:
     llvm_module: llvmir.Module = field(init=False)
 
     # A lookup table for allocate byte objects (keyed on their symtab index).
-    _bytes_map: dict[int, BytesPointer] = field(init=False, default_factory=dict)
+    _bytes_map: dict[int, BytesPointerWithValue] = field(
+        init=False, default_factory=dict
+    )
 
     # The function this compiler is currently operating on.
     _current_func: FunctionProxy | None = field(init=False, default=None)
@@ -277,15 +293,30 @@ class Compiler:
             value=value,
         )
 
-    def b(self, value: bytes) -> BytesPointer:
-        # TODO: How do we schedule the value actually being loaded during the entry
-        #       stub?
+    def b(self, value: bytes | None = None, len_: int | None = None) -> BytesPointer:
+        if value is None and len_ is None:
+            raise Int3ProgramDefinitionError(
+                "Must specify bytes length if no value specified"
+            )
+        elif value is not None and len_ is None:
+            len_ = len(value)
+        elif value is None and len_ is not None:
+            pass
+        else:
+            len_ = cast(int, len_)
+            value = cast(bytes, value)
+            if len_ < len(value):
+                raise Int3ProgramDefinitionError(
+                    f"Attempted to set bytes length {len_} when literal value has length {len(value)}"
+                )
 
         if not value:
             raise Int3ProgramDefinitionError("Cannot allocate zero-length bytes")
 
-        new_bytes_ptr = BytesPointer(compiler=self, type=self.types.ptr, len=len(value))
-        self._bytes_map[new_bytes_ptr.symtab_index] = new_bytes_ptr
+        new_bytes_ptr = BytesPointer(compiler=self, type=self.types.ptr, len_=len_)
+        self._bytes_map[new_bytes_ptr.symtab_index] = BytesPointerWithValue(
+            new_bytes_ptr, value
+        )
         return new_bytes_ptr
 
     def i(self, value: int) -> IntConstant:
@@ -533,7 +564,10 @@ class Compiler:
             symtab_ptr = symtab.alloc()
 
             # Initialize bytes objects in the symbol table.
-            for symtab_idx, bytes_ptr in self._bytes_map.items():
+            for symtab_idx, bytes_ptr_with_value in self._bytes_map.items():
+                bytes_ptr = bytes_ptr_with_value.bytes_ptr
+                initial_bytes = bytes_ptr_with_value.value
+
                 sub_cc.builder.comment(
                     f"Setup symtab for byte pointer (index {symtab_idx})"
                 )
@@ -544,8 +578,38 @@ class Compiler:
                     typ=byte_type, size=len(bytes_ptr)
                 )
 
-                # Fill the allocated stack space with the user-specified initial value (if one exists).
-                # TODO
+                # Fill the allocated stack space with the user-specified initial value (if one
+                # exists).
+                if initial_bytes is not None:
+                    reg_size = sub_cc.arch.byte_size
+                    padding_len = reg_size - (len(initial_bytes) % reg_size)
+                    aligned_len = len(initial_bytes) + padding_len
+                    logger.info(
+                        f"Padding bytes immediate of size {len(initial_bytes)} to {aligned_len}"
+                    )
+
+                    initial_bytes = initial_bytes.ljust(aligned_len, b"\x00")
+                    with BytesIO(initial_bytes) as f:
+                        idx = 0
+                        while True:
+                            chunk = f.read(reg_size)
+                            if not chunk:
+                                break
+
+                            chunk_llvm_node = sub_cc.u(
+                                sub_cc.arch.unpack(chunk)
+                            ).wrapped_llvm_node
+
+                            chunk_ptr = sub_cc.builder.gep(
+                                ptr=bytes_allocated_stack_ptr,
+                                indices=[sub_cc.i32(idx).wrapped_llvm_node],
+                                inbounds=True,
+                                source_etype=sub_cc.types.unat.wrapped_type,
+                            )
+                            chunk_ptr.type.is_opaque = True
+                            sub_cc.builder.store(chunk_llvm_node, chunk_ptr, align=True)
+
+                            idx += 1
 
                 # Write the stack address into the symbol table.
                 symtab_slot_ptr = symtab.slot_ptr(
