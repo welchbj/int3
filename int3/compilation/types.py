@@ -179,6 +179,13 @@ class BytesPointer:
 
         return raw_bytes_ptr
 
+    @property
+    def aligned_len(self) -> int:
+        """Length of this bytes view aligned to the compiler's native width."""
+        reg_size = self.compiler.arch.byte_size
+        padding_len = reg_size - (self.len_ % reg_size)
+        return self.len_ + padding_len
+
     def __post_init__(self):
         self.symtab_index = self.compiler.reserve_symbol_index()
 

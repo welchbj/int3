@@ -96,7 +96,7 @@ class Compiler:
 
     # The number of bytes the entry stub will be padded to. This is required
     # to ensure the entry stub remains a static length for relocation computation.
-    entry_stub_pad_len: int = 0x60
+    entry_stub_pad_len: int = 0x100
 
     # Interface for defining new functions on this compiler.
     def_func: FunctionFactory = field(init=False)
@@ -575,20 +575,14 @@ class Compiler:
                 # Allocate stack space for the bytes pointer in the entry stub's stack frame.
                 byte_type = sub_cc.types.i8.wrapped_type
                 bytes_allocated_stack_ptr = sub_cc.builder.alloca(
-                    typ=byte_type, size=len(bytes_ptr)
+                    typ=byte_type, size=bytes_ptr.aligned_len
                 )
 
                 # Fill the allocated stack space with the user-specified initial value (if one
                 # exists).
                 if initial_bytes is not None:
                     reg_size = sub_cc.arch.byte_size
-                    padding_len = reg_size - (len(initial_bytes) % reg_size)
-                    aligned_len = len(initial_bytes) + padding_len
-                    logger.info(
-                        f"Padding bytes immediate of size {len(initial_bytes)} to {aligned_len}"
-                    )
-
-                    initial_bytes = initial_bytes.ljust(aligned_len, b"\x00")
+                    initial_bytes = initial_bytes.ljust(bytes_ptr.aligned_len, b"\x00")
                     with BytesIO(initial_bytes) as f:
                         idx = 0
                         while True:
