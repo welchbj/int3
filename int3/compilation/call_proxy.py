@@ -18,7 +18,7 @@ class CallProxy:
 
     def __call__(self, *args: PyIntValueType) -> IntVariable | None:
         compiler = self.func.compiler
-        symtab_ptr = compiler.current_func.args[0].wrapped_llvm_node
+        symtab_ptr = compiler.current_func.raw_symtab_ptr
         return self.call_func(
             func=self.func,
             compiler=compiler,

@@ -6,7 +6,7 @@ from int3.meta import Int3Files
 from int3.platform import LinuxSyscallNumbers
 
 from .compiler import Compiler
-from .types import IntVariable, PyArgType, PyIntArgType, PyIntValueType
+from .types import IntVariable, PyArgType, PyBytesArgType, PyIntArgType, PyIntValueType
 
 
 @dataclass
@@ -60,10 +60,16 @@ class LinuxCompiler(Compiler):
     def sys_write(
         self,
         fd: PyIntArgType,
-        buf: PyIntArgType,
-        count: PyIntArgType,
+        buf: PyBytesArgType,
+        count: PyIntArgType | None = None,
     ) -> IntVariable:
-        # TODO: Utility options for automatically deriving the length and appending a null terminator.
+        if isinstance(buf, bytes):
+            buf = self.b(buf)
+
+        if count is None:
+            count = len(buf)
+
+        # TODO: Utility option for automatically appending a null terminator.
         return self.syscall(self.sys_nums.write, fd, buf, count, hint="write")
 
     def sys_dup2(self, oldfd: PyIntArgType, newfd: PyIntArgType) -> IntVariable:

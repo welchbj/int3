@@ -22,32 +22,26 @@ class SymbolTable:
     funcs: "FunctionStore"
     compiler: "Compiler"
 
-    entry_slot_map: dict[str, int] = field(init=False, default_factory=dict)
     wrapped_struct: llvmir.LiteralStructType = field(init=False)
 
     def __post_init__(self):
-        # Setup our lookup table of symbol names to indexes.
-        for func_name, func in self.funcs.func_map.items():
-            self.entry_slot_map[func_name] = func.symtab_index
+        # Record the number of slots the compiler has given out.
+        num_slots = self.compiler._current_symbol_index
 
         # Define our wrapped LLVM struct.
         ctx = self.compiler.llvm_module.context
         symtab_struct = ctx.get_identified_type("struct.symtab", packed=False)
-        symtab_struct.set_body(
-            *[llvmir.PointerType() for _ in range(len(self.entry_slot_map))]
-        )
+        symtab_struct.set_body(*[llvmir.PointerType() for _ in range(num_slots)])
         self.wrapped_struct = symtab_struct
 
-    def func_slot_ptr(
-        self, struct_ptr: llvmir.PointerType, func_name: str
-    ) -> llvmir.Instruction:
-        def _make_gep_idx(value: int) -> llvmir.Constant:
-            return self.compiler.i32(value).wrapped_llvm_node
+    def _make_gep_idx(self, value: int) -> llvmir.Constant:
+        return self.compiler.i32(value).wrapped_llvm_node
+
+    def slot_ptr(self, struct_ptr: llvmir.PointerType, idx: int) -> llvmir.Instruction:
+        indices = [self._make_gep_idx(idx)]
 
         # llvmlite gep examples:
         # https://github.com/numba/llvmlite/issues/442#issuecomment-459690710
-        idx = self.entry_slot_map[func_name]
-        indices = [_make_gep_idx(idx)]
         return self.compiler.builder.gep(
             struct_ptr,
             indices=indices,

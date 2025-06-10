@@ -14,16 +14,23 @@ from llvmlite import ir as llvmir
 
 from int3.architecture import Architecture, Architectures
 from int3.codegen import CodeGenerator
-from int3.errors import Int3ArgumentError, Int3CompilationError, Int3ContextError
+from int3.errors import (
+    Int3ArgumentError,
+    Int3CompilationError,
+    Int3ContextError,
+    Int3ProgramDefinitionError,
+)
 from int3.platform import Platform, SyscallConvention, Triple
 
 from .call_proxy import CallFactory, CallProxy
 from .function_proxy import FunctionFactory, FunctionProxy, FunctionStore
 from .symtab import SymbolTable
 from .types import (
+    BytesPointer,
     IntConstant,
     IntType,
     IntVariable,
+    PyArgType,
     PyIntArgType,
     PyIntValueType,
     TypeCoercion,
@@ -97,6 +104,9 @@ class Compiler:
 
     # Wrapped llvmlite LLVM IR module.
     llvm_module: llvmir.Module = field(init=False)
+
+    # A lookup table for allocate byte objects (keyed on their symtab index).
+    _bytes_map: dict[int, BytesPointer] = field(init=False, default_factory=dict)
 
     # The function this compiler is currently operating on.
     _current_func: FunctionProxy | None = field(init=False, default=None)
@@ -172,7 +182,7 @@ class Compiler:
     def coerce_to_type(self, value: IntVariable, type: IntType) -> IntVariable: ...
 
     def coerce_to_type(
-        self, value: PyIntArgType, type: IntType
+        self, value: PyArgType, type: IntType
     ) -> IntConstant | IntVariable:
         if isinstance(value, (int, IntConstant)):
             if isinstance(value, IntConstant):
@@ -187,6 +197,21 @@ class Compiler:
                 wrapped_llvm_node=llvmir.Constant(
                     typ=type.wrapped_type, constant=raw_value
                 ),
+            )
+        elif isinstance(value, (bytes, BytesPointer)):
+            # Error if trying to condense to a non-native width type.
+            # TODO
+
+            if isinstance(value, bytes):
+                value = self.b(value)
+
+            target_llvm_type = type.wrapped_type
+            new_wrapped_node = self.builder.ptrtoint(
+                value.wrapped_llvm_node, target_llvm_type
+            )
+
+            return IntVariable(
+                compiler=self, type=type, wrapped_llvm_node=new_wrapped_node
             )
         else:
             is_extension = value.type.bit_size < type.bit_size
@@ -245,6 +270,17 @@ class Compiler:
             wrapped_llvm_node=llvmir.Constant(typ=type.wrapped_type, constant=value),
             value=value,
         )
+
+    def b(self, value: bytes) -> BytesPointer:
+        # TODO: How do we schedule the value actually being loaded during the entry
+        #       stub?
+
+        if not value:
+            raise Int3ProgramDefinitionError("Cannot allocate zero-length bytes")
+
+        new_bytes_ptr = BytesPointer(compiler=self, type=self.types.ptr, len=len(value))
+        self._bytes_map[new_bytes_ptr.symtab_index] = new_bytes_ptr
+        return new_bytes_ptr
 
     def i(self, value: int) -> IntConstant:
         return self.make_int(value, type=self.types.inat)
@@ -482,20 +518,48 @@ class Compiler:
                 compiler=self, type=self.types.unat, wrapped_llvm_node=stored_pc_inst
             )
 
+            # It's important that we don't initialize the SymbolTable instance until
+            # now, as it derives its number of required slots from the compiler's
+            # current state.
             symtab = SymbolTable(funcs=self.func, compiler=sub_cc)
             symtab_ptr = symtab.alloc()
 
-            for func_name in symtab.entry_slot_map.keys():
-                sub_cc.builder.comment(f"Setup symtab for function {func_name}")
-                func_ptr = symtab.func_slot_ptr(symtab_ptr, func_name)
+            # Initialize bytes objects in the symbol table.
+            for symtab_idx, bytes_ptr in self._bytes_map.items():
+                sub_cc.builder.comment(
+                    f"Setup symtab for byte pointer (index {symtab_idx})"
+                )
+
+                # Allocate stack space for the bytes pointer in the entry stub's stack frame.
+                byte_type = sub_cc.types.i8.wrapped_type
+                bytes_allocated_stack_ptr = sub_cc.builder.alloca(
+                    typ=byte_type, size=len(bytes_ptr)
+                )
                 # XXX: Is it an llvmlite bug that alloca returns a typed pointer?
-                func_ptr.type.is_opaque = True
+                bytes_allocated_stack_ptr.type.is_opaque = True
+
+                # Fill the allocated stack space with the user-specified initial value (if one exists).
+                # TODO
+
+                # Write the stack address into the symbol table.
+                symtab_slot_ptr = symtab.slot_ptr(
+                    symtab_ptr, idx=bytes_ptr.symtab_index
+                )
+                sub_cc.builder.store(bytes_allocated_stack_ptr, symtab_slot_ptr)
+
+            # Initialize function pointers in the symbol table.
+            for func_name, func in self.func.func_map.items():
+                sub_cc.builder.comment(
+                    f"Setup symtab for function {func_name} (index {func.symtab_index})"
+                )
+                symtab_slot_ptr = symtab.slot_ptr(symtab_ptr, idx=func.symtab_index)
+                symtab_slot_ptr.type.is_opaque = True
 
                 relative_func_offset = (
                     self.entry_stub_pad_len - len(get_pc_stub) + func_offsets[func_name]
                 )
                 relocated_addr = sub_cc.add(stored_pc, relative_func_offset)
-                sub_cc.builder.store(relocated_addr.wrapped_llvm_node, func_ptr)
+                sub_cc.builder.store(relocated_addr.wrapped_llvm_node, symtab_slot_ptr)
 
             # Call the user entrypoint function.
             entry_func = self.func.func_map.get(self.entry, None)

@@ -49,6 +49,10 @@ class FunctionProxy:
     )
 
     @property
+    def raw_symtab_ptr(self) -> llvmir.Instruction:
+        return self.args[0].wrapped_llvm_node
+
+    @property
     def user_arg_view(self) -> list[IntVariable]:
         """View into the user's function arguments (omitting the implicit symtab pointer)."""
         return self.args[1:]
@@ -68,8 +72,8 @@ class FunctionProxy:
 
         self.args = []
         for idx, arg_type in enumerate(self.arg_types):
-            if isinstance(arg_type, PointerType):
-                raise NotImplementedError("Pointer argument types still WIP")
+            # if isinstance(arg_type, PointerType):
+            # raise NotImplementedError("Pointer argument types still WIP")
 
             self.args.append(
                 IntVariable(
@@ -138,8 +142,9 @@ class PartialFunctionDef:
 
     def __call__(
         self,
+        # TODO: These need to reflect realness
         return_type: IntType | VoidType | type[int] | None = None,
-        *arg_types: IntType | type[int],
+        *arg_types: IrArgType | type[int] | type[bytes],
     ) -> FunctionProxy:
         compiler = self.store.compiler
 
@@ -159,12 +164,14 @@ class PartialFunctionDef:
         promoted_arg_types = [compiler.types.ptr]
 
         # Promote all user-specified argument types.
-        promoted_arg_types.extend(
-            [
-                arg if isinstance(arg, IntType) else compiler.types.inat
-                for arg in arg_types
-            ]
-        )
+        for arg_type in arg_types:
+            if isinstance(arg_type, IntType):
+                promoted_arg_types.append(arg_type)
+            elif arg_type == int:
+                promoted_arg_types.append(compiler.types.inat)
+            else:
+                # TODO
+                1 / 0
 
         new_func = FunctionProxy(
             compiler=self.store.compiler,

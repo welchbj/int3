@@ -145,6 +145,48 @@ class IntConstant(_IntBase):
 
 
 @dataclass
+class BytesPointer:
+    compiler: "Compiler"
+    type: PointerType
+    len: int
+
+    symtab_index: int = field(init=False)
+
+    # TODO: Can we make a property for getting this guy's wrapped LLVM
+    #       node? It will be based on its index...
+
+    @property
+    def wrapped_llvm_node(self) -> llvmir.Instruction:
+        compiler = self.compiler
+
+        def _make_gep_idx(value: int) -> llvmir.Constant:
+            return compiler.i32(value).wrapped_llvm_node
+
+        # Emit stub that loads a pointer to this bytes pointer from the symtab.
+        compiler.builder.comment(
+            f"Load bytes pointer of length {self.len} from slot {self.symtab_index}"
+        )
+        symtab_ptr = compiler.current_func.raw_symtab_ptr
+        indices = [_make_gep_idx(self.symtab_index)]
+        raw_bytes_ptr_ptr = compiler.builder.gep(
+            ptr=symtab_ptr,
+            indices=indices,
+            source_etype=compiler.types.ptr.wrapped_type,
+        )
+        raw_bytes_ptr = compiler.builder.load(
+            raw_bytes_ptr_ptr, typ=compiler.types.ptr.wrapped_type
+        )
+
+        return raw_bytes_ptr
+
+    def __post_init__(self):
+        self.symtab_index = self.compiler.reserve_symbol_index()
+
+    def __len__(self) -> int:
+        return self.len
+
+
+@dataclass
 class IntVariable(_IntBase):
     pass
 
@@ -157,8 +199,10 @@ class TypeCoercion:
 
 # Types intended for the user-facing Python API.
 type PyIntValueType = IntVariable | IntConstant
+type PyBytesValueType = BytesPointer
 type PyIntArgType = PyIntValueType | int
-type PyArgType = PyIntArgType
+type PyBytesArgType = PyBytesValueType | bytes
+type PyArgType = PyIntArgType | PyBytesArgType
 type PyReturnType = IntVariable | IntConstant
 
 # Types intended for defining LLVM IR related constructs.
