@@ -181,6 +181,12 @@ class Compiler:
     @overload
     def coerce_to_type(self, value: IntVariable, type: IntType) -> IntVariable: ...
 
+    @overload
+    def coerce_to_type(self, value: bytes, type: IntType) -> IntVariable: ...
+
+    @overload
+    def coerce_to_type(self, value: BytesPointer, type: IntType) -> IntVariable: ...
+
     def coerce_to_type(
         self, value: PyArgType, type: IntType
     ) -> IntConstant | IntVariable:
