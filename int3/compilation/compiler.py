@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Iterator, Literal, cast, overload
 from llvmlite import binding as llvm
 from llvmlite import ir as llvmir
 
-from int3.architecture import Architecture, Architectures
+from int3.architecture import Architecture, Architectures, RegisterDef
 from int3.codegen import CodeGenerator
 from int3.errors import (
     Int3ArgumentError,
@@ -95,10 +95,6 @@ class Compiler:
     # Bytes that must be avoided when generating assembly.
     bad_bytes: bytes = b""
 
-    # The number of bytes the entry stub will be padded to. This is required
-    # to ensure the entry stub remains a static length for relocation computation.
-    entry_stub_pad_len: int = 0x100
-
     # Interface for defining new functions on this compiler.
     def_func: FunctionFactory = field(init=False)
 
@@ -130,6 +126,14 @@ class Compiler:
 
     # The next index for a pointer in the symbol table.
     _current_symbol_index: int = field(init=False, default=0)
+
+    # The number of bytes the entry stub will be padded to. This is required
+    # to ensure the entry stub remains a static length for relocation computation.
+    _start_entry_stub_padded_len: int = 0x100
+
+    # The number of padding bytes we view as permissable to append to the entry
+    # stub.
+    _entry_stub_max_num_pad_bytes: int = 3
 
     def __post_init__(self):
         self.triple = Triple(self.arch, self.platform)
@@ -524,25 +528,50 @@ class Compiler:
 
         logger.debug(f"Function offsets: {func_offsets}")
 
-        # Using the offset of each function, we construct our entry stub that
-        # setups up our symtab construct.
-        entry_stub = self._make_entry_stub(func_offsets)
+        # Using the resolved function offsets, we repeatedly attempt to construct our
+        # entry stub, clamping down on the allocated pad space each iteration in order
+        # to optimize the entry stub's total length. We use a binary search on the length.
+        pc_transfer_reg = random.choice(self.arch.gp_regs)
+        lower_bound_pad_len = 0
+        upper_bound_pad_len = 2 * self._start_entry_stub_padded_len
+        while lower_bound_pad_len <= upper_bound_pad_len:
+            entry_stub_padded_len = (lower_bound_pad_len + upper_bound_pad_len) // 2
 
-        # Pad the entry stub to a static length so it can use predictable offsets.
-        if len(entry_stub) > self.entry_stub_pad_len:
-            raise Int3CompilationError(
-                f"Compilation of symtab used {len(entry_stub)} bytes when only "
-                f"{self.entry_stub_pad_len} reserved"
+            entry_stub = self._make_entry_stub(
+                func_offsets, entry_stub_padded_len, pc_transfer_reg
             )
-        pad_len = self.entry_stub_pad_len - len(entry_stub)
+            logger.debug(
+                f"Produced entry stub of length {len(entry_stub)} against pad len of "
+                f"{entry_stub_padded_len}"
+            )
+
+            if len(entry_stub) > entry_stub_padded_len:
+                # We haven't allocated enough padding yet.
+                lower_bound_pad_len = entry_stub_padded_len + 1
+            elif (
+                entry_stub_padded_len - len(entry_stub)
+            ) <= self._entry_stub_max_num_pad_bytes:
+                # We have a "good enough" option to go with.
+                break
+            else:
+                # We still have a decent amount of slack to optimize out.
+                upper_bound_pad_len = entry_stub_padded_len - 1
+        else:
+            raise Int3CompilationError("Failed to determine correct entry stub length")
+
+        pad_len = entry_stub_padded_len - len(entry_stub)
         preamble = entry_stub + self.codegen.nop_pad(pad_len)
 
         # Add the remaining function definitions. Its important that they're added here
         # in the same order that they were passed to the entry stub generation.
         return preamble + program
 
-    def _make_entry_stub(self, func_offsets: dict[str, int]) -> bytes:
-        pc_transfer_reg = random.choice(self.arch.gp_regs)
+    def _make_entry_stub(
+        self,
+        func_offsets: dict[str, int],
+        entry_stub_padded_len: int,
+        pc_transfer_reg: RegisterDef,
+    ) -> bytes:
         get_pc_stub = self.codegen.compute_pc(result=pc_transfer_reg).bytes
 
         sub_cc = self.clean_slate()
@@ -630,7 +659,7 @@ class Compiler:
                 symtab_slot_ptr.type.is_opaque = True
 
                 relative_func_offset = (
-                    self.entry_stub_pad_len - len(get_pc_stub) + func_offsets[func_name]
+                    entry_stub_padded_len - len(get_pc_stub) + func_offsets[func_name]
                 )
                 relocated_addr = sub_cc.add(stored_pc, relative_func_offset)
                 sub_cc.builder.store(relocated_addr.wrapped_llvm_node, symtab_slot_ptr)
@@ -642,7 +671,7 @@ class Compiler:
                     f"No definition for entrypoint: {self.entry}"
                 )
 
-            # Entry the conventions of the entrypoint function match our desired characteristics.
+            # Ensure the conventions of the entrypoint function match our desired characteristics.
             #
             # We allow one argument for the entrypoint function to account for the implicit symtab
             # pointer that will be passed to it.
