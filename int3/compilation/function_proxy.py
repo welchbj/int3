@@ -11,7 +11,15 @@ from llvmlite import ir as llvmir
 
 from int3.errors import Int3CompilationError, Int3ProgramDefinitionError
 
-from .types import IntType, IntVariable, IrArgType, IrReturnType, PointerType, VoidType
+from .types import (
+    IntType,
+    IntVariable,
+    IrArgType,
+    IrReturnType,
+    Pointer,
+    PointerType,
+    VoidType,
+)
 
 if TYPE_CHECKING:
     from .compiler import Compiler
@@ -32,7 +40,7 @@ class FunctionProxy:
     # These argument type and value lists always begin with the implicit
     # symtab pointer argument.
     arg_types: list[IrArgType] = field(default_factory=list)
-    args: list[IntVariable] = field(init=False)
+    args: list[IntVariable | Pointer] = field(init=False)
 
     prefix_marker: str = field(init=False, default_factory=_make_prefix_marker)
     name_counter: Counter = field(init=False, default_factory=Counter)
@@ -53,7 +61,7 @@ class FunctionProxy:
         return self.args[0].wrapped_llvm_node
 
     @property
-    def user_arg_view(self) -> list[IntVariable]:
+    def user_arg_view(self) -> list[IntVariable | Pointer]:
         """View into the user's function arguments (omitting the implicit symtab pointer)."""
         return self.args[1:]
 
@@ -62,7 +70,7 @@ class FunctionProxy:
 
         self.llvm_func_type = llvmir.FunctionType(
             return_type=self.return_type.wrapped_type,
-            args=[arg.wrapped_type for arg in self.arg_types],
+            args=[arg_type.wrapped_type for arg_type in self.arg_types],
         )
         self.llvm_func = llvmir.Function(
             module=self.compiler.llvm_module,
@@ -72,16 +80,23 @@ class FunctionProxy:
 
         self.args = []
         for idx, arg_type in enumerate(self.arg_types):
-            # if isinstance(arg_type, PointerType):
-            # raise NotImplementedError("Pointer argument types still WIP")
-
-            self.args.append(
-                IntVariable(
-                    compiler=self.compiler,
-                    type=arg_type,
-                    wrapped_llvm_node=self.llvm_func.args[idx],
+            if isinstance(arg_type, IntType):
+                self.args.append(
+                    IntVariable(
+                        compiler=self.compiler,
+                        type=arg_type,
+                        wrapped_llvm_node=self.llvm_func.args[idx],
+                    )
                 )
-            )
+            else:
+                # Assume PointerType.
+                self.args.append(
+                    Pointer(
+                        compiler=self.compiler,
+                        type=arg_type,
+                        wrapped_llvm_node=self.llvm_func.args[idx],
+                    )
+                )
 
         self.llvm_entry_block = self.llvm_func.append_basic_block(name="entry")
         self.llvm_builder = llvmir.IRBuilder(self.llvm_entry_block)
@@ -165,13 +180,16 @@ class PartialFunctionDef:
 
         # Promote all user-specified argument types.
         for arg_type in arg_types:
-            if isinstance(arg_type, IntType):
+            if isinstance(arg_type, (IntType, PointerType)):
                 promoted_arg_types.append(arg_type)
             elif arg_type == int:
                 promoted_arg_types.append(compiler.types.inat)
+            elif arg_type == bytes:
+                promoted_arg_types.append(compiler.types.ptr)
             else:
-                # TODO
-                1 / 0
+                raise Int3ProgramDefinitionError(
+                    f"Unexpected argument type: {arg_type}"
+                )
 
         new_func = FunctionProxy(
             compiler=self.store.compiler,

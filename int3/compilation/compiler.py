@@ -31,6 +31,7 @@ from .types import (
     IntConstant,
     IntType,
     IntVariable,
+    Pointer,
     PyArgType,
     PyIntArgType,
     PyIntValueType,
@@ -158,7 +159,7 @@ class Compiler:
         return self.current_func.llvm_builder
 
     @property
-    def args(self) -> list[IntVariable]:
+    def args(self) -> list[IntVariable | Pointer]:
         """Interface into the current function's arguments."""
         return self.current_func.user_arg_view
 
@@ -203,6 +204,9 @@ class Compiler:
     @overload
     def coerce_to_type(self, value: BytesPointer, type: IntType) -> IntVariable: ...
 
+    @overload
+    def coerce_to_type(self, value: Pointer, type: IntType) -> IntVariable: ...
+
     def coerce_to_type(
         self, value: PyArgType, type: IntType
     ) -> IntConstant | IntVariable:
@@ -220,7 +224,7 @@ class Compiler:
                     typ=type.wrapped_type, constant=raw_value
                 ),
             )
-        elif isinstance(value, (bytes, BytesPointer)):
+        elif isinstance(value, (bytes, BytesPointer, Pointer)):
             # Error if trying to condense to a non-native width type.
             if type.bit_size < self.arch.bit_size:
                 raise Int3ProgramDefinitionError(
@@ -317,7 +321,7 @@ class Compiler:
         if not value:
             raise Int3ProgramDefinitionError("Cannot allocate zero-length bytes")
 
-        new_bytes_ptr = BytesPointer(compiler=self, type=self.types.ptr, len_=len_)
+        new_bytes_ptr = BytesPointer(compiler=self, len_=len_)
         self._bytes_map[new_bytes_ptr.symtab_index] = BytesPointerWithValue(
             new_bytes_ptr, value
         )

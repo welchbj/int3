@@ -1,8 +1,9 @@
 import random
+from typing import cast
 
 import pytest
 
-from int3 import Architecture, Compiler, LinuxCompiler
+from int3 import Architecture, Compiler, Int3CompilationError, LinuxCompiler
 
 from .qemu import parametrize_qemu_arch, run_in_qemu
 
@@ -26,7 +27,7 @@ def test_sys_exit(arch: Architecture):
 @parametrize_qemu_arch
 @pytest.mark.parametrize("bytes_len", [1, 2, 3, 7, 8, 9, 15, 65])
 def test_sys_write_with_varying_lengths(arch: Architecture, bytes_len: int):
-    cc: LinuxCompiler = Compiler.from_str(f"linux/{arch.name}")
+    cc = cast(LinuxCompiler, Compiler.from_str(f"linux/{arch.name}"))
 
     data = bytes([random.choice(b"abcdef0123456789") for _ in range(bytes_len)])
     with cc.def_func.main():
@@ -36,3 +37,13 @@ def test_sys_write_with_varying_lengths(arch: Architecture, bytes_len: int):
 
     result = run_in_qemu(cc)
     assert result.stdout == data
+
+
+def test_sys_write_with_ambiguous_count():
+    cc = Compiler.from_str("linux/x86_64")
+
+    with cc.def_func.main():
+        literal_addr = cc.u(0xDEAD0000)
+
+        with pytest.raises(Int3CompilationError):
+            cc.sys_write(fd=1, buf=literal_addr)

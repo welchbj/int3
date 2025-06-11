@@ -5,7 +5,7 @@ from llvmlite import ir as llvmir
 
 from int3.errors import Int3CompilationError
 
-from .types import IntType, IntVariable, PyIntValueType
+from .types import IntType, IntVariable, PointerType, PyArgType, PyIntValueType
 
 if TYPE_CHECKING:
     from .compiler import Compiler
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class CallProxy:
     func: "FunctionProxy"
 
-    def __call__(self, *args: PyIntValueType) -> IntVariable | None:
+    def __call__(self, *args: PyArgType) -> IntVariable | None:
         compiler = self.func.compiler
         symtab_ptr = compiler.current_func.raw_symtab_ptr
         return self.call_func(
@@ -31,7 +31,7 @@ class CallProxy:
         func: "FunctionProxy",
         compiler: "Compiler",
         symtab_ptr: llvmir.Instruction,
-        args: tuple[PyIntValueType, ...],
+        args: tuple[PyArgType, ...],
     ) -> IntVariable | None:
         """Worker method for setting up LLVM IR to call a relocated function.
 
@@ -42,7 +42,29 @@ class CallProxy:
         """
         # Add the implicit symtab pointer into the function call.
         func_args = [symtab_ptr]
-        func_args.extend([arg.wrapped_llvm_node for arg in args])
+
+        # Construct arg list of LLVM nodes, promoting raw types along the way.
+        for arg_index, user_arg in enumerate(args):
+            target_type = func.arg_types[arg_index]
+
+            if isinstance(user_arg, int):
+                if not isinstance(target_type, IntType):
+                    raise Int3CompilationError(
+                        f"Passed raw integer for non-int argument type {target_type}"
+                    )
+                coerced_var = compiler.coerce_to_type(user_arg, target_type)
+                llvm_node = coerced_var.wrapped_llvm_node
+            elif isinstance(user_arg, bytes):
+                if not isinstance(target_type, PointerType):
+                    raise Int3CompilationError(
+                        f"Passed raw bytes for non-pointer argument type {target_type}"
+                    )
+
+                llvm_node = compiler.b(user_arg).wrapped_llvm_node
+            else:
+                llvm_node = user_arg.wrapped_llvm_node
+
+            func_args.append(llvm_node)
 
         # Emit stub to resolve the pointer of the function we want to call.
         def _make_gep_idx(value: int) -> llvmir.Constant:

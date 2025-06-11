@@ -1,11 +1,13 @@
 import pytest
 
-from int3 import Compiler
-from int3.errors import (
+from int3 import (
+    Compiler,
     Int3CompilationError,
     Int3ContextError,
     Int3ProgramDefinitionError,
 )
+
+from .qemu import run_in_qemu
 
 
 def test_no_active_function():
@@ -51,5 +53,13 @@ def test_invalid_byte_declarations():
 
 
 def test_func_with_byte_pointer_argument():
-    # TODO
-    assert False
+    cc = Compiler.from_str("linux/x86_64")
+
+    with cc.def_func.call_me(None, bytes):
+        cc.sys_write(fd=1, buf=cc.args[0], count=3)
+
+    with cc.def_func.main():
+        cc.call.call_me(b"xxx")
+
+    result = run_in_qemu(cc)
+    assert result.stdout == b"xxx"

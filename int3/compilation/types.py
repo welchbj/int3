@@ -66,6 +66,15 @@ class PointerType:
     wrapped_type: llvmir.PointerType = field(default_factory=llvmir.PointerType)
 
 
+@dataclass
+class Pointer:
+    """Wrapper around an opaque pointer value."""
+
+    compiler: "Compiler"
+    type: PointerType
+    wrapped_llvm_node: llvmir.Instruction
+
+
 @dataclass(frozen=True)
 class IntType:
     """Wrapper around an LLVM integer type.
@@ -147,13 +156,9 @@ class IntConstant(_IntBase):
 @dataclass
 class BytesPointer:
     compiler: "Compiler"
-    type: PointerType
     len_: int
 
     symtab_index: int = field(init=False)
-
-    # TODO: Can we make a property for getting this guy's wrapped LLVM
-    #       node? It will be based on its index...
 
     @property
     def wrapped_llvm_node(self) -> llvmir.Instruction:
@@ -209,7 +214,7 @@ type PyIntValueType = IntVariable | IntConstant
 type PyBytesValueType = BytesPointer
 type PyIntArgType = PyIntValueType | int
 type PyBytesArgType = PyBytesValueType | bytes
-type PyArgType = PyIntArgType | PyBytesArgType
+type PyArgType = PyIntArgType | PyBytesArgType | Pointer
 type PyReturnType = IntVariable | IntConstant
 
 # Types intended for defining LLVM IR related constructs.

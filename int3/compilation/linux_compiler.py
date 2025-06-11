@@ -2,11 +2,18 @@ from dataclasses import dataclass, field
 
 from llvmlite import ir as llvmir
 
+from int3.errors import Int3CompilationError
 from int3.meta import Int3Files
 from int3.platform import LinuxSyscallNumbers
 
 from .compiler import Compiler
-from .types import IntVariable, PyArgType, PyBytesArgType, PyIntArgType, PyIntValueType
+from .types import (
+    BytesPointer,
+    IntVariable,
+    PyArgType,
+    PyIntArgType,
+    PyIntValueType,
+)
 
 
 @dataclass
@@ -60,16 +67,22 @@ class LinuxCompiler(Compiler):
     def sys_write(
         self,
         fd: PyIntArgType,
-        buf: PyBytesArgType,
+        buf: PyArgType,
         count: PyIntArgType | None = None,
     ) -> IntVariable:
         if isinstance(buf, bytes):
             buf = self.b(buf)
+        elif isinstance(buf, int):
+            buf = self.u(buf)
 
         if count is None:
-            count = len(buf)
+            if isinstance(buf, BytesPointer):
+                count = len(buf)
+            else:
+                raise Int3CompilationError(
+                    f"Unable to derive unspecified count for {buf}"
+                )
 
-        # TODO: Utility option for automatically appending a null terminator.
         return self.syscall(self.sys_nums.write, fd, buf, count, hint="write")
 
     def sys_dup2(self, oldfd: PyIntArgType, newfd: PyIntArgType) -> IntVariable:
