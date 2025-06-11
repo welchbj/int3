@@ -1,6 +1,6 @@
 import pytest
 
-from int3 import Compiler, Int3InsufficientWidthError
+from int3 import Compiler, Int3InsufficientWidthError, Int3ProgramDefinitionError
 
 
 def test_int_type_can_represent_value():
@@ -56,3 +56,21 @@ def test_coerce_raw_int_to_type():
 
     with pytest.raises(Int3InsufficientWidthError):
         cc.coerce_to_type(value=-1, type=cc.types.u8)
+
+
+def test_coerce_raw_bytes_into_int_type():
+    cc = Compiler.from_host()
+
+    with cc.def_func.main():
+        int_value = cc.coerce_to_type(value=b"xxx", type=cc.types.unat)
+        assert int_value.type == cc.types.unat
+
+
+def test_coerce_pointer_to_narrower_int_type():
+    cc = Compiler.from_host()
+
+    with cc.def_func.main():
+        bytes_ptr = cc.b(b"test")
+
+        with pytest.raises(Int3ProgramDefinitionError):
+            cc.coerce_to_type(value=bytes_ptr, type=cc.types.i16)
