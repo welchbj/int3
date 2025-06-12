@@ -5,7 +5,7 @@ from typing import BinaryIO
 import click
 
 from int3.architecture import Architecture, Architectures
-from int3.assembly import assemble, disassemble
+from int3.assembly import assemble, disassemble_to_str
 from int3.errors import Int3Error
 from int3.execution import execute
 from int3.format import FormatStyle, Formatter
@@ -145,7 +145,7 @@ def cli_disassemble(input_file: BinaryIO, arch: Architecture, debug: bool):
     with input_file:
         machine_code: bytes = input_file.read()
 
-    asm_text = disassemble(arch=arch, machine_code=machine_code)
+    asm_text = disassemble_to_str(arch=arch, machine_code=machine_code)
     click.echo(asm_text)
 
 
