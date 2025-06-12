@@ -4,5 +4,5 @@ set -uxo pipefail
 
 ruff check --select I .
 ruff format --check .
-mypy int3
+mypy int3/ tests/
 pytest
