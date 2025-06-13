@@ -5,6 +5,9 @@ from dataclasses import dataclass, field
 from int3.architecture import Architecture, Architectures, RegisterDef
 from int3.assembly import assemble
 
+type RegType = RegisterDef | str
+type ImmType = int
+
 
 @dataclass(frozen=True)
 class AsmGadget:
@@ -21,8 +24,6 @@ class AsmGadget:
 
 @dataclass
 class CodeGenerator:
-    # XXX: Knowledge of bad bytes?
-
     arch: "Architecture"
 
     def gadget(self, asm: str) -> AsmGadget:
@@ -48,7 +49,14 @@ class CodeGenerator:
         # XXX: Arch-specific code
         return self.gadget("int3")
 
-    def compute_pc(self, result: RegisterDef) -> AsmGadget:
+    def inc(self, reg: RegType) -> AsmGadget:
+        # XXX: Arch-specific code
+        return self.gadget(f"inc {reg}")
+
+    def xor(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
+        return self.gadget(f"xor {one}, {two}")
+
+    def compute_pc(self, result: RegType) -> AsmGadget:
         """Compute the program counter for the instruction following this gadget."""
         match self.arch:
             case Architectures.x86_64.value:
@@ -56,7 +64,7 @@ class CodeGenerator:
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch}")
 
-    def jump(self, value: int | RegisterDef) -> AsmGadget:
+    def jump(self, value: ImmType | RegType) -> AsmGadget:
         match self.arch:
             case Architectures.x86.value:
                 return self.gadget(f"jmp {value}")

@@ -41,6 +41,10 @@ class Int3CompilationError(Int3Error):
     """Exception type for IR compilation errors."""
 
 
+class Int3CodeGenerationError(Int3Error):
+    """Exception type for code generation errors."""
+
+
 class Int3ProgramDefinitionError(Int3Error):
     """Exception type for program definition errors."""
 

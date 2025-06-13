@@ -14,7 +14,7 @@ from llvmlite import binding as llvm
 from llvmlite import ir as llvmir
 
 from int3.architecture import Architecture, Architectures, RegisterDef
-from int3.codegen import CodeGenerator
+from int3.codegen import CodeGenerator, MutationEngine
 from int3.errors import (
     Int3ArgumentError,
     Int3CompilationError,
@@ -511,14 +511,28 @@ class Compiler:
         return func_bytes
 
     def compile(self) -> bytes:
-        # Compile all of our functions into raw bytes.
-        compiled_funcs = self.compile_funcs()
+        # Compile all of our functions into raw bytes. This is the raw result of
+        # LLVM's IR to native code generation. Consequently, these functions will
+        # likely contain bad bytes.
+        raw_compiled_funcs = self.compile_funcs()
+
+        # We next do apply native-level code transformation passes to remove bad
+        # bytes.
+        cleaned_compiled_funcs: dict[str, bytes] = {}
+        for func_name, func_bytes in raw_compiled_funcs.items():
+            mutation_engine = MutationEngine(
+                arch=self.arch,
+                raw_asm=func_bytes,
+                bad_bytes=self.bad_bytes,
+            )
+            func_segment = mutation_engine.clean()
+            cleaned_compiled_funcs[func_name] = bytes(func_segment)
 
         # Combine our compiled functions, making note of the offset of each
         # function for use in constructing the symtab.
         func_offsets: dict[str, int] = {}
         program = b""
-        for func_name, func_bytes in compiled_funcs.items():
+        for func_name, func_bytes in cleaned_compiled_funcs.items():
             pos = len(program)
             func_offsets[func_name] = pos
             logger.debug(
