@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from llvmlite import ir as llvmir
+from int3._vendored.llvmlite import ir as llvmir
 
 if TYPE_CHECKING:
     from .compiler import Compiler

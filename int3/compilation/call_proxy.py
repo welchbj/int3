@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from llvmlite import ir as llvmir
+from int3._vendored.llvmlite import ir as llvmir
 
 from int3.errors import Int3CompilationError
 

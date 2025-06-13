@@ -10,8 +10,8 @@ from io import BytesIO
 from itertools import pairwise
 from typing import TYPE_CHECKING, Iterator, Literal, cast, overload
 
-from llvmlite import binding as llvm
-from llvmlite import ir as llvmir
+from int3._vendored.llvmlite import binding as llvm
+from int3._vendored.llvmlite import ir as llvmir
 
 from int3.architecture import Architecture, Architectures, RegisterDef
 from int3.codegen import CodeGenerator, MutationEngine
