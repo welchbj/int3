@@ -48,6 +48,7 @@ package = true
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
+    "int3/_vendored",
     ".bzr",
     ".direnv",
     ".eggs",
