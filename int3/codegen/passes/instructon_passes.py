@@ -16,7 +16,7 @@ class MoveSmallImmediateInstructionPass(InstructionMutationPass):
         if imm <= 0x10:
             # TODO: We should be able to test different gadgets for the presence
             #       of bad bytes. For example, we could have other ways of
-            #       clearing the register other an XOR.
+            #       clearing the register other than an XOR.
             code = self.codegen.xor(reg, reg).bytes
             code += self.codegen.inc(reg).bytes * imm
             return code

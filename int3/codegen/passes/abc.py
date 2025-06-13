@@ -29,7 +29,13 @@ class InstructionMutationPass(ABC):
 
     @abstractmethod
     def mutate_instruction(self, insn: CsInsn) -> bytes:
-        """Apply a mutation to an input instruction, producing new raw instruction(s)."""
+        """Apply a mutation to an input instruction, producing new raw instruction(s).
+
+        The returned sequence of bytes must correspond to instructions that are functionallity-
+        equivalent to the input instruction. Returned sequences of bytes may include bad bytes,
+        but will be ignored by the mutation engine.
+
+        """
 
     def is_mov_insn(self, insn: CsInsn) -> bool:
         # XXX: This is kind of a lazy approach that might be inaccurate.
