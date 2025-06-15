@@ -57,8 +57,13 @@ class CodeGenerator:
         return self.gadget("syscall")
 
     def breakpoint(self) -> AsmGadget:
-        # XXX: Arch-specific code
-        return self.gadget("int3")
+        match self.arch:
+            case Architectures.x86_64.value | Architectures.x86.value:
+                return self.gadget("int3")
+            case Architectures.Mips.value:
+                return self.gadget("break")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def inc(self, reg: RegType) -> AsmGadget:
         # XXX: Arch-specific code
