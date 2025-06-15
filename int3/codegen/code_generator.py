@@ -78,13 +78,15 @@ class CodeGenerator:
             case Architectures.x86_64.value:
                 return self.gadget(f"lea {result}, [rip]")
             case Architectures.Mips.value:
+                # XXX: Mips instruction encoding doesn't allow the below to actually work.
+                1 / 0
                 return self.gadget(f"""
-                    j call_get_pc
+                    jal get_pc
+                    j after_get_pc
                 get_pc:
                     move ${result}, $ra
                     jr $ra
-                call_get_pc:
-                    jal get_pc
+                after_get_pc:
                 """)
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
