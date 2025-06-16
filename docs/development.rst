@@ -5,11 +5,11 @@ Development
 Environment Setup
 -----------------
 
-To setup the full development environment, some additional system packages are needed:
+To setup the full development environment on a Debian-based system, some additional system packages are needed:
 
 .. code-block:: bash
 
-    sudo apt-get install qemu-user
+    sudo apt-get install qemu-user build-essential git
 
 Install required Python packages and activate the corresponding virtual environment with:
 
@@ -17,6 +17,18 @@ Install required Python packages and activate the corresponding virtual environm
 
     uv sync
     source .venv/bin/activate
+
+
+Custom `llvmlite` Build
+-----------------------
+
+In order to expose the full suite of LLVM's supported architecture assembly parsers (a requirement in order to parse generated inline assembly in LLVM IR code), a few adjustments to the `llvmlite` code base are required. ``llvmlite`` discusses how to do so `here <https://llvmlite.readthedocs.io/en/latest/admin-guide/install.html>`_.
+
+For the sake of convenience, building and copying over a modified `llvmlite` tree into the `int3` source tree can be accomplished with:
+
+.. code-block:: bash
+
+    ./scripts/install_custom_llvmlite.sh --python-version 3.13 --build-name dev
 
 
 Releases

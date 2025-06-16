@@ -1,12 +1,26 @@
 Synopsis
 --------
 
-``int3`` is a Python library and command-line tool for writing and working with position-independent assembly:
+``int3`` is a Python toolkit for writing low-level, position-independent code.
+
+It features a high-level command-line interface for common assembly tasks:
 
 .. code-block:: bash
 
     echo -n "int3" | int3 assemble | int3 format
     b"\xcc"
+
+A full-featured Python framework interface for writing your own position-independent programs:
+
+.. literalinclude:: examples/linux/hello_world.py
+    :language: python
+
+And executing them:
+
+.. code-block:: bash
+
+    python3 examples/linux/hello_world.py | int3 execute
+    Hello, world
 
 
 Installation
@@ -28,4 +42,4 @@ TODO
 License & Usage
 ---------------
 
-``int3`` is intended for educational use. ``int3``'s unique code is released under the [GPLv2 license](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html), as per the ``LICENSE.txt`` file in the root of this repository.
+``int3`` is intended for educational use. ``int3``'s unique code is released under the [GPLv2 license](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html), as per the ``LICENSE.txt`` file in the root of this repository. Code belonging to other open source projects is licensed under the respective licenses of those projects.
