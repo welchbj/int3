@@ -21,7 +21,11 @@ class AsmGadget:
     len: int = field(init=False)
 
     def __post_init__(self):
-        unindented_text = "\n".join(line.strip() for line in textwrap.dedent(self.text).splitlines() if line.strip())
+        unindented_text = "\n".join(
+            line.strip()
+            for line in textwrap.dedent(self.text).splitlines()
+            if line.strip()
+        )
         logger.debug("Created gadget for the following assembly:")
         for line in textwrap.indent(unindented_text, prefix="    ").splitlines():
             logger.debug(line)

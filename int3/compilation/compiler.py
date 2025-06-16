@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Iterator, Literal, cast, overload
 
 from int3._vendored.llvmlite import binding as llvm
 from int3._vendored.llvmlite import ir as llvmir
-
 from int3.architecture import Architecture, Architectures, RegisterDef
 from int3.codegen import CodeGenerator, MutationEngine
 from int3.errors import (
@@ -544,9 +543,13 @@ class Compiler:
         num_pad_bytes_targt = max(3, self.arch.min_insn_width)
         pc_transfer_reg = random.choice(self.arch.gp_regs)
         lower_bound_pad_len = 0
-        upper_bound_pad_len = 2 * self.arch.align_up_to_min_insn_width(self._start_entry_stub_padded_len)
+        upper_bound_pad_len = 2 * self.arch.align_up_to_min_insn_width(
+            self._start_entry_stub_padded_len
+        )
         while lower_bound_pad_len <= upper_bound_pad_len:
-            entry_stub_padded_len = self.arch.align_up_to_min_insn_width((lower_bound_pad_len + upper_bound_pad_len) // 2)
+            entry_stub_padded_len = self.arch.align_up_to_min_insn_width(
+                (lower_bound_pad_len + upper_bound_pad_len) // 2
+            )
 
             entry_stub = self._make_entry_stub(
                 func_offsets, entry_stub_padded_len, pc_transfer_reg
@@ -558,15 +561,17 @@ class Compiler:
 
             if len(entry_stub) > entry_stub_padded_len:
                 # We haven't allocated enough padding yet.
-                lower_bound_pad_len = self.arch.align_up_to_min_insn_width(entry_stub_padded_len + 1)
-            elif (
-                entry_stub_padded_len - len(entry_stub)
-            ) <= num_pad_bytes_targt:
+                lower_bound_pad_len = self.arch.align_up_to_min_insn_width(
+                    entry_stub_padded_len + 1
+                )
+            elif (entry_stub_padded_len - len(entry_stub)) <= num_pad_bytes_targt:
                 # We have a "good enough" option to go with.
                 break
             else:
                 # We still have a decent amount of slack to optimize out.
-                upper_bound_pad_len = self.arch.align_down_to_min_insn_width(entry_stub_padded_len - 1)
+                upper_bound_pad_len = self.arch.align_down_to_min_insn_width(
+                    entry_stub_padded_len - 1
+                )
         else:
             raise Int3CompilationError("Failed to determine correct entry stub length")
 

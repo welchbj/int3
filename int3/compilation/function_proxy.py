@@ -8,7 +8,6 @@ from types import TracebackType
 from typing import TYPE_CHECKING, ContextManager
 
 from int3._vendored.llvmlite import ir as llvmir
-
 from int3.errors import Int3CompilationError, Int3ProgramDefinitionError
 
 from .types import (
