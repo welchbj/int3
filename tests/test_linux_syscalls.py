@@ -10,11 +10,10 @@ from .qemu import parametrize_qemu_arch, run_in_qemu
 
 @parametrize_qemu_arch
 def test_sys_exit(arch: Architecture):
-    cc: LinuxCompiler = Compiler.from_str(f"linux/{arch.name}")
+    cc = cast(LinuxCompiler, Compiler.from_str(f"linux/{arch.name}"))
 
     with cc.def_func.main():
-        exit_code = cc.i(0xDEAD)
-        exit_code += 0xBEEF
+        exit_code = cc.i(0xDEAD) + 0xBEEF
         cc.sys_exit(exit_code)
 
     qemu_result = run_in_qemu(cc, strace=True)

@@ -164,7 +164,7 @@ class BytesPointer:
         compiler = self.compiler
 
         def _make_gep_idx(value: int) -> llvmir.Constant:
-            return compiler.i32(value).wrapped_llvm_node
+            return cast(llvmir.Constant, compiler.i32(value).wrapped_llvm_node)
 
         # Emit stub that loads a pointer to this bytes pointer from the symtab.
         compiler.builder.comment(
@@ -181,7 +181,7 @@ class BytesPointer:
             raw_bytes_ptr_ptr, typ=compiler.types.ptr.wrapped_type
         )
 
-        return raw_bytes_ptr
+        return cast(llvmir.Instruction, raw_bytes_ptr)
 
     @property
     def aligned_len(self) -> int:

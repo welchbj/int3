@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from int3._vendored.llvmlite import ir as llvmir
 
@@ -41,20 +41,23 @@ class SymbolTable:
         self.wrapped_struct = symtab_struct
 
     def _make_gep_idx(self, value: int) -> llvmir.Constant:
-        return self.compiler.i32(value).wrapped_llvm_node
+        return cast(llvmir.Constant, self.compiler.i32(value).wrapped_llvm_node)
 
     def slot_ptr(self, struct_ptr: llvmir.PointerType, idx: int) -> llvmir.Instruction:
         indices = [self._make_gep_idx(idx)]
 
         # llvmlite gep examples:
         # https://github.com/numba/llvmlite/issues/442#issuecomment-459690710
-        return self.compiler.builder.gep(
+        gep_instr = self.compiler.builder.gep(
             struct_ptr,
             indices=indices,
             inbounds=True,
             source_etype=self.compiler.types.ptr.wrapped_type,
         )
+        return cast(llvmir.Instruction, gep_instr)
 
     def alloc(self) -> llvmir.Instruction:
         """Allocate and setup within the compiler's current function."""
-        return self.compiler.builder.alloca(typ=self.wrapped_struct)
+        return cast(
+            llvmir.Instruction, self.compiler.builder.alloca(typ=self.wrapped_struct)
+        )

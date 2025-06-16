@@ -621,7 +621,7 @@ class Compiler:
             symtab = SymbolTable(
                 funcs=self.func, num_slots=self._current_symbol_index, compiler=sub_cc
             )
-            symtab_ptr = symtab.alloc()
+            symtab_ptr = cast(llvmir.PointerType, symtab.alloc())
 
             # Initialize bytes objects in the symbol table.
             for symtab_idx, bytes_ptr_with_value in self._bytes_map.items():
@@ -670,7 +670,7 @@ class Compiler:
                     symtab_ptr, idx=bytes_ptr.symtab_index
                 )
                 # XXX: Is it an llvmlite bug that alloca returns a typed pointer?
-                symtab_slot_ptr.type.is_opaque = True
+                symtab_slot_ptr.type.is_opaque = True  # type: ignore
                 sub_cc.builder.store(bytes_allocated_stack_ptr, symtab_slot_ptr)
 
             # Initialize function pointers in the symbol table.
@@ -679,7 +679,7 @@ class Compiler:
                     f"Setup symtab for function {func_name} (index {func.symtab_index})"
                 )
                 symtab_slot_ptr = symtab.slot_ptr(symtab_ptr, idx=func.symtab_index)
-                symtab_slot_ptr.type.is_opaque = True
+                symtab_slot_ptr.type.is_opaque = True  # type: ignore
 
                 relative_func_offset = (
                     entry_stub_padded_len - len(get_pc_stub) + func_offsets[func_name]
@@ -710,7 +710,7 @@ class Compiler:
             CallProxy.call_func(
                 func=entry_func,
                 compiler=sub_cc,
-                symtab_ptr=symtab_ptr,
+                symtab_ptr=cast(llvmir.Instruction, symtab_ptr),
                 args=tuple(),
             )
 
