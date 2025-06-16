@@ -3,6 +3,9 @@
 # https://github.com/github/gitignore/blob/main/Python.gitignore
 #
 
+# Ignore vendored project folders, since we build/install these from source
+int3/_vendored/*/
+
 # Project-specific files
 shellcode_runner.elf
 shellcode.bin

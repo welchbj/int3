@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 
-from llvmlite import ir as llvmir
-
+from int3._vendored.llvmlite import ir as llvmir
 from int3.errors import Int3CompilationError
 from int3.meta import Int3Files
 from int3.platform import LinuxSyscallNumbers

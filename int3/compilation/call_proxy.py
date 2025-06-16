@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, cast
 
-from llvmlite import ir as llvmir
-
+from int3._vendored.llvmlite import ir as llvmir
 from int3.errors import Int3CompilationError
 
 from .types import IntType, IntVariable, PointerType, PyArgType, PyIntValueType
@@ -64,11 +63,11 @@ class CallProxy:
             else:
                 llvm_node = user_arg.wrapped_llvm_node
 
-            func_args.append(llvm_node)
+            func_args.append(cast(llvmir.Instruction, llvm_node))
 
         # Emit stub to resolve the pointer of the function we want to call.
         def _make_gep_idx(value: int) -> llvmir.Constant:
-            return compiler.i32(value).wrapped_llvm_node
+            return cast(llvmir.Constant, compiler.i32(value).wrapped_llvm_node)
 
         indices = [_make_gep_idx(func.symtab_index)]
         func_ptr_ptr = compiler.builder.gep(
@@ -90,7 +89,7 @@ class CallProxy:
 
             @property
             def function_type(self) -> llvmir.FunctionType:
-                return func.llvm_func.function_type
+                return cast(llvmir.FunctionType, func.llvm_func.function_type)
 
         # Emit the call to the resolved function pointer.
         call_instr = compiler.current_func.llvm_builder.call(

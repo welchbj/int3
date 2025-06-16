@@ -10,9 +10,8 @@ from io import BytesIO
 from itertools import pairwise
 from typing import TYPE_CHECKING, Iterator, Literal, cast, overload
 
-from llvmlite import binding as llvm
-from llvmlite import ir as llvmir
-
+from int3._vendored.llvmlite import binding as llvm
+from int3._vendored.llvmlite import ir as llvmir
 from int3.architecture import Architecture, Architectures, RegisterDef
 from int3.codegen import CodeGenerator, MutationEngine
 from int3.errors import (
@@ -130,10 +129,6 @@ class Compiler:
     # The number of bytes the entry stub will be padded to. This is required
     # to ensure the entry stub remains a static length for relocation computation.
     _start_entry_stub_padded_len: int = 0x100
-
-    # The number of padding bytes we view as permissable to append to the entry
-    # stub.
-    _entry_stub_max_num_pad_bytes: int = 3
 
     def __post_init__(self):
         self.triple = Triple(self.arch, self.platform)
@@ -545,11 +540,16 @@ class Compiler:
         # Using the resolved function offsets, we repeatedly attempt to construct our
         # entry stub, clamping down on the allocated pad space each iteration in order
         # to optimize the entry stub's total length. We use a binary search on the length.
+        num_pad_bytes_targt = max(3, self.arch.min_insn_width)
         pc_transfer_reg = random.choice(self.arch.gp_regs)
         lower_bound_pad_len = 0
-        upper_bound_pad_len = 2 * self._start_entry_stub_padded_len
+        upper_bound_pad_len = 2 * self.arch.align_up_to_min_insn_width(
+            self._start_entry_stub_padded_len
+        )
         while lower_bound_pad_len <= upper_bound_pad_len:
-            entry_stub_padded_len = (lower_bound_pad_len + upper_bound_pad_len) // 2
+            entry_stub_padded_len = self.arch.align_up_to_min_insn_width(
+                (lower_bound_pad_len + upper_bound_pad_len) // 2
+            )
 
             entry_stub = self._make_entry_stub(
                 func_offsets, entry_stub_padded_len, pc_transfer_reg
@@ -561,19 +561,25 @@ class Compiler:
 
             if len(entry_stub) > entry_stub_padded_len:
                 # We haven't allocated enough padding yet.
-                lower_bound_pad_len = entry_stub_padded_len + 1
-            elif (
-                entry_stub_padded_len - len(entry_stub)
-            ) <= self._entry_stub_max_num_pad_bytes:
+                lower_bound_pad_len = self.arch.align_up_to_min_insn_width(
+                    entry_stub_padded_len + 1
+                )
+            elif (entry_stub_padded_len - len(entry_stub)) <= num_pad_bytes_targt:
                 # We have a "good enough" option to go with.
                 break
             else:
                 # We still have a decent amount of slack to optimize out.
-                upper_bound_pad_len = entry_stub_padded_len - 1
+                upper_bound_pad_len = self.arch.align_down_to_min_insn_width(
+                    entry_stub_padded_len - 1
+                )
         else:
             raise Int3CompilationError("Failed to determine correct entry stub length")
 
         pad_len = entry_stub_padded_len - len(entry_stub)
+
+        logger.debug(f"Entry stub is {len(entry_stub)} bytes long")
+        logger.debug(f"Using entry stub padding length of {pad_len}")
+
         preamble = entry_stub + self.codegen.nop_pad(pad_len)
 
         # Add the remaining function definitions. Its important that they're added here
@@ -588,6 +594,10 @@ class Compiler:
     ) -> bytes:
         get_pc_stub = self.codegen.compute_pc(result=pc_transfer_reg).bytes
 
+        # XXX: If there are lots of architecture-dependent paths here, we should
+        #      move this elsewhere.
+        mov_insn = "move" if self.arch.name == "mips" else "mov"
+
         sub_cc = self.clean_slate()
         with sub_cc.def_func.entry_stub():
             # Inline assembly to get the result of the compute PC assembly above.
@@ -596,8 +606,7 @@ class Compiler:
             )
             stored_pc_inst = sub_cc.builder.asm(
                 ftype=llvm_func_type,
-                # XXX: This may need to be changed for different architectures.
-                asm=f"mov %{pc_transfer_reg}, $0",
+                asm=f"{mov_insn} {self.arch.llvm_reg_prefix}{pc_transfer_reg}, $0",
                 constraint="=r",
                 args=[],
                 side_effect=False,
@@ -612,7 +621,7 @@ class Compiler:
             symtab = SymbolTable(
                 funcs=self.func, num_slots=self._current_symbol_index, compiler=sub_cc
             )
-            symtab_ptr = symtab.alloc()
+            symtab_ptr = cast(llvmir.PointerType, symtab.alloc())
 
             # Initialize bytes objects in the symbol table.
             for symtab_idx, bytes_ptr_with_value in self._bytes_map.items():
@@ -661,7 +670,7 @@ class Compiler:
                     symtab_ptr, idx=bytes_ptr.symtab_index
                 )
                 # XXX: Is it an llvmlite bug that alloca returns a typed pointer?
-                symtab_slot_ptr.type.is_opaque = True
+                symtab_slot_ptr.type.is_opaque = True  # type: ignore
                 sub_cc.builder.store(bytes_allocated_stack_ptr, symtab_slot_ptr)
 
             # Initialize function pointers in the symbol table.
@@ -670,7 +679,7 @@ class Compiler:
                     f"Setup symtab for function {func_name} (index {func.symtab_index})"
                 )
                 symtab_slot_ptr = symtab.slot_ptr(symtab_ptr, idx=func.symtab_index)
-                symtab_slot_ptr.type.is_opaque = True
+                symtab_slot_ptr.type.is_opaque = True  # type: ignore
 
                 relative_func_offset = (
                     entry_stub_padded_len - len(get_pc_stub) + func_offsets[func_name]
@@ -701,7 +710,7 @@ class Compiler:
             CallProxy.call_func(
                 func=entry_func,
                 compiler=sub_cc,
-                symtab_ptr=symtab_ptr,
+                symtab_ptr=cast(llvmir.Instruction, symtab_ptr),
                 args=tuple(),
             )
 

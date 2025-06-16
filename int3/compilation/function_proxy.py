@@ -5,10 +5,9 @@ import string
 from collections import Counter
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import TYPE_CHECKING, ContextManager
+from typing import TYPE_CHECKING, ContextManager, cast
 
-from llvmlite import ir as llvmir
-
+from int3._vendored.llvmlite import ir as llvmir
 from int3.errors import Int3CompilationError, Int3ProgramDefinitionError
 
 from .types import (
@@ -58,7 +57,7 @@ class FunctionProxy:
 
     @property
     def raw_symtab_ptr(self) -> llvmir.Instruction:
-        return self.args[0].wrapped_llvm_node
+        return cast(llvmir.Instruction, self.args[0].wrapped_llvm_node)
 
     @property
     def user_arg_view(self) -> list[IntVariable | Pointer]:
@@ -80,12 +79,14 @@ class FunctionProxy:
 
         self.args = []
         for idx, arg_type in enumerate(self.arg_types):
+            llvm_arg = cast(llvmir.Instruction, self.llvm_func.args[idx])
+
             if isinstance(arg_type, IntType):
                 self.args.append(
                     IntVariable(
                         compiler=self.compiler,
                         type=arg_type,
-                        wrapped_llvm_node=self.llvm_func.args[idx],
+                        wrapped_llvm_node=llvm_arg,
                     )
                 )
             else:
@@ -94,7 +95,7 @@ class FunctionProxy:
                     Pointer(
                         compiler=self.compiler,
                         type=arg_type,
-                        wrapped_llvm_node=self.llvm_func.args[idx],
+                        wrapped_llvm_node=llvm_arg,
                     )
                 )
 
@@ -103,7 +104,7 @@ class FunctionProxy:
 
     @property
     def current_block(self) -> llvmir.Block:
-        return self.llvm_builder.block
+        return cast(llvmir.Block, self.llvm_builder.block)
 
     def make_name(self, hint: str | None = None) -> str:
         if hint is None:

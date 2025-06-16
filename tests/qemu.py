@@ -39,7 +39,13 @@ def _name_getter(obj):
 parametrize_qemu_arch = pytest.mark.parametrize("arch", QEMU_ARCHES, ids=_name_getter)
 
 
-def compile_src(arch: Architecture, in_file: Path, out_file: Path, static: bool = True):
+def compile_src(
+    arch: Architecture,
+    in_file: Path,
+    out_file: Path,
+    static: bool = True,
+    debug: bool = True,
+):
     cc_bin = f"{arch.toolchain_triple}-gcc"
     if (cc_path := shutil.which(cc_bin)) is None:
         pytest.fail(f"No available gcc binary {cc_bin}")
@@ -47,6 +53,8 @@ def compile_src(arch: Architecture, in_file: Path, out_file: Path, static: bool 
     args = [str(cc_path), str(in_file), "-o", str(out_file)]
     if static:
         args.append("-static")
+    if debug:
+        args.append("-g")
 
     subprocess.check_output(args)
 

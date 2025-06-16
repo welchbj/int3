@@ -50,7 +50,8 @@ class Architecture:
     name: str
     bit_size: int
     endian: Endian
-    instruction_width: InstructionWidth
+    insn_width_flavor: InstructionWidth
+    min_insn_width: int
 
     toolchain_triple: str
     qemu_name: str
@@ -58,6 +59,7 @@ class Architecture:
     ghidra_name: str
     # See: https://stackoverflow.com/a/39114754
     clang_name: str
+    llvm_reg_prefix: str
 
     keystone_arch: int
     keystone_mode: int
@@ -99,6 +101,18 @@ class Architecture:
             width_format = width_format.upper()
 
         return f"{endian_format}{width_format}"
+
+    def align_up_to_min_insn_width(self, value: int) -> int:
+        while value % self.min_insn_width != 0:
+            value += 1
+
+        return value
+
+    def align_down_to_min_insn_width(self, value: int) -> int:
+        while value % self.min_insn_width != 0:
+            value -= 1
+
+        return value
 
     def pad(
         self, value: bytes, width: int | None = None, fill_byte: bytes = b"\x00"
@@ -153,12 +167,14 @@ class Architectures(Enum):
         name="x86",
         bit_size=32,
         endian=Endian.Little,
-        instruction_width=InstructionWidth.Variable,
+        insn_width_flavor=InstructionWidth.Variable,
+        min_insn_width=1,
         toolchain_triple="i686-linux-musl",
         qemu_name="i386",
         linux_kernel_name="i386",
         ghidra_name="x86:LE:32:default",
         clang_name="x86",
+        llvm_reg_prefix="%",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
@@ -178,12 +194,14 @@ class Architectures(Enum):
         name="x86_64",
         bit_size=64,
         endian=Endian.Little,
-        instruction_width=InstructionWidth.Variable,
+        insn_width_flavor=InstructionWidth.Variable,
+        min_insn_width=1,
         toolchain_triple="x86_64-linux-musl",
         qemu_name="x86_64",
         linux_kernel_name="x86_64",
         ghidra_name="x86:LE:64:default",
         clang_name="x86_64",
+        llvm_reg_prefix="%",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
@@ -211,12 +229,14 @@ class Architectures(Enum):
         name="mips",
         bit_size=32,
         endian=Endian.Big,
-        instruction_width=InstructionWidth.Fixed,
+        insn_width_flavor=InstructionWidth.Fixed,
+        min_insn_width=4,
         toolchain_triple="mips-linux-musl",
         qemu_name="mips",
         linux_kernel_name="mipso32",
         ghidra_name="MIPS:BE:32:default",
         clang_name="mips",
+        llvm_reg_prefix="$$",
         keystone_arch=KS_ARCH_MIPS,
         keystone_mode=KS_MODE_MIPS32 + KS_MODE_BIG_ENDIAN,
         capstone_arch=CS_ARCH_MIPS,

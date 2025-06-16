@@ -1,0 +1,31 @@
+diff --git a/ffi/initfini.cpp b/ffi/initfini.cpp
+index dc05e67..6f75f79 100644
+--- a/ffi/initfini.cpp
++++ b/ffi/initfini.cpp
+@@ -42,6 +42,7 @@ LLVMPY_Shutdown() { LLVMShutdown(); }
+ INIT(AllTargetInfos)
+ INIT(AllTargets)
+ INIT(AllTargetMCs)
++INIT(AllAsmParsers)
+ INIT(AllAsmPrinters)
+ INIT(NativeTarget)
+ INIT(NativeAsmParser)
+diff --git a/llvmlite/binding/initfini.py b/llvmlite/binding/initfini.py
+index 4466d9d..7cc6e8c 100644
+--- a/llvmlite/binding/initfini.py
++++ b/llvmlite/binding/initfini.py
+@@ -29,6 +29,14 @@ def initialize_all_asmprinters():
+     ffi.lib.LLVMPY_InitializeAllAsmPrinters()
+ 
+ 
++def initialize_all_asmparsers():
++    """
++    Initialize all assembly parsers. Necessary before generating
++    inline assembly for a target architecture with :meth:`TargetMachine.emit_assembly`.
++    """
++    ffi.lib.LLVMPY_InitializeAllAsmParsers()
++
++
+ def initialize_native_target():
+     """
+     Initialize the native (host) target.  Necessary before doing any

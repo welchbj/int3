@@ -69,3 +69,21 @@ def test_invalid_pad_widths():
 
     with pytest.raises(Int3InsufficientWidthError):
         x86.pad(b"X" * 5)
+
+
+def test_align_to_min_insn_width():
+    x86 = Architectures.x86.value
+    mips = Architectures.Mips.value
+    x86_64 = Architectures.x86_64.value
+
+    for arch in [x86, mips, x86_64]:
+        assert arch.align_down_to_min_insn_width(0) == 0
+        assert arch.align_up_to_min_insn_width(0) == 0
+
+    assert x86.align_down_to_min_insn_width(1) == 1
+
+    assert mips.align_down_to_min_insn_width(1) == 0
+    assert mips.align_down_to_min_insn_width(5) == 4
+    assert mips.align_up_to_min_insn_width(5) == 8
+    assert mips.align_down_to_min_insn_width(16) == 16
+    assert mips.align_up_to_min_insn_width(16) == 16

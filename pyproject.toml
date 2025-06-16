@@ -26,9 +26,8 @@ description = "The shellcoder's toolkit"
 keywords = ["shellcode", "assembly"]
 dependencies = [
     "capstone>=5.0.6",
+    "click>=8.2.1",
     "keystone-engine>=0.9.2",
-    "llvmlite>=0.44.0",
-    "pypcode>=3.2.1",
     "z3-solver>=4.15.0.0",
 ]
 
@@ -48,6 +47,7 @@ package = true
 [tool.ruff]
 # Exclude a variety of commonly ignored directories.
 exclude = [
+    "int3/_vendored",
     ".bzr",
     ".direnv",
     ".eggs",
@@ -80,6 +80,10 @@ line-length = 88
 indent-width = 4
 target-version = "py313"
 
+# See: https://stackoverflow.com/a/78107981
+[tool.setuptools]
+packages = ["int3"]
+
 [tool.ruff.lint]
 select = ["E4", "E7", "E9", "F"]
 ignore = []
@@ -100,7 +104,6 @@ docstring-code-format = true
 
 [dependency-groups]
 dev = [
-    "keystone>=27.0.0",
     "livereload>=2.7.1",
     "mypy>=1.15.0",
     "pytest>=8.3.5",
