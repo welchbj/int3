@@ -25,6 +25,13 @@ def _parse_bad_bytes(ctx, param, value: str):
     )
 
 
+def _parse_hex_addr(ctx, param, value: str | None) -> int | None:
+    if value is None:
+        return None
+
+    return int(value, 16)
+
+
 def _setup_logging(debug: bool):
     level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
@@ -92,6 +99,20 @@ debug_option = click.option(
     is_flag=True,
     default=False,
     help="Enable debug logging to stderr.",
+)
+
+load_addr_option = click.option(
+    "--load-address",
+    "-l",
+    "load_addr",
+    help=(
+        "Hex memory address at which to load the program. If omitted, a truly "
+        "position-independent program will calculate its loaded memory address "
+        "at runtime."
+    ),
+    callback=_parse_hex_addr,
+    required=False,
+    default=None,
 )
 
 
@@ -174,14 +195,15 @@ def cli_format(
 
 @cli.command("execute")
 @file_or_stdin_input_option
+@load_addr_option
 @debug_option
-def cli_execute(input_file: BinaryIO, debug: bool):
+def cli_execute(input_file: BinaryIO, load_addr: int | None, debug: bool):
     _setup_logging(debug)
 
     with input_file:
         machine_code: bytes = input_file.read()
 
-    execute(machine_code=machine_code)
+    execute(machine_code=machine_code, load_addr=load_addr)
 
 
 if __name__ == "__main__":

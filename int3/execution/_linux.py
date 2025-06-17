@@ -11,6 +11,7 @@ PROT_RWX = PROT_READ | PROT_WRITE | PROT_EXEC
 
 MAP_ANON = 0x20
 MAP_PRIVATE = 0x2
+MAP_FIXED = 0x10
 
 NULL = 0
 
@@ -35,11 +36,16 @@ _libc.signal.argtypes = (
 )
 
 
-def execute_linux(machine_code: bytes) -> NoReturn:
+def execute_linux(machine_code: bytes, load_addr: int | None = None) -> NoReturn:
+    mmap_flags = MAP_PRIVATE | MAP_ANON
+    if load_addr is None:
+        mmap_addr = NULL
+    else:
+        mmap_flags |= MAP_FIXED
+        mmap_addr = load_addr
+
     # Allocate rwx page(s) of memory.
-    rwx_addr = _libc.mmap(
-        NULL, len(machine_code), PROT_RWX, MAP_PRIVATE | MAP_ANON, -1, NULL
-    )
+    rwx_addr = _libc.mmap(mmap_addr, len(machine_code), PROT_RWX, mmap_flags, -1, NULL)
 
     # Copy our shellcode into the rwx page(s).
     ctypes.memmove(rwx_addr, machine_code, len(machine_code))
