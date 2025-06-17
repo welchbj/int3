@@ -94,6 +94,9 @@ class Compiler:
     # Bytes that must be avoided when generating assembly.
     bad_bytes: bytes = b""
 
+    # The known eventual load address of the program.
+    load_addr: int | None = None
+
     # Interface for defining new functions on this compiler.
     def_func: FunctionFactory = field(init=False)
 
@@ -505,23 +508,25 @@ class Compiler:
 
         return func_bytes
 
+    def _clean_asm(self, input_asm: bytes) -> bytes:
+        mutation_engine = MutationEngine(
+            arch=self.arch,
+            raw_asm=input_asm,
+            bad_bytes=self.bad_bytes,
+        )
+        func_segment = mutation_engine.clean()
+        return bytes(func_segment)
+
     def compile(self) -> bytes:
         # Compile all of our functions into raw bytes. This is the raw result of
         # LLVM's IR to native code generation. Consequently, these functions will
         # likely contain bad bytes.
         raw_compiled_funcs = self.compile_funcs()
 
-        # We next do apply native-level code transformation passes to remove bad
-        # bytes.
+        # We next do apply native-level code transformation passes to remove bad bytes.
         cleaned_compiled_funcs: dict[str, bytes] = {}
         for func_name, func_bytes in raw_compiled_funcs.items():
-            mutation_engine = MutationEngine(
-                arch=self.arch,
-                raw_asm=func_bytes,
-                bad_bytes=self.bad_bytes,
-            )
-            func_segment = mutation_engine.clean()
-            cleaned_compiled_funcs[func_name] = bytes(func_segment)
+            cleaned_compiled_funcs[func_name] = self._clean_asm(func_bytes)
 
         # Combine our compiled functions, making note of the offset of each
         # function for use in constructing the symtab.
@@ -592,7 +597,14 @@ class Compiler:
         entry_stub_padded_len: int,
         pc_transfer_reg: RegisterDef,
     ) -> bytes:
-        get_pc_stub = self.codegen.compute_pc(result=pc_transfer_reg).bytes
+        if self.load_addr is None:
+            # We have to determine the current PC at runtime.
+            get_pc_stub = self.codegen.compute_pc(result=pc_transfer_reg).bytes
+        else:
+            get_pc_stub = self.codegen.mov(pc_transfer_reg, self.load_addr).bytes
+
+        # Attempt to remove bad bytes from the PC derivation stub.
+        get_pc_stub = self._clean_asm(get_pc_stub)
 
         # XXX: If there are lots of architecture-dependent paths here, we should
         #      move this elsewhere.
@@ -681,9 +693,10 @@ class Compiler:
                 symtab_slot_ptr = symtab.slot_ptr(symtab_ptr, idx=func.symtab_index)
                 symtab_slot_ptr.type.is_opaque = True  # type: ignore
 
-                relative_func_offset = (
-                    entry_stub_padded_len - len(get_pc_stub) + func_offsets[func_name]
-                )
+                relative_func_offset = entry_stub_padded_len + func_offsets[func_name]
+                if self.load_addr is None:
+                    relative_func_offset -= len(get_pc_stub)
+
                 relocated_addr = sub_cc.add(stored_pc, relative_func_offset)
                 sub_cc.builder.store(relocated_addr.wrapped_llvm_node, symtab_slot_ptr)
 
@@ -731,15 +744,21 @@ class Compiler:
     @overload
     @staticmethod
     def from_str(
-        platform_spec: Literal["linux/x86_64"], bad_bytes: bytes = b""
+        platform_spec: Literal["linux/x86_64"],
+        bad_bytes: bytes = b"",
+        load_addr: int | None = None,
     ) -> "LinuxCompiler": ...
 
     @overload
     @staticmethod
-    def from_str(platform_spec: str, bad_bytes: bytes = b"") -> Compiler: ...
+    def from_str(
+        platform_spec: str, bad_bytes: bytes = b"", load_addr: int | None = None
+    ) -> Compiler: ...
 
     @staticmethod
-    def from_str(platform_spec: str, bad_bytes: bytes = b"") -> Compiler:
+    def from_str(
+        platform_spec: str, bad_bytes: bytes = b"", load_addr: int | None = None
+    ) -> Compiler:
         parts = platform_spec.split("/")
         if len(parts) != 2:
             raise Int3ArgumentError(f"Invalid platform spec: {platform_spec}")
@@ -759,4 +778,5 @@ class Compiler:
             platform=platform,
             platform_spec=platform_spec,
             bad_bytes=bad_bytes,
+            load_addr=load_addr,
         )
