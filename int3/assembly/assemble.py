@@ -11,7 +11,7 @@ def assemble(arch: Architecture, assembly: str, vma: int = 0) -> bytes:
         ks = Ks(arch=arch.keystone_arch, mode=arch.keystone_mode)
         encoding, _ = ks.asm(assembly, addr=vma, as_bytes=True)
     except KsError as e:
-        raise Int3WrappedKeystoneError(str(e)) from e
+        raise Int3WrappedKeystoneError(f"Error assemble `{assembly}`: {e}") from e
 
     if encoding is None:
         raise Int3WrappedKeystoneError("No assembly result returned from keystone")
