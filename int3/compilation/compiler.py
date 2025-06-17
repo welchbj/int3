@@ -509,6 +509,11 @@ class Compiler:
         return func_bytes
 
     def _clean_asm(self, input_asm: bytes) -> bytes:
+        # Short-circuit if we aren't filtering for any bad bytes.
+        if not self.bad_bytes:
+            return input_asm
+
+        # Otherwise, we apply all the mutations available in our engine.
         mutation_engine = MutationEngine(
             arch=self.arch,
             raw_asm=input_asm,
@@ -591,6 +596,36 @@ class Compiler:
         # in the same order that they were passed to the entry stub generation.
         return preamble + program
 
+    def _lift_reg_into_llvm_ir(self, reg: RegisterDef) -> IntVariable:
+        """Lift a value from a raw register into an int variable."""
+        reg_str = f"{self.arch.llvm_reg_prefix}{reg}"
+
+        raw_asm: str
+        match self.arch:
+            case Architectures.Mips.value:
+                raw_asm = f".set noat\nmove $0, {reg_str}"
+            case Architectures.x86_64.value | Architectures.x86.value:
+                raw_asm = f"mov {reg_str}, $0"
+            case _:
+                raise NotImplementedError(
+                    f"No reg lifting routine for {self.arch.name}"
+                )
+
+        # Inline assembly to move the register value into an LLVM IR variable.
+        llvm_func_type = llvmir.FunctionType(
+            return_type=self.types.unat.wrapped_type, args=[]
+        )
+        stored_pc_inst = self.builder.asm(
+            ftype=llvm_func_type,
+            asm=raw_asm,
+            constraint="=r",
+            args=[],
+            side_effect=False,
+        )
+        return IntVariable(
+            compiler=self, type=self.types.unat, wrapped_llvm_node=stored_pc_inst
+        )
+
     def _make_entry_stub(
         self,
         func_offsets: dict[str, int],
@@ -606,26 +641,9 @@ class Compiler:
         # Attempt to remove bad bytes from the PC derivation stub.
         get_pc_stub = self._clean_asm(get_pc_stub)
 
-        # XXX: If there are lots of architecture-dependent paths here, we should
-        #      move this elsewhere.
-        mov_insn = "move" if self.arch.name == "mips" else "mov"
-
         sub_cc = self.clean_slate()
         with sub_cc.def_func.entry_stub():
-            # Inline assembly to get the result of the compute PC assembly above.
-            llvm_func_type = llvmir.FunctionType(
-                return_type=self.types.unat.wrapped_type, args=[]
-            )
-            stored_pc_inst = sub_cc.builder.asm(
-                ftype=llvm_func_type,
-                asm=f"{mov_insn} {self.arch.llvm_reg_prefix}{pc_transfer_reg}, $0",
-                constraint="=r",
-                args=[],
-                side_effect=False,
-            )
-            stored_pc = IntVariable(
-                compiler=self, type=self.types.unat, wrapped_llvm_node=stored_pc_inst
-            )
+            stored_pc = sub_cc._lift_reg_into_llvm_ir(pc_transfer_reg)
 
             # It's important that we don't initialize the SymbolTable instance until
             # now, as it derives its number of required slots from the compiler's

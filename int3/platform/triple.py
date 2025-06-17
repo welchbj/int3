@@ -55,6 +55,7 @@ class Triple:
             match self.arch:
                 case Architectures.x86.value:
                     syscall_conv = SyscallConvention(
+                        arch=self.arch,
                         sys_num=Registers.x86.eax,
                         result=Registers.x86.eax,
                         args=(
@@ -68,6 +69,7 @@ class Triple:
                     )
                 case Architectures.x86_64.value:
                     syscall_conv = SyscallConvention(
+                        arch=self.arch,
                         sys_num=Registers.x86_64.rax,
                         result=Registers.x86_64.rax,
                         args=(
@@ -81,6 +83,7 @@ class Triple:
                     )
                 case Architectures.Mips.value:
                     syscall_conv = SyscallConvention(
+                        arch=self.arch,
                         sys_num=Registers.Mips.v0,
                         result=Registers.Mips.v0,
                         args=(

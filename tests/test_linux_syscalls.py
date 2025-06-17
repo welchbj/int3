@@ -10,8 +10,8 @@ from .qemu import parametrize_qemu_arch, run_in_qemu
 
 @parametrize_qemu_arch
 def test_sys_exit(arch: Architecture):
-    load_addr = 0xBEEF0000
-    cc = Compiler.from_str(f"linux/{arch.name}")
+    load_addr = 0xFF0000
+    cc = Compiler.from_str(f"linux/{arch.name}", load_addr=load_addr)
     cc = cast(LinuxCompiler, cc)
 
     with cc.def_func.main():
@@ -28,7 +28,7 @@ def test_sys_exit(arch: Architecture):
 @parametrize_qemu_arch
 @pytest.mark.parametrize("bytes_len", [1, 2, 3, 7, 8, 9, 15, 65])
 def test_sys_write_with_varying_lengths(arch: Architecture, bytes_len: int):
-    load_addr = 0xBEEF0000
+    load_addr = 0xFF0000
     cc = Compiler.from_str(f"linux/{arch.name}", load_addr=load_addr)
     cc = cast(LinuxCompiler, cc)
 

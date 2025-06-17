@@ -95,7 +95,9 @@ class CodeGenerator:
             case Architectures.x86_64.value:
                 return self.gadget(f"lea {result}, [rip]")
             case Architectures.Mips.value:
-                raise Int3CodeGenerationError("Mips does not support fine-grained PC-relative addressing")
+                raise Int3CodeGenerationError(
+                    "Mips does not support fine-grained PC-relative addressing"
+                )
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
