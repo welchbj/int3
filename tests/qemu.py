@@ -90,7 +90,10 @@ def run_in_qemu(compiler: Compiler, load_addr: int | None = None, strace: bool =
             args.append(hex(load_addr))
 
         print("Debug this with:")
-        print(f"{qemu_path} -g 12345 {runner_bin.name} {shellcode_file.name}")
+        if load_addr is None:
+            print(f"{qemu_path} -g 12345 {runner_bin.name} {shellcode_file.name}")
+        else:
+            print(f"{qemu_path} -g 12345 {runner_bin.name} {shellcode_file.name} {load_addr:#x}")
         print(
             f'gdb-multiarch -ex "file {runner_bin.name}" '
             '-ex "gef-remote --qemu-user 127.0.0.1 12345" -ex "continue"'
