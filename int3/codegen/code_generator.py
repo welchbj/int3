@@ -76,6 +76,15 @@ class CodeGenerator:
     def xor(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
         return self.gadget(f"xor {one}, {two}")
 
+    def mov(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
+        match self.arch:
+            case Architectures.x86_64.value | Architectures.x86.value:
+                return self.gadget(f"mov {one}, {two}")
+            case Architectures.Mips.value:
+                return self.gadget(f"move {one}, {two}")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
+
     def compute_pc(self, result: RegType) -> AsmGadget:
         """Compute the program counter for the instruction following this gadget."""
         match self.arch:
