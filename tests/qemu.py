@@ -59,7 +59,7 @@ def compile_src(
     subprocess.check_output(args)
 
 
-def run_in_qemu(compiler: Compiler, strace: bool = True):
+def run_in_qemu(compiler: Compiler, load_addr: int | None = None, strace: bool = True):
     arch = compiler.arch
     asm = compiler.compile()
 
@@ -86,6 +86,8 @@ def run_in_qemu(compiler: Compiler, strace: bool = True):
         if strace:
             args.append("-strace")
         args.extend([runner_bin.name, shellcode_file.name])
+        if load_addr is not None:
+            args.append(hex(load_addr))
 
         print("Debug this with:")
         print(f"{qemu_path} -g 12345 {runner_bin.name} {shellcode_file.name}")

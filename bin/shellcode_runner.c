@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,23 +20,40 @@ int main(int argc, char **argv) {
     const char *filename;
     size_t size;
     struct stat st;
+    int mmap_flags;
+    bool is_fixed_load_addr;
+    void *mmap_addr;
 
     ssize_t num_read;
     ssize_t n;
 
     shellcode_t shellcode;
 
-    if (2 != argc) {
-        bail("Usage: shellcode_runner <filename>");
+    if (2 != argc && 3 != argc) {
+        bail(
+	    "Usage:\n"
+	    "    shellcode_runner <filename>\n"
+	    "    shellcode_runner <filename> <load_addr>"
+	);
     }
 
+    is_fixed_load_addr = argc == 3;
     filename = argv[1];
 
     memset(&st, 0, sizeof(st));
     stat(filename, &st);
     size = st.st_size;
 
-    uint8_t *data = mmap(NULL, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    mmap_flags = MAP_SHARED | MAP_ANONYMOUS;
+    if (is_fixed_load_addr) {
+	mmap_flags |= MAP_FIXED;
+	mmap_addr = (void *)strtoul(argv[2], NULL, 16);
+    }
+    else {
+	mmap_addr = NULL;
+    }
+
+    uint8_t *data = mmap(mmap_addr, size, PROT_READ | PROT_WRITE | PROT_EXEC, mmap_flags, -1, 0);
     if (NULL == data) {
         bail("mmap() failed");
     }
