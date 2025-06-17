@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from int3.architecture import Architecture, Architectures, RegisterDef
 from int3.assembly import assemble
+from int3.errors import Int3CodeGenerationError
 
 type RegType = RegisterDef | str
 type ImmType = int
@@ -81,7 +82,10 @@ class CodeGenerator:
             case Architectures.x86_64.value | Architectures.x86.value:
                 return self.gadget(f"mov {one}, {two}")
             case Architectures.Mips.value:
-                return self.gadget(f"move {one}, {two}")
+                if isinstance(two, int):
+                    return self.gadget(f"li ${one}, {two:#x}")
+                else:
+                    return self.gadget(f"move ${one}, {two}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
@@ -91,16 +95,7 @@ class CodeGenerator:
             case Architectures.x86_64.value:
                 return self.gadget(f"lea {result}, [rip]")
             case Architectures.Mips.value:
-                # XXX: Mips instruction encoding doesn't allow the below to actually work.
-                1 / 0
-                return self.gadget(f"""
-                    jal get_pc
-                    j after_get_pc
-                get_pc:
-                    move ${result}, $ra
-                    jr $ra
-                after_get_pc:
-                """)
+                raise Int3CodeGenerationError("Mips does not support fine-grained PC-relative addressing")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
@@ -113,7 +108,7 @@ class CodeGenerator:
                 return self.gadget(f"jmp {value}")
             case Architectures.Mips.value:
                 if isinstance(value, int):
-                    return self.gadget(f"j {value}")
+                    return self.gadget(f"j {value:#x}")
                 else:
                     return self.gadget(f"jr {value}")
             case _:
