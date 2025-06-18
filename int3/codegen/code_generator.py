@@ -38,7 +38,7 @@ class AsmGadget:
         return self.text
 
 
-@dataclass
+@dataclass(frozen=True)
 class CodeGenerator:
     arch: "Architecture"
 
@@ -71,11 +71,22 @@ class CodeGenerator:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def inc(self, reg: RegType) -> AsmGadget:
-        # XXX: Arch-specific code
-        return self.gadget(f"inc {reg}")
+        match self.arch:
+            case Architectures.x86_64.value | Architectures.x86.value:
+                return self.gadget(f"inc {reg}")
+            case Architectures.Mips.value:
+                return self.gadget(f"addi ${reg}, 0x1")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def xor(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
         return self.gadget(f"xor {one}, {two}")
+
+    def add(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
+        return self.gadget(f"add {one}, {two}")
+
+    def sub(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
+        return self.gadget(f"sub {one}, {two}")
 
     def mov(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
         match self.arch:

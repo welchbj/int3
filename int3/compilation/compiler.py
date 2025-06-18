@@ -112,9 +112,6 @@ class Compiler:
     # Assembly code generatgor
     codegen: CodeGenerator = field(init=False)
 
-    # Syscall convention for this arch/platform combination.
-    syscall_conv: SyscallConvention = field(init=False)
-
     # Wrapped llvmlite LLVM IR module.
     llvm_module: llvmir.Module = field(init=False)
 
@@ -140,12 +137,15 @@ class Compiler:
         self.call = CallFactory(compiler=self)
         self.types = TypeManager(compiler=self)
         self.codegen = CodeGenerator(arch=self.arch)
-        self.syscall_conv = self.triple.resolve_syscall_convention()
 
         # We create a fresh llvmlite context for our module. Otherwise, multiple
         # compiler instances will reference the same llvmlite library-level global
         # context.
         self.llvm_module = llvmir.Module(context=llvmir.Context())
+
+    @property
+    def syscall_conv(self) -> SyscallConvention:
+        return self.triple.syscall_convention
 
     @property
     def current_func(self) -> FunctionProxy:

@@ -1,5 +1,3 @@
-import binascii
-import textwrap
 from dataclasses import dataclass, field
 
 from capstone import CsInsn
@@ -16,7 +14,7 @@ class CompiledSegment:
 
     all_instructions: tuple[CsInsn, ...] = field(init=False)
     dirty_instructions: tuple[CsInsn, ...] = field(init=False)
-    free_regs: set[RegisterDef] = field(init=False)
+    scratch_regs: set[RegisterDef] = field(init=False)
 
     def __post_init__(self):
         all_insns = disassemble(self.arch, self.raw_asm)
@@ -24,10 +22,12 @@ class CompiledSegment:
             insn for insn in all_insns if any(b in insn.bytes for b in self.bad_bytes)
         )
 
-        # TODO: Compute free_regs
-
         object.__setattr__(self, "all_instructions", all_insns)
         object.__setattr__(self, "dirty_instructions", dirty_insns)
+
+        # TODO: Find all call_clobbered registers that are not the result of any
+        #       assembly operation.
+        object.__setattr__(self, "scratch_regs", tuple())
 
     @property
     def is_clean(self) -> bool:

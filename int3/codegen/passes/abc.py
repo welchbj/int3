@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from capstone import CsInsn
+from capstone.mips_const import MIPS_OP_IMM, MIPS_OP_REG
 from capstone.x86_const import X86_OP_IMM, X86_OP_REG
 
 from int3.architecture import Architecture, Architectures
@@ -19,13 +20,18 @@ class SegmentMutationPass(ABC):
         """Apply a mutation to an input segment, producing a new output segment."""
 
 
-@dataclass
+@dataclass(frozen=True)
 class InstructionMutationPass(ABC):
-    arch: Architecture
+    segment: "CompiledSegment"
+    bad_bytes: bytes
     codegen: CodeGenerator = field(init=False)
 
     def __post_init__(self):
-        self.codegen = CodeGenerator(self.arch)
+        object.__setattr__(self, "codegen", CodeGenerator(self.arch))
+
+    @property
+    def arch(self) -> Architecture:
+        return self.segment.arch
 
     @abstractmethod
     def mutate_instruction(self, insn: CsInsn) -> bytes:
@@ -37,6 +43,9 @@ class InstructionMutationPass(ABC):
 
         """
 
+    def is_dirty(self, data: bytes) -> bool:
+        return any(b in data for b in self.bad_bytes)
+
     def is_mov_insn(self, insn: CsInsn) -> bool:
         # XXX: This is kind of a lazy approach that might be inaccurate.
         mnemonic: str = insn.mnemonic
@@ -47,10 +56,15 @@ class InstructionMutationPass(ABC):
             return False
 
         match self.arch:
-            case Architectures.x86_64.value:
+            case Architectures.x86_64.value | Architectures.x86.value:
                 return bool(
                     insn.operands[0].type == X86_OP_REG
                     and insn.operands[1].type == X86_OP_IMM
+                )
+            case Architectures.Mips.value:
+                return bool(
+                    insn.operands[0].type == MIPS_OP_REG
+                    and insn.operands[1].type == MIPS_OP_IMM
                 )
             case _:
                 raise NotImplementedError(f"Not yet supported: {self.arch.name}")

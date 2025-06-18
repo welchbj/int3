@@ -11,7 +11,11 @@ from int3.assembly import disassemble
 from int3.errors import Int3CodeGenerationError
 
 from .compiled_segment import CompiledSegment
-from .passes import InstructionMutationPass, MoveSmallImmediateInstructionPass
+from .passes import (
+    InstructionMutationPass,
+    MoveFactorImmediateInstructionPass,
+    MoveSmallImmediateInstructionPass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +32,14 @@ class MutationEngine:
 
         return any(b in insn for b in self.bad_bytes)
 
-    def _create_instruction_passes(self) -> list[InstructionMutationPass]:
-        return [
-            MoveSmallImmediateInstructionPass(self.arch),
+    def _create_instruction_passes(
+        self, segment: CompiledSegment
+    ) -> list[InstructionMutationPass]:
+        pass_classes: list[type[InstructionMutationPass]] = [
+            MoveSmallImmediateInstructionPass,
+            MoveFactorImmediateInstructionPass,
         ]
+        return [cls(segment, self.bad_bytes) for cls in pass_classes]
 
     @staticmethod
     def instruction_summary(insns: Sequence[CsInsn], indent: int = 0) -> list[str]:
@@ -62,13 +70,18 @@ class MutationEngine:
             return mutated_segment
 
         # Apply instruction-level passes.
-        insn_passes = self._create_instruction_passes()
+        insn_passes = self._create_instruction_passes(mutated_segment)
         new_program = b""
         for insn in mutated_segment.all_instructions:
             # Simply record the instruction if it doesn't contain bad bytes.
             if not self._is_dirty(insn):
                 new_program += insn.bytes
                 continue
+
+            # TODO: Dissolve the concept of instruction-level passes.
+
+            # TODO: We need logic to discern between instruction passes that
+            #       will break relative jumps.
 
             for insn_pass in insn_passes:
                 mutated_bytes = insn_pass.mutate_instruction(insn)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from int3.architecture import Architecture, Architectures, Registers
+from int3.architecture import Architecture, Architectures, RegisterDef, Registers
 
 from .platform import Platform
 from .syscall_convention import SyscallConvention
@@ -31,6 +31,10 @@ class Triple:
     env_str: str = field(init=False)
     sub_str: str = field(init=False, default_factory=str)
 
+    call_preserved_regs: tuple[RegisterDef, ...] = field(init=False)
+    call_clobbered_regs: tuple[RegisterDef, ...] = field(init=False)
+    syscall_convention: SyscallConvention = field(init=False)
+
     def __post_init__(self):
         arch_str = self.arch.clang_name
         platform_str = self.platform.name.lower()
@@ -40,10 +44,22 @@ class Triple:
         object.__setattr__(self, "sys_str", platform_str)
         object.__setattr__(self, "env_str", "unknown")
 
+        object.__setattr__(
+            self, "call_preserved_regs", self._resolve_call_preserved_regs()
+        )
+        # TODO: call_clobbered_regs
+        object.__setattr__(
+            self, "syscall_convention", self._resolve_syscall_convention()
+        )
+
     def __str__(self) -> str:
         return f"{self.arch_str}{self.sub_str}-{self.vendor_str}-{self.sys_str}-{self.env_str}"
 
-    def resolve_syscall_convention(self) -> SyscallConvention:
+    def _resolve_call_preserved_regs(self) -> tuple[RegisterDef, ...]:
+        # TODO
+        return tuple()
+
+    def _resolve_syscall_convention(self) -> SyscallConvention:
         """Derive the syscall calling convention for this triple.
 
         See:

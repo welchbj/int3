@@ -69,6 +69,7 @@ class Architecture:
 
     sp_reg: RegisterDef
     gp_regs: tuple[RegisterDef, ...]
+    reg_clobber_groups: tuple[set[RegisterDef], ...]
 
     byte_size: int = field(init=False)
 
@@ -192,6 +193,16 @@ class Architectures(Enum):
             Registers.x86.esi,
             Registers.x86.edi,
         ),
+        reg_clobber_groups=(
+            {Registers.x86.esp, Registers.x86.sp, Registers.x86.spl},
+            {Registers.x86.ebp, Registers.x86.bp, Registers.x86.bpl},
+            {Registers.x86.eax, Registers.x86.ax, Registers.x86.al},
+            {Registers.x86.ebx, Registers.x86.bx, Registers.x86.bl},
+            {Registers.x86.ecx, Registers.x86.cx, Registers.x86.cl},
+            {Registers.x86.edx, Registers.x86.dx, Registers.x86.dl},
+            {Registers.x86.esi, Registers.x86.si, Registers.x86.sil},
+            {Registers.x86.edi, Registers.x86.di, Registers.x86.dil},
+        ),
     )
     x86_64 = Architecture(
         name="x86_64",
@@ -227,6 +238,8 @@ class Architectures(Enum):
             Registers.x86_64.r14,
             Registers.x86_64.r15,
         ),
+        # TODO
+        reg_clobber_groups=tuple(),
     )
     Mips = Architecture(
         name="mips",
@@ -275,6 +288,7 @@ class Architectures(Enum):
             Registers.Mips.k0,
             Registers.Mips.k1,
         ),
+        reg_clobber_groups=tuple(),
     )
 
     @staticmethod
