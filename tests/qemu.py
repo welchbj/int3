@@ -23,13 +23,7 @@ class QemuResult:
     log: str
 
 
-QEMU_ARCHES = [
-    arch.value
-    for arch in Architectures
-    # XXX
-    # if arch.value.qemu_name != "unsupported"
-    if arch.name == "x86_64"
-]
+QEMU_ARCHES = [arch.value for arch in Architectures]
 
 
 def _name_getter(obj):
@@ -93,7 +87,9 @@ def run_in_qemu(compiler: Compiler, load_addr: int | None = None, strace: bool =
         if load_addr is None:
             print(f"{qemu_path} -g 12345 {runner_bin.name} {shellcode_file.name}")
         else:
-            print(f"{qemu_path} -g 12345 {runner_bin.name} {shellcode_file.name} {load_addr:#x}")
+            print(
+                f"{qemu_path} -g 12345 {runner_bin.name} {shellcode_file.name} {load_addr:#x}"
+            )
         print(
             f'gdb-multiarch -ex "file {runner_bin.name}" '
             '-ex "gef-remote --qemu-user 127.0.0.1 12345" -ex "continue"'

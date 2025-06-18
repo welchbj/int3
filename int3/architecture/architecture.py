@@ -173,7 +173,7 @@ class Architectures(Enum):
         qemu_name="i386",
         linux_kernel_name="i386",
         ghidra_name="x86:LE:32:default",
-        clang_name="x86",
+        clang_name="i386",
         llvm_reg_prefix="%",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
@@ -183,7 +183,10 @@ class Architectures(Enum):
         gp_regs=(
             Registers.x86.ebp,
             Registers.x86.eax,
-            Registers.x86.ebx,
+            # LLVM is doing weird stuff with ebx with regard to function calls.
+            #
+            # See: https://groups.google.com/g/native-client-discuss/c/a6AAns1nOl4
+            # Registers.x86.ebx,
             Registers.x86.ecx,
             Registers.x86.edx,
             Registers.x86.esi,
