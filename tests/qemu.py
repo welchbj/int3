@@ -31,6 +31,7 @@ def _name_getter(obj):
 
 
 parametrize_qemu_arch = pytest.mark.parametrize("arch", QEMU_ARCHES, ids=_name_getter)
+parametrize_common_bad_bytes = pytest.mark.parametrize("bad_bytes", [b"\x00", b"\n\r"])
 
 
 def compile_src(
