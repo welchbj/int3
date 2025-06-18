@@ -20,34 +20,118 @@ class RegisterDef:
 
 class x86_64Registers:
     rsp = RegisterDef(name="rsp", bit_size=64)
+    esp = RegisterDef(name="esp", bit_size=32)
+    sp = RegisterDef(name="sp", bit_size=16)
+    spl = RegisterDef(name="spl", bit_size=8)
+
     rbp = RegisterDef(name="rbp", bit_size=64)
+    ebp = RegisterDef(name="ebp", bit_size=32)
+    bp = RegisterDef(name="bp", bit_size=16)
+    bpl = RegisterDef(name="bpl", bit_size=8)
 
     rax = RegisterDef(name="rax", bit_size=64)
+    eax = RegisterDef(name="eax", bit_size=32)
+    ax = RegisterDef(name="ax", bit_size=16)
+    al = RegisterDef(name="al", bit_size=8)
+
     rbx = RegisterDef(name="rbx", bit_size=64)
+    ebx = RegisterDef(name="ebx", bit_size=32)
+    bx = RegisterDef(name="bx", bit_size=16)
+    bl = RegisterDef(name="bl", bit_size=8)
+
     rcx = RegisterDef(name="rcx", bit_size=64)
+    ecx = RegisterDef(name="ecx", bit_size=32)
+    cx = RegisterDef(name="cx", bit_size=16)
+    cl = RegisterDef(name="cl", bit_size=8)
+
     rdx = RegisterDef(name="rdx", bit_size=64)
+    edx = RegisterDef(name="edx", bit_size=32)
+    dx = RegisterDef(name="dx", bit_size=16)
+    dl = RegisterDef(name="dl", bit_size=8)
+
     rdi = RegisterDef(name="rdi", bit_size=64)
+    edi = RegisterDef(name="edi", bit_size=32)
+    di = RegisterDef(name="di", bit_size=16)
+    dil = RegisterDef(name="dil", bit_size=8)
+
     rsi = RegisterDef(name="rsi", bit_size=64)
+    esi = RegisterDef(name="esi", bit_size=32)
+    si = RegisterDef(name="si", bit_size=16)
+    sil = RegisterDef(name="sil", bit_size=8)
+
     r8 = RegisterDef(name="r8", bit_size=64)
+    r8d = RegisterDef(name="r8d", bit_size=32)
+    r8w = RegisterDef(name="r8w", bit_size=16)
+    r8b = RegisterDef(name="r8b", bit_size=8)
+
     r9 = RegisterDef(name="r9", bit_size=64)
+    r9d = RegisterDef(name="r9d", bit_size=32)
+    r9w = RegisterDef(name="r9w", bit_size=16)
+    r9b = RegisterDef(name="r9b", bit_size=8)
+
     r10 = RegisterDef(name="r10", bit_size=64)
+    r10d = RegisterDef(name="r10d", bit_size=32)
+    r10w = RegisterDef(name="r10w", bit_size=16)
+    r10b = RegisterDef(name="r10b", bit_size=8)
+
     r11 = RegisterDef(name="r11", bit_size=64)
+    r11d = RegisterDef(name="r11d", bit_size=32)
+    r11w = RegisterDef(name="r11w", bit_size=16)
+    r11b = RegisterDef(name="r11b", bit_size=8)
+
     r12 = RegisterDef(name="r12", bit_size=64)
+    r12d = RegisterDef(name="r12d", bit_size=32)
+    r12w = RegisterDef(name="r12w", bit_size=16)
+    r12b = RegisterDef(name="r12b", bit_size=8)
+
     r13 = RegisterDef(name="r13", bit_size=64)
+    r13d = RegisterDef(name="r13d", bit_size=32)
+    r13w = RegisterDef(name="r13w", bit_size=16)
+    r13b = RegisterDef(name="r13b", bit_size=8)
+
     r14 = RegisterDef(name="r14", bit_size=64)
+    r14d = RegisterDef(name="r14d", bit_size=32)
+    r14w = RegisterDef(name="r14w", bit_size=16)
+    r14b = RegisterDef(name="r14b", bit_size=8)
+
     r15 = RegisterDef(name="r15", bit_size=64)
+    r15d = RegisterDef(name="r15d", bit_size=32)
+    r15w = RegisterDef(name="r15w", bit_size=16)
+    r15b = RegisterDef(name="r15b", bit_size=8)
 
 
 class x86Registers:
     esp = RegisterDef(name="esp", bit_size=32)
+    sp = RegisterDef(name="sp", bit_size=16)
+    spl = RegisterDef(name="spl", bit_size=8)
+
     ebp = RegisterDef(name="ebp", bit_size=32)
+    bp = RegisterDef(name="bp", bit_size=16)
+    bpl = RegisterDef(name="bpl", bit_size=8)
 
     eax = RegisterDef(name="eax", bit_size=32)
+    ax = RegisterDef(name="ax", bit_size=16)
+    al = RegisterDef(name="al", bit_size=8)
+
     ebx = RegisterDef(name="ebx", bit_size=32)
+    bx = RegisterDef(name="bx", bit_size=16)
+    bl = RegisterDef(name="bl", bit_size=8)
+
     ecx = RegisterDef(name="ecx", bit_size=32)
+    cx = RegisterDef(name="cx", bit_size=16)
+    cl = RegisterDef(name="cl", bit_size=8)
+
     edx = RegisterDef(name="edx", bit_size=32)
+    dx = RegisterDef(name="dx", bit_size=16)
+    dl = RegisterDef(name="dl", bit_size=8)
+
     esi = RegisterDef(name="esi", bit_size=32)
+    si = RegisterDef(name="si", bit_size=16)
+    sil = RegisterDef(name="sil", bit_size=8)
+
     edi = RegisterDef(name="edi", bit_size=32)
+    di = RegisterDef(name="di", bit_size=16)
+    dil = RegisterDef(name="dil", bit_size=8)
 
 
 class MipsRegisters:
