@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import operator
 import platform
-import random
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -551,7 +550,9 @@ class Compiler:
         # entry stub, clamping down on the allocated pad space each iteration in order
         # to optimize the entry stub's total length. We use a binary search on the length.
         num_pad_bytes_targt = max(3, self.arch.min_insn_width)
-        pc_transfer_reg = random.choice(self.arch.gp_regs)
+        # XXX: We may need to cycle through pc_transfer_reg options if a specific register
+        #      introduces bad bytes.
+        pc_transfer_reg = self.triple.call_clobbered_regs[0]
         lower_bound_pad_len = 0
         upper_bound_pad_len = 2 * self.arch.align_up_to_min_insn_width(
             self._start_entry_stub_padded_len

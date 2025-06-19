@@ -73,10 +73,27 @@ class Architecture:
 
     byte_size: int = field(init=False)
 
+    _reg_name_map: dict[str, RegisterDef] = field(init=False)
+    _reg_clobber_map: dict[RegisterDef, set[RegisterDef]] = field(init=False)
+
     BITS_IN_A_BYTE: ClassVar[int] = 8
 
     def __post_init__(self):
         object.__setattr__(self, "byte_size", self.bit_size // self.BITS_IN_A_BYTE)
+
+        # Init _reg_name_map.
+        reg_name_map = {}
+        reg_name_map[self.sp_reg.name] = self.sp_reg
+        for reg in self.gp_regs:
+            reg_name_map[reg.name] = reg
+        object.__setattr__(self, "_reg_name_map", reg_name_map)
+
+        # Init _reg_clobber_map.
+        reg_clobber_map = {}
+        for reg_clobber_set in self.reg_clobber_groups:
+            for reg in reg_clobber_set:
+                reg_clobber_map[reg] = reg_clobber_set
+        object.__setattr__(self, "_reg_clobber_map", reg_clobber_map)
 
     def is_okay_value(self, imm: int) -> bool:
         """Tests whether a value can be represented on this architecture."""
@@ -102,6 +119,23 @@ class Architecture:
             width_format = width_format.upper()
 
         return f"{endian_format}{width_format}"
+
+    def expand_regs(self, *regs: RegisterDef) -> tuple[RegisterDef, ...]:
+        """Expand an input set of registers to include all implicit clobbers."""
+        reg_list: list[RegisterDef] = []
+        for reg in regs:
+            reg_list.append(reg)
+            reg_list.extend(self._reg_clobber_map[reg])
+
+        # Using dict.fromkeys to emulate an ordered set.
+        return tuple(dict.fromkeys(reg_list))
+
+    def reg(self, name: str) -> RegisterDef:
+        """Resolve a register definition by name."""
+        try:
+            return self._reg_name_map[name]
+        except KeyError as e:
+            raise Int3MissingEntityError(f"No reg {name} for arch {self.name}") from e
 
     def align_up_to_min_insn_width(self, value: int) -> int:
         while value % self.min_insn_width != 0:
@@ -238,8 +272,104 @@ class Architectures(Enum):
             Registers.x86_64.r14,
             Registers.x86_64.r15,
         ),
-        # TODO
-        reg_clobber_groups=tuple(),
+        reg_clobber_groups=(
+            {
+                Registers.x86_64.rsp,
+                Registers.x86_64.esp,
+                Registers.x86_64.sp,
+                Registers.x86_64.spl,
+            },
+            {
+                Registers.x86_64.rbp,
+                Registers.x86_64.ebp,
+                Registers.x86_64.bp,
+                Registers.x86_64.bpl,
+            },
+            {
+                Registers.x86_64.rax,
+                Registers.x86_64.eax,
+                Registers.x86_64.ax,
+                Registers.x86_64.al,
+            },
+            {
+                Registers.x86_64.rbx,
+                Registers.x86_64.ebx,
+                Registers.x86_64.bx,
+                Registers.x86_64.bl,
+            },
+            {
+                Registers.x86_64.rcx,
+                Registers.x86_64.ecx,
+                Registers.x86_64.cx,
+                Registers.x86_64.cl,
+            },
+            {
+                Registers.x86_64.rdx,
+                Registers.x86_64.edx,
+                Registers.x86_64.dx,
+                Registers.x86_64.dl,
+            },
+            {
+                Registers.x86_64.rdi,
+                Registers.x86_64.edi,
+                Registers.x86_64.di,
+                Registers.x86_64.dil,
+            },
+            {
+                Registers.x86_64.rsi,
+                Registers.x86_64.esi,
+                Registers.x86_64.si,
+                Registers.x86_64.sil,
+            },
+            {
+                Registers.x86_64.r8,
+                Registers.x86_64.r8d,
+                Registers.x86_64.r8w,
+                Registers.x86_64.r8b,
+            },
+            {
+                Registers.x86_64.r9,
+                Registers.x86_64.r9d,
+                Registers.x86_64.r9w,
+                Registers.x86_64.r9b,
+            },
+            {
+                Registers.x86_64.r10,
+                Registers.x86_64.r10d,
+                Registers.x86_64.r10w,
+                Registers.x86_64.r10b,
+            },
+            {
+                Registers.x86_64.r11,
+                Registers.x86_64.r11d,
+                Registers.x86_64.r11w,
+                Registers.x86_64.r11b,
+            },
+            {
+                Registers.x86_64.r12,
+                Registers.x86_64.r12d,
+                Registers.x86_64.r12w,
+                Registers.x86_64.r12b,
+            },
+            {
+                Registers.x86_64.r13,
+                Registers.x86_64.r13d,
+                Registers.x86_64.r13w,
+                Registers.x86_64.r13b,
+            },
+            {
+                Registers.x86_64.r14,
+                Registers.x86_64.r14d,
+                Registers.x86_64.r14w,
+                Registers.x86_64.r14b,
+            },
+            {
+                Registers.x86_64.r15,
+                Registers.x86_64.r15d,
+                Registers.x86_64.r15w,
+                Registers.x86_64.r15b,
+            },
+        ),
     )
     Mips = Architecture(
         name="mips",

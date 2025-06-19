@@ -47,7 +47,9 @@ class Triple:
         object.__setattr__(
             self, "call_preserved_regs", self._resolve_call_preserved_regs()
         )
-        # TODO: call_clobbered_regs
+        object.__setattr__(
+            self, "call_clobbered_regs", self._resolve_call_clobbered_regs()
+        )
         object.__setattr__(
             self, "syscall_convention", self._resolve_syscall_convention()
         )
@@ -56,8 +58,56 @@ class Triple:
         return f"{self.arch_str}{self.sub_str}-{self.vendor_str}-{self.sys_str}-{self.env_str}"
 
     def _resolve_call_preserved_regs(self) -> tuple[RegisterDef, ...]:
-        # TODO
-        return tuple()
+        """Determine which registers LLVM considers call-preserved for this platform/architecture.
+
+        See:
+            Callee saved vs preserved: https://stackoverflow.com/a/16265609
+            LLVM-specific callee-saved discussion: https://stackoverflow.com/a/64611401
+
+        """
+        match self.platform, self.arch:
+            case Platform.Linux, Architectures.x86.value:
+                # See: https://github.com/llvm/llvm-project/blob/release/15.x/llvm/lib/Target/X86/X86CallingConv.td#L1128
+                return self.arch.expand_regs(
+                    Registers.x86.esi,
+                    Registers.x86.edi,
+                    Registers.x86.ebx,
+                    Registers.x86.ebp,
+                )
+            case Platform.Linux, Architectures.x86_64.value:
+                # See: https://github.com/llvm/llvm-project/blob/release/15.x/llvm/lib/Target/X86/X86CallingConv.td#L1129
+                return self.arch.expand_regs(
+                    Registers.x86_64.rbx,
+                    Registers.x86_64.r12,
+                    Registers.x86_64.r13,
+                    Registers.x86_64.r14,
+                    Registers.x86_64.r15,
+                    Registers.x86_64.rbp,
+                )
+            case Platform.Linux, Architectures.Mips.value:
+                # See: https://github.com/llvm/llvm-project/blob/release/15.x/llvm/lib/Target/Mips/MipsCallingConv.td#L370
+                return self.arch.expand_regs(
+                    Registers.Mips.ra,
+                    Registers.Mips.fp,
+                    Registers.Mips.s0,
+                    Registers.Mips.s1,
+                    Registers.Mips.s2,
+                    Registers.Mips.s3,
+                    Registers.Mips.s4,
+                    Registers.Mips.s5,
+                    Registers.Mips.s6,
+                    Registers.Mips.s7,
+                )
+            case _:
+                raise NotImplementedError(
+                    f"Unsupported combination: {self.platform.name}, {self.arch.name}"
+                )
+
+    def _resolve_call_clobbered_regs(self) -> tuple[RegisterDef, ...]:
+        """Derive call-clobbered registers, based on LLVM's call-preserved register definition."""
+        return tuple(
+            reg for reg in self.arch.gp_regs if reg not in self.call_preserved_regs
+        )
 
     def _resolve_syscall_convention(self) -> SyscallConvention:
         """Derive the syscall calling convention for this triple.
