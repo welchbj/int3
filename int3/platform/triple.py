@@ -157,7 +157,7 @@ class Triple:
                             Registers.Mips.a1,
                             Registers.Mips.a2,
                             Registers.Mips.a3,
-                            # TODO: How do pass additinal arguments on the stack?
+                            # XXX: How do pass additinal arguments on the stack?
                         ),
                     )
 
