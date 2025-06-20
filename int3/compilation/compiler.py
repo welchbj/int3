@@ -514,7 +514,7 @@ class Compiler:
 
         # Otherwise, we apply all the mutations available in our engine.
         mutation_engine = MutationEngine(
-            arch=self.arch,
+            triple=self.triple,
             raw_asm=input_asm,
             bad_bytes=self.bad_bytes,
         )

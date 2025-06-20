@@ -1,16 +1,11 @@
-import binascii
 import logging
-import textwrap
 from dataclasses import dataclass
-from typing import Sequence
 
-from capstone import CsInsn
-
-from int3.architecture import Architecture
-from int3.assembly import disassemble
 from int3.errors import Int3CodeGenerationError
+from int3.platform import Triple
 
 from .compiled_segment import CompiledSegment
+from .instruction import Instruction
 from .passes import (
     InstructionMutationPass,
     MoveFactorImmediateInstructionPass,
@@ -22,47 +17,22 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MutationEngine:
-    arch: Architecture
+    triple: Triple
     raw_asm: bytes
     bad_bytes: bytes
-
-    def _is_dirty(self, insn: CsInsn | bytes) -> bool:
-        if isinstance(insn, CsInsn):
-            insn = insn.bytes
-
-        return any(b in insn for b in self.bad_bytes)
 
     def _create_instruction_passes(
         self, segment: CompiledSegment
     ) -> list[InstructionMutationPass]:
-        pass_classes: list[type[InstructionMutationPass]] = [
+        pass_classes = [
             MoveSmallImmediateInstructionPass,
             MoveFactorImmediateInstructionPass,
         ]
-        return [cls(segment, self.bad_bytes) for cls in pass_classes]
-
-    @staticmethod
-    def instruction_summary(insns: Sequence[CsInsn], indent: int = 0) -> list[str]:
-        max_op_str_len = max(len(insn.op_str) for insn in insns)
-
-        dirty_insn_lines: list[str] = []
-        for insn in insns:
-            mnemonic: str = insn.mnemonic
-            op_str: str = insn.op_str
-            asm_hex = binascii.hexlify(insn.bytes).decode()
-
-            line = f"{mnemonic} "
-            line += op_str.ljust(max_op_str_len + 1, " ")
-            line += f"({asm_hex})"
-            dirty_insn_lines.append(line)
-
-        return textwrap.indent(
-            "\n".join(dirty_insn_lines), prefix=" " * indent
-        ).splitlines()
+        return [cls(segment, self.bad_bytes) for cls in pass_classes]  # type: ignore
 
     def clean(self) -> CompiledSegment:
         mutated_segment = CompiledSegment(
-            arch=self.arch,
+            triple=self.triple,
             raw_asm=self.raw_asm,
             bad_bytes=self.bad_bytes,
         )
@@ -71,49 +41,55 @@ class MutationEngine:
 
         # Apply instruction-level passes.
         insn_passes = self._create_instruction_passes(mutated_segment)
-        new_program = b""
+        new_insn_list: list[Instruction] = []
         for insn in mutated_segment.all_instructions:
             # Simply record the instruction if it doesn't contain bad bytes.
-            if not self._is_dirty(insn):
-                new_program += insn.bytes
+            if not insn.is_dirty(self.bad_bytes):
+                new_insn_list.append(insn)
                 continue
-
-            # TODO: Dissolve the concept of instruction-level passes.
 
             # TODO: We need logic to discern between instruction passes that
             #       will break relative jumps.
 
             for insn_pass in insn_passes:
-                mutated_bytes = insn_pass.mutate_instruction(insn)
-                if mutated_bytes and not self._is_dirty(mutated_bytes):
-                    new_program += mutated_bytes
+                if not insn_pass.should_mutate(insn):
+                    logger.debug(f"Skipping {insn_pass.__class__.__name__} for {insn}")
+                    continue
 
-                    mutated_insns = disassemble(self.arch, mutated_bytes)
+                try:
+                    mutated_insns = insn_pass.mutate(insn)
+                except Int3CodeGenerationError as e:
+                    logger.debug(f"{insn_pass.__class__.__name__} failed: {e}")
+                    continue
+
+                if not any(insn.is_dirty(self.bad_bytes) for insn in mutated_insns):
+                    # This set of instructions is a bad byte compliant mutation of the input
+                    # instruction.
+                    new_insn_list.extend(mutated_insns)
+
                     logger.debug(f"{insn_pass.__class__.__name__} transformed:")
-                    logger.debug(f"{self.instruction_summary([insn], indent=4)[0]}")
+                    logger.debug(f"{Instruction.summary(insn, indent=4)}")
                     logger.debug("into:")
-                    for line in self.instruction_summary(mutated_insns, indent=4):
+                    for line in Instruction.summary(*mutated_insns, indent=4):
                         logger.debug(line)
                     break
             else:
-                new_program += insn.bytes
+                new_insn_list.append(insn)
                 logger.debug(
                     "Instruction-level passes could not remove bad bytes from:"
                 )
-                logger.debug(f"{self.instruction_summary([insn], indent=4)[0]}")
+                logger.debug(f"{Instruction.summary(insn, indent=4)}")
 
+        new_program = b"".join(bytes(insn) for insn in new_insn_list)
         mutated_segment = CompiledSegment(
-            arch=self.arch, raw_asm=new_program, bad_bytes=self.bad_bytes
+            triple=self.triple, raw_asm=new_program, bad_bytes=self.bad_bytes
         )
-
-        # Apply segment-level passes.
-        # TODO
 
         if mutated_segment.is_clean:
             return mutated_segment
 
-        dirty_insn_lines = self.instruction_summary(
-            mutated_segment.dirty_instructions, indent=4
+        dirty_insn_lines = Instruction.summary(
+            *mutated_segment.dirty_instructions, indent=4
         )
         raise Int3CodeGenerationError(
             "Unable to clean bad bytes from the following instructions:\n"

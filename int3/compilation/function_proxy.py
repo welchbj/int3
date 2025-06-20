@@ -158,7 +158,6 @@ class PartialFunctionDef:
 
     def __call__(
         self,
-        # TODO: These need to reflect realness
         return_type: IntType | VoidType | type[int] | None = None,
         *arg_types: IrArgType | type[int] | type[bytes],
     ) -> FunctionProxy:

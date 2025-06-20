@@ -45,6 +45,10 @@ class Int3CodeGenerationError(Int3Error):
     """Exception type for code generation errors."""
 
 
+class Int3UnsuitableCodeMutation(Int3CodeGenerationError):
+    """Exception type for when code mutations should not / cannot be applied."""
+
+
 class Int3ProgramDefinitionError(Int3Error):
     """Exception type for program definition errors."""
 

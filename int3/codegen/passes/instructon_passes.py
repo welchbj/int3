@@ -1,8 +1,7 @@
 from typing import Iterator, cast
 
-from capstone import CsInsn
-
-from int3.errors import Int3WrappedKeystoneError
+from int3.architecture import RegisterDef
+from int3.errors import Int3UnsuitableCodeMutation, Int3WrappedKeystoneError
 from int3.factor import (
     FactorClause,
     FactorContext,
@@ -11,57 +10,61 @@ from int3.factor import (
     compute_factor,
 )
 
+from ..instruction import Instruction
 from .abc import InstructionMutationPass
 
 
 class MoveSmallImmediateInstructionPass(InstructionMutationPass):
-    def mutate_instruction(self, insn: CsInsn) -> bytes:
-        if not self.is_mov_insn(insn) or not self.is_reg_imm_insn(insn):
-            # Not an applicable instruction.
-            return b""
+    def should_mutate(self, insn: Instruction) -> bool:
+        return insn.is_mov() and insn.operands.is_reg(0) and insn.operands.is_imm(1)
 
-        reg = cast(str, insn.reg_name(insn.operands[0].value.reg))
-        imm = cast(int, insn.operands[1].value.imm)
+    def mutate_instruction(self, insn: Instruction) -> tuple[Instruction, ...]:
+        reg = insn.operands.reg(0)
+        imm = insn.operands.imm(1)
+
         if imm <= 0x10:
-            # TODO: We should be able to test different gadgets for the presence
-            #       of bad bytes. For example, we could have other ways of
-            #       clearing the register other than an XOR.
+            # XXX: We should be able to test different gadgets for the presence
+            #      of bad bytes. For example, we could have other ways of
+            #      clearing the register other than an XOR.
             code = self.codegen.xor(reg, reg).bytes
             code += self.codegen.inc(reg).bytes * imm
-            return code
-        else:
-            return b""
+            return self.to_instructions(code)
+
+        raise Int3UnsuitableCodeMutation(f"Immediate {imm:#x} is too large")
 
 
 class MoveFactorImmediateInstructionPass(InstructionMutationPass):
-    def mutate_instruction(self, insn: CsInsn) -> bytes:
-        if not self.is_mov_insn(insn) or not self.is_reg_imm_insn(insn):
-            # Not an applicable instruction.
-            return b""
+    def should_mutate(self, insn: Instruction) -> bool:
+        return insn.is_mov() and insn.operands.is_reg(0) and insn.operands.is_imm(1)
 
-        reg_bit_size = cast(int, insn.operands[0].size) * 8
-        imm = cast(int, insn.operands[1].value.imm)
-        reg = cast(str, insn.reg_name(insn.operands[0].value.reg))
-        factor_result = self._factor_to_imm(imm, width=reg_bit_size)
+    def mutate_instruction(self, insn: Instruction) -> tuple[Instruction, ...]:
+        reg = insn.operands.reg(0)
+        imm = insn.operands.imm(1)
+        factor_result = self._factor_to_imm(imm, width=reg.bit_size)
 
         code = b""
         for clause in factor_result.clauses:
-            asm_candidates = [
-                asm_candidate
-                for asm_candidate in self._factor_clause_to_asm(
-                    clause, reg, reg_bit_size
-                )
-                if not self.is_dirty(asm_candidate)
-            ]
+            asm_candidates = list(self._factor_clause_to_asm(clause, reg))
             if not asm_candidates:
-                # Unable to encode this clause into instruction(s).
-                return b""
+                raise Int3UnsuitableCodeMutation(
+                    "Unable to generate any factor clauses"
+                )
 
-            # Choose the shortest code block.
+            filtered_asm_candidates = [
+                candidate
+                for candidate in asm_candidates
+                if not self.is_dirty(candidate)
+            ]
+            if not filtered_asm_candidates:
+                raise Int3UnsuitableCodeMutation(
+                    "Unable to generate clean factor clauses"
+                )
+
+            # Choose the shortest of the available candidates.
             new_code = min(asm_candidates, key=len)
             code += new_code
 
-        return code
+        return self.to_instructions(code)
 
     def _factor_to_imm(self, imm: int, width: int) -> FactorResult:
         allow_overflow = width == self.arch.bit_size
@@ -76,7 +79,7 @@ class MoveFactorImmediateInstructionPass(InstructionMutationPass):
 
     # TODO: We can split up clear gadgets
 
-    def _mov_instructions(self, reg: str, imm: int) -> Iterator[bytes]:
+    def _mov_instructions(self, reg: RegisterDef, imm: int) -> Iterator[bytes]:
         yield self.codegen.mov(reg, imm).bytes
 
         try:
@@ -87,13 +90,9 @@ class MoveFactorImmediateInstructionPass(InstructionMutationPass):
         # TODO: Others
 
     def _factor_clause_to_asm(
-        self, clause: FactorClause, reg: str, reg_bit_size: int
+        self, clause: FactorClause, reg: RegisterDef
     ) -> Iterator[bytes]:
-        scratch_reg = next(
-            reg.name
-            for reg in self.segment.scratch_regs
-            if reg.bit_size == reg_bit_size
-        )
+        scratch_reg = self.segment.scratch_reg_for_size(reg.bit_size)
         imm = clause.operand
 
         match clause.operation:
@@ -125,6 +124,3 @@ class MoveFactorImmediateInstructionPass(InstructionMutationPass):
                     yield mov_insn + self.codegen.xor(reg, scratch_reg).bytes
             case FactorOperation.Neg:
                 raise NotImplementedError("Negation support not yet implemented")
-
-
-# TODO: AdditionSubtractionInversionInstructionPass
