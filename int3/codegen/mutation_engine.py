@@ -28,7 +28,7 @@ class MutationEngine:
             MoveSmallImmediateInstructionPass,
             MoveFactorImmediateInstructionPass,
         ]
-        return [cls(segment, self.bad_bytes) for cls in pass_classes]  # type: ignore
+        return [cls(segment, self.bad_bytes) for cls in pass_classes]
 
     def clean(self) -> CompiledSegment:
         mutated_segment = CompiledSegment(
@@ -68,7 +68,7 @@ class MutationEngine:
                     new_insn_list.extend(mutated_insns)
 
                     logger.debug(f"{insn_pass.__class__.__name__} transformed:")
-                    logger.debug(f"{Instruction.summary(insn, indent=4)}")
+                    logger.debug(f"{Instruction.summary(insn, indent=4)[0]}")
                     logger.debug("into:")
                     for line in Instruction.summary(*mutated_insns, indent=4):
                         logger.debug(line)

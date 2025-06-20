@@ -18,7 +18,7 @@ class MoveSmallImmediateInstructionPass(InstructionMutationPass):
     def should_mutate(self, insn: Instruction) -> bool:
         return insn.is_mov() and insn.operands.is_reg(0) and insn.operands.is_imm(1)
 
-    def mutate_instruction(self, insn: Instruction) -> tuple[Instruction, ...]:
+    def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
         reg = insn.operands.reg(0)
         imm = insn.operands.imm(1)
 
@@ -37,7 +37,7 @@ class MoveFactorImmediateInstructionPass(InstructionMutationPass):
     def should_mutate(self, insn: Instruction) -> bool:
         return insn.is_mov() and insn.operands.is_reg(0) and insn.operands.is_imm(1)
 
-    def mutate_instruction(self, insn: Instruction) -> tuple[Instruction, ...]:
+    def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
         reg = insn.operands.reg(0)
         imm = insn.operands.imm(1)
         factor_result = self._factor_to_imm(imm, width=reg.bit_size)

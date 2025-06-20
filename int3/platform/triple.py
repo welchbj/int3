@@ -106,7 +106,7 @@ class Triple:
     def _resolve_call_clobbered_regs(self) -> tuple[RegisterDef, ...]:
         """Derive call-clobbered registers, based on LLVM's call-preserved register definition."""
         return tuple(
-            reg for reg in self.arch.gp_regs if reg not in self.call_preserved_regs
+            reg for reg in self.arch.regs if reg not in self.call_preserved_regs
         )
 
     def _resolve_syscall_convention(self) -> SyscallConvention:

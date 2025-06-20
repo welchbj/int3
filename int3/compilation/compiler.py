@@ -552,7 +552,11 @@ class Compiler:
         num_pad_bytes_targt = max(3, self.arch.min_insn_width)
         # XXX: We may need to cycle through pc_transfer_reg options if a specific register
         #      introduces bad bytes.
-        pc_transfer_reg = self.triple.call_clobbered_regs[0]
+        pc_transfer_reg = next(
+            reg
+            for reg in self.triple.call_clobbered_regs
+            if reg.bit_size == self.arch.bit_size
+        )
         lower_bound_pad_len = 0
         upper_bound_pad_len = 2 * self.arch.align_up_to_min_insn_width(
             self._start_entry_stub_padded_len

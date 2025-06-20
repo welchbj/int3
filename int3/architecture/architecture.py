@@ -67,11 +67,11 @@ class Architecture:
     capstone_arch: int
     capstone_mode: int
 
-    sp_reg: RegisterDef
-    gp_regs: tuple[RegisterDef, ...]
+    reg_cls: type
     reg_clobber_groups: tuple[set[RegisterDef], ...]
 
     byte_size: int = field(init=False)
+    regs: tuple[RegisterDef, ...] = field(init=False)
 
     _reg_name_map: dict[str, RegisterDef] = field(init=False)
     _reg_clobber_map: dict[RegisterDef, set[RegisterDef]] = field(init=False)
@@ -81,11 +81,16 @@ class Architecture:
     def __post_init__(self):
         object.__setattr__(self, "byte_size", self.bit_size // self.BITS_IN_A_BYTE)
 
+        # Init regs tuple.
+        regs = tuple(
+            getattr(self.reg_cls, attr)
+            for attr in dir(self.reg_cls)
+            if not attr.startswith("__")
+        )
+        object.__setattr__(self, "regs", regs)
+
         # Init _reg_name_map.
-        reg_name_map = {}
-        reg_name_map[self.sp_reg.name] = self.sp_reg
-        for reg in self.gp_regs:
-            reg_name_map[reg.name] = reg
+        reg_name_map = {reg.name: reg for reg in self.regs}
         object.__setattr__(self, "_reg_name_map", reg_name_map)
 
         # Init _reg_clobber_map.
@@ -214,19 +219,7 @@ class Architectures(Enum):
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_32,
-        sp_reg=Registers.x86.esp,
-        gp_regs=(
-            Registers.x86.ebp,
-            Registers.x86.eax,
-            # LLVM is doing weird stuff with ebx with regard to function calls.
-            #
-            # See: https://groups.google.com/g/native-client-discuss/c/a6AAns1nOl4
-            # Registers.x86.ebx,
-            Registers.x86.ecx,
-            Registers.x86.edx,
-            Registers.x86.esi,
-            Registers.x86.edi,
-        ),
+        reg_cls=Registers.x86,
         reg_clobber_groups=(
             {Registers.x86.esp, Registers.x86.sp, Registers.x86.spl},
             {Registers.x86.ebp, Registers.x86.bp, Registers.x86.bpl},
@@ -254,24 +247,7 @@ class Architectures(Enum):
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_64,
-        sp_reg=Registers.x86_64.rsp,
-        gp_regs=(
-            Registers.x86_64.rbp,
-            Registers.x86_64.rax,
-            Registers.x86_64.rbx,
-            Registers.x86_64.rcx,
-            Registers.x86_64.rdx,
-            Registers.x86_64.rdi,
-            Registers.x86_64.rsi,
-            Registers.x86_64.r8,
-            Registers.x86_64.r9,
-            Registers.x86_64.r10,
-            Registers.x86_64.r11,
-            Registers.x86_64.r12,
-            Registers.x86_64.r13,
-            Registers.x86_64.r14,
-            Registers.x86_64.r15,
-        ),
+        reg_cls=Registers.x86_64,
         reg_clobber_groups=(
             {
                 Registers.x86_64.rsp,
@@ -387,37 +363,7 @@ class Architectures(Enum):
         keystone_mode=KS_MODE_MIPS32 + KS_MODE_BIG_ENDIAN,
         capstone_arch=CS_ARCH_MIPS,
         capstone_mode=CS_MODE_MIPS32 + CS_MODE_BIG_ENDIAN,
-        sp_reg=Registers.Mips.sp,
-        gp_regs=(
-            Registers.Mips.v0,
-            Registers.Mips.v1,
-            Registers.Mips.a0,
-            Registers.Mips.a1,
-            Registers.Mips.a2,
-            Registers.Mips.a3,
-            Registers.Mips.t0,
-            Registers.Mips.t1,
-            Registers.Mips.t2,
-            Registers.Mips.t3,
-            Registers.Mips.t4,
-            Registers.Mips.t5,
-            Registers.Mips.t6,
-            Registers.Mips.t7,
-            Registers.Mips.t8,
-            Registers.Mips.t9,
-            Registers.Mips.s0,
-            Registers.Mips.s1,
-            Registers.Mips.s2,
-            Registers.Mips.s3,
-            Registers.Mips.s4,
-            Registers.Mips.s5,
-            Registers.Mips.s6,
-            Registers.Mips.s7,
-            Registers.Mips.t8,
-            Registers.Mips.t9,
-            Registers.Mips.k0,
-            Registers.Mips.k1,
-        ),
+        reg_cls=Registers.Mips,
         reg_clobber_groups=tuple(),
     )
 

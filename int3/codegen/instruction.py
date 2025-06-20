@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import binascii
+import logging
 import textwrap
 from dataclasses import dataclass, field
 from typing import cast
@@ -9,7 +10,9 @@ from capstone import CS_OP_IMM, CS_OP_REG, CsInsn
 
 from int3.architecture import Architecture, RegisterDef
 from int3.assembly import disassemble
-from int3.errors import Int3CodeGenerationError
+from int3.errors import Int3CodeGenerationError, Int3MissingEntityError
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -66,13 +69,18 @@ class Instruction:
         object.__setattr__(self, "raw", self.cs_insn.bytes)
         object.__setattr__(self, "mnemonic", self.cs_insn.mnemonic)
         object.__setattr__(self, "operands", OperandView(self))
-
         object.__setattr__(self, "tainted_regs", self._init_tainted_regs())
 
     def _init_tainted_regs(self) -> set[RegisterDef]:
         tainted_regs = set()
-        for reg_name in self.cs_insn.regs_write:
-            reg = self.arch.reg(reg_name)
+        for cs_reg_id in self.cs_insn.regs_write:
+            reg_name = self.cs_insn.reg_name(cs_reg_id)
+            try:
+                reg = self.arch.reg(reg_name)
+            except Int3MissingEntityError as e:
+                logger.debug(f"Skipping reported tainted reg: {reg_name}")
+                continue
+
             tainted_regs |= set(self.arch.expand_regs(reg))
 
         return tainted_regs
@@ -82,7 +90,7 @@ class Instruction:
         return cast(str, self.cs_insn.op_str)
 
     def __bytes__(self) -> bytes:
-        return self.raw
+        return bytes(self.raw)
 
     def __str__(self) -> str:
         return self.to_str()
