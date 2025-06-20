@@ -78,7 +78,7 @@ class MutationEngine:
                 logger.debug(
                     "Instruction-level passes could not remove bad bytes from:"
                 )
-                logger.debug(f"{Instruction.summary(insn, indent=4)}")
+                logger.debug(f"{Instruction.summary(insn, indent=4)[0]}")
 
         new_program = b"".join(bytes(insn) for insn in new_insn_list)
         mutated_segment = CompiledSegment(

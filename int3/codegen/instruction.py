@@ -95,11 +95,14 @@ class Instruction:
     def __str__(self) -> str:
         return self.to_str()
 
-    def to_str(self, alignment: int = 0) -> str:
+    def to_str(self, alignment: int = 0, with_hex: bool = True) -> str:
         asm_hex = binascii.hexlify(self.raw).decode()
-        line = f"{self.mnemonic} "
-        line += self.op_str.ljust(alignment, " ")
-        line += f"({asm_hex})"
+        line = f"{self.mnemonic} {self.op_str}"
+        if with_hex:
+            alignment += 1
+        line = line.ljust(alignment, " ")
+        if with_hex:
+            line += f"({asm_hex})"
         return line
 
     def is_dirty(self, bad_bytes: bytes) -> bool:
