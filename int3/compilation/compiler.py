@@ -751,7 +751,9 @@ class Compiler:
             )
 
         stub_program = get_pc_stub
-        stub_program += sub_cc.compile_funcs()["entry_stub"]
+        # get_pc_stub has already been cleaned.
+        entry_stub_raw = sub_cc.compile_funcs()["entry_stub"]
+        stub_program += sub_cc._clean_asm(entry_stub_raw)
         return stub_program
 
     def clean_slate(self) -> Compiler:
