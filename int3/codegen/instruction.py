@@ -112,13 +112,21 @@ class Instruction:
         # XXX: This is kind of a lazy approach that might be inaccurate.
         return self.mnemonic.startswith("mov")
 
+    def is_add(self) -> bool:
+        # XXX: This is kind of a lazy approach that might be inaccurate.
+        return self.mnemonic.startswith("add")
+
+    def is_sub(self) -> bool:
+        # XXX: This is kind of a lazy approach that might be inaccurate.
+        return self.mnemonic.startswith("sub")
+
     @staticmethod
     def summary(*insns: Instruction, indent: int = 0) -> list[str]:
-        max_op_str_len = max(len(insn.op_str) for insn in insns)
+        max_insn_str_len = max(len(insn.to_str(with_hex=False)) for insn in insns)
 
         dirty_insn_lines: list[str] = []
         for insn in insns:
-            line = insn.to_str(alignment=max_op_str_len + 1)
+            line = insn.to_str(alignment=max_insn_str_len)
             dirty_insn_lines.append(line)
 
         return textwrap.indent(

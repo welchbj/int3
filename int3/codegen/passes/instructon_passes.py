@@ -1,4 +1,4 @@
-from typing import Iterator, cast
+from typing import Iterator
 
 from int3.architecture import RegisterDef
 from int3.errors import Int3UnsuitableCodeMutation, Int3WrappedKeystoneError
@@ -31,6 +31,28 @@ class MoveSmallImmediateInstructionPass(InstructionMutationPass):
             return self.to_instructions(code)
 
         raise Int3UnsuitableCodeMutation(f"Immediate {imm:#x} is too large")
+
+
+class InvertAddOrSubImmediateInstructionPass(InstructionMutationPass):
+    def should_mutate(self, insn: Instruction) -> bool:
+        return (
+            (insn.is_add() or insn.is_sub())
+            and insn.operands.is_reg(0)
+            and insn.operands.is_imm(1)
+        )
+
+    def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
+        reg = insn.operands.reg(0)
+        imm = insn.operands.imm(1)
+        inverted_imm = ~imm & (2**reg.bit_size - 1)
+
+        code = b""
+        if insn.is_add():
+            code += self.codegen.sub(reg, inverted_imm).bytes
+        else:
+            code += self.codegen.add(reg, inverted_imm).bytes
+
+        return self.to_instructions(code)
 
 
 class MoveFactorImmediateInstructionPass(InstructionMutationPass):

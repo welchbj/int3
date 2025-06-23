@@ -8,6 +8,7 @@ from .compiled_segment import CompiledSegment
 from .instruction import Instruction
 from .passes import (
     InstructionMutationPass,
+    InvertAddOrSubImmediateInstructionPass,
     MoveFactorImmediateInstructionPass,
     MoveSmallImmediateInstructionPass,
 )
@@ -27,6 +28,7 @@ class MutationEngine:
         pass_classes = [
             MoveSmallImmediateInstructionPass,
             MoveFactorImmediateInstructionPass,
+            InvertAddOrSubImmediateInstructionPass,
         ]
         return [cls(segment, self.bad_bytes) for cls in pass_classes]
 
