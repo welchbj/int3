@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from int3.errors import Int3CodeGenerationError
 from int3.platform import Triple
 
-from .compiled_segment import CompiledSegment
+from .code_segment import CodeSegment
 from .instruction import Instruction
 from .passes import (
     InstructionMutationPass,
@@ -23,7 +23,7 @@ class MutationEngine:
     bad_bytes: bytes
 
     def _create_instruction_passes(
-        self, segment: CompiledSegment
+        self, segment: CodeSegment
     ) -> list[InstructionMutationPass]:
         pass_classes = [
             MoveSmallImmediateInstructionPass,
@@ -32,8 +32,8 @@ class MutationEngine:
         ]
         return [cls(segment, self.bad_bytes) for cls in pass_classes]  # type: ignore
 
-    def clean(self) -> CompiledSegment:
-        mutated_segment = CompiledSegment(
+    def clean(self) -> CodeSegment:
+        mutated_segment = CodeSegment(
             triple=self.triple,
             raw_asm=self.raw_asm,
             bad_bytes=self.bad_bytes,
@@ -82,7 +82,7 @@ class MutationEngine:
                 logger.info(f"{Instruction.summary(insn, indent=4)[0]}")
 
         new_program = b"".join(bytes(insn) for insn in new_insn_list)
-        mutated_segment = CompiledSegment(
+        mutated_segment = CodeSegment(
             triple=self.triple, raw_asm=new_program, bad_bytes=self.bad_bytes
         )
 

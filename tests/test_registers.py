@@ -1,5 +1,5 @@
 from int3.architecture import Architecture, Architectures, Registers
-from int3.codegen import CodeGenerator, CompiledSegment
+from int3.codegen import CodeGenerator, CodeSegment
 from int3.platform import Platform, Triple
 
 from .qemu import parametrize_qemu_arch
@@ -26,7 +26,7 @@ def test_register_expansion():
 def test_arithmetic_tainted_register_resolution():
     x86_64 = Architectures.x86_64.value
     linux_x86_64 = Triple(x86_64, Platform.Linux)
-    segment = CompiledSegment.from_asm(
+    segment = CodeSegment.from_asm(
         triple=linux_x86_64,
         asm="""
         mov rax, 0xdead
@@ -49,7 +49,7 @@ def test_arithmetic_tainted_register_resolution():
 
     mips = Architectures.Mips.value
     linux_mips = Triple(mips, Platform.Linux)
-    segment = CompiledSegment.from_asm(
+    segment = CodeSegment.from_asm(
         triple=linux_mips,
         asm="""
         ori $at, $zero, 0xbeef
@@ -76,7 +76,7 @@ def test_arithmetic_tainted_register_resolution():
 def test_linux_syscall_tainted_register_resolution(arch: Architecture):
     triple = Triple(arch, Platform.Linux)
     codegen = CodeGenerator(arch)
-    segment = CompiledSegment(
+    segment = CodeSegment(
         triple=triple, raw_asm=codegen.syscall().bytes, bad_bytes=b""
     )
     assert segment.tainted_regs == set(

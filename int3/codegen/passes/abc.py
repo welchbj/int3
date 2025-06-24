@@ -8,12 +8,12 @@ from ..code_generator import CodeGenerator
 from ..instruction import Instruction
 
 if TYPE_CHECKING:
-    from ..compiled_segment import CompiledSegment
+    from ..code_segment import CodeSegment
 
 
 @dataclass(frozen=True)
 class InstructionMutationPass(ABC):
-    segment: "CompiledSegment"
+    segment: "CodeSegment"
     bad_bytes: bytes
     codegen: CodeGenerator = field(init=False)
 

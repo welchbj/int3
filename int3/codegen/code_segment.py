@@ -10,7 +10,7 @@ from .instruction import Instruction
 
 
 @dataclass(frozen=True)
-class CompiledSegment:
+class CodeSegment:
     triple: Triple
     raw_asm: bytes
     bad_bytes: bytes
@@ -33,9 +33,9 @@ class CompiledSegment:
         object.__setattr__(self, "scratch_regs", self._init_scratch_regs())
 
     @staticmethod
-    def from_asm(triple: Triple, asm: str, bad_bytes: bytes = b"") -> CompiledSegment:
+    def from_asm(triple: Triple, asm: str, bad_bytes: bytes = b"") -> CodeSegment:
         assembled_asm = assemble(arch=triple.arch, assembly=asm)
-        return CompiledSegment(
+        return CodeSegment(
             triple=triple, raw_asm=assembled_asm, bad_bytes=bad_bytes
         )
 
