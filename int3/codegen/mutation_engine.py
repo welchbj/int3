@@ -30,7 +30,7 @@ class MutationEngine:
             MoveFactorImmediateInstructionPass,
             InvertAddOrSubImmediateInstructionPass,
         ]
-        return [cls(segment, self.bad_bytes) for cls in pass_classes]
+        return [cls(segment, self.bad_bytes) for cls in pass_classes]  # type: ignore
 
     def clean(self) -> CompiledSegment:
         mutated_segment = CompiledSegment(
@@ -44,7 +44,7 @@ class MutationEngine:
         # Apply instruction-level passes.
         insn_passes = self._create_instruction_passes(mutated_segment)
         new_insn_list: list[Instruction] = []
-        for insn in mutated_segment.all_instructions:
+        for insn in mutated_segment.instructions:
             # Simply record the instruction if it doesn't contain bad bytes.
             if not insn.is_dirty(self.bad_bytes):
                 new_insn_list.append(insn)
@@ -78,9 +78,7 @@ class MutationEngine:
                     break
             else:
                 new_insn_list.append(insn)
-                logger.info(
-                    "Instruction-level passes could not remove bad bytes from:"
-                )
+                logger.info("Instruction-level passes could not remove bad bytes from:")
                 logger.info(f"{Instruction.summary(insn, indent=4)[0]}")
 
         new_program = b"".join(bytes(insn) for insn in new_insn_list)
