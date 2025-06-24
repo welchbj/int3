@@ -592,8 +592,8 @@ class Compiler:
 
         pad_len = entry_stub_padded_len - len(entry_stub)
 
-        logger.debug(f"Entry stub is {len(entry_stub)} bytes long")
-        logger.debug(f"Using entry stub padding length of {pad_len}")
+        logger.info(f"Entry stub is {len(entry_stub)} bytes long")
+        logger.info(f"Using entry stub padding length of {pad_len}")
 
         preamble = entry_stub + self.codegen.nop_pad(pad_len)
 

@@ -59,9 +59,10 @@ class MutationEngine:
                     continue
 
                 try:
+                    logger.info(f"Invoking {insn_pass.__class__.__name__} for {insn}")
                     mutated_insns = insn_pass.mutate(insn)
                 except Int3CodeGenerationError as e:
-                    logger.debug(f"{insn_pass.__class__.__name__} failed: {e}")
+                    logger.info(f"{insn_pass.__class__.__name__} failed: {e}")
                     continue
 
                 if not any(insn.is_dirty(self.bad_bytes) for insn in mutated_insns):
@@ -69,18 +70,18 @@ class MutationEngine:
                     # instruction.
                     new_insn_list.extend(mutated_insns)
 
-                    logger.debug(f"{insn_pass.__class__.__name__} transformed:")
-                    logger.debug(f"{Instruction.summary(insn, indent=4)[0]}")
-                    logger.debug("into:")
+                    logger.info(f"{insn_pass.__class__.__name__} transformed:")
+                    logger.info(f"{Instruction.summary(insn, indent=4)[0]}")
+                    logger.info("into:")
                     for line in Instruction.summary(*mutated_insns, indent=4):
-                        logger.debug(line)
+                        logger.info(line)
                     break
             else:
                 new_insn_list.append(insn)
-                logger.debug(
+                logger.info(
                     "Instruction-level passes could not remove bad bytes from:"
                 )
-                logger.debug(f"{Instruction.summary(insn, indent=4)[0]}")
+                logger.info(f"{Instruction.summary(insn, indent=4)[0]}")
 
         new_program = b"".join(bytes(insn) for insn in new_insn_list)
         mutated_segment = CompiledSegment(
