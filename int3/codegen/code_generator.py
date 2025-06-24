@@ -57,9 +57,11 @@ class CodeGenerator:
         num_repeats = pad_len // len(nop_bytes)
         return nop_bytes * num_repeats
 
-    def syscall(self) -> AsmGadget:
-        # XXX: Arch-specific code
-        return self.gadget("syscall")
+    def syscall(self, value: ImmType | None = None) -> AsmGadget:
+        if value is None:
+            return self.gadget("syscall")
+        else:
+            return self.gadget(f"syscall {value:#x}")
 
     def breakpoint(self) -> AsmGadget:
         match self.arch:
