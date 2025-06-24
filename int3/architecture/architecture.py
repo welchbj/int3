@@ -1,6 +1,7 @@
 import platform
 import struct
 import sys
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import ClassVar, cast
@@ -93,11 +94,14 @@ class Architecture:
         reg_name_map = {reg.name: reg for reg in self.regs}
         object.__setattr__(self, "_reg_name_map", reg_name_map)
 
-        # Init _reg_clobber_map.
-        reg_clobber_map = {}
+        # Init _reg_clobber_map. We ensure every register is marked as a
+        # clobber of itself before adding the explicit clobbers.
+        reg_clobber_map = defaultdict(set)
+        for reg in self.regs:
+            reg_clobber_map[reg].add(reg)
         for reg_clobber_set in self.reg_clobber_groups:
             for reg in reg_clobber_set:
-                reg_clobber_map[reg] = reg_clobber_set
+                reg_clobber_map[reg] |= reg_clobber_set
         object.__setattr__(self, "_reg_clobber_map", reg_clobber_map)
 
     def is_okay_value(self, imm: int) -> bool:
@@ -125,10 +129,13 @@ class Architecture:
 
         return f"{endian_format}{width_format}"
 
-    def expand_regs(self, *regs: RegisterDef) -> tuple[RegisterDef, ...]:
+    def expand_regs(self, *regs: RegisterDef | str) -> tuple[RegisterDef, ...]:
         """Expand an input set of registers to include all implicit clobbers."""
         reg_list: list[RegisterDef] = []
         for reg in regs:
+            if isinstance(reg, str):
+                reg = self.reg(reg)
+
             reg_list.append(reg)
             reg_list.extend(self._reg_clobber_map[reg])
 
@@ -181,7 +188,6 @@ class Architecture:
             )
 
         signed = value < 0
-
         format_str = self._make_struct_format_str(width=width, signed=signed)
         try:
             return struct.pack(format_str, value)
