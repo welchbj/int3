@@ -94,7 +94,7 @@ class MutationEngine:
         )
         all_insn_lines = Instruction.summary(*mutated_segment.instructions, indent=4)
         raise Int3CodeGenerationError(
-            "Unable to clean bad bytes from the following instructions:\n"
+            "\n\nUnable to clean bad bytes from the following instructions:\n"
             + "\n".join(dirty_insn_lines)
             + "\n"
             + "Full segment:\n"

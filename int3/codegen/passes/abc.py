@@ -28,7 +28,7 @@ class InstructionMutationPass(ABC):
         return any(b in data for b in self.bad_bytes)
 
     def to_instructions(self, data: bytes) -> tuple[Instruction, ...]:
-        return Instruction.from_bytes(data, self.arch)
+        return Instruction.from_bytes(data, self.segment.triple)
 
     @abstractmethod
     def should_mutate(self, insn: Instruction) -> bool:

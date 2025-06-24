@@ -22,7 +22,7 @@ class CompiledSegment:
 
     def __post_init__(self):
         all_insns = tuple(
-            Instruction(cs_insn=cs_insn, arch=self.arch)
+            Instruction(cs_insn=cs_insn, triple=self.triple)
             for cs_insn in disassemble(self.arch, self.raw_asm)
         )
         dirty_insns = tuple(insn for insn in all_insns if insn.is_dirty(self.bad_bytes))

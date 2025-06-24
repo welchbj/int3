@@ -6,11 +6,12 @@ import textwrap
 from dataclasses import dataclass, field
 from typing import cast
 
-from capstone import CS_OP_IMM, CS_OP_REG, CsInsn
+from capstone import CS_OP_IMM, CS_OP_REG, CsError, CsInsn
 
 from int3.architecture import Architecture, RegisterDef
 from int3.assembly import disassemble
 from int3.errors import Int3CodeGenerationError, Int3MissingEntityError
+from int3.platform import Triple
 
 logger = logging.getLogger(__name__)
 
@@ -58,32 +59,73 @@ class OperandView:
 @dataclass(frozen=True)
 class Instruction:
     cs_insn: CsInsn
-    arch: Architecture
+    triple: Triple
 
     raw: bytes = field(init=False)
     mnemonic: str = field(init=False)
     operands: OperandView = field(init=False)
     tainted_regs: set[RegisterDef] = field(init=False)
 
+    _cs_group_names: set[str] = field(init=False)
+
     def __post_init__(self):
         object.__setattr__(self, "raw", self.cs_insn.bytes)
         object.__setattr__(self, "mnemonic", self.cs_insn.mnemonic)
         object.__setattr__(self, "operands", OperandView(self))
+
+        cs_group_names = [
+            self.cs_insn.group_name(group_id) for group_id in self.cs_insn.groups
+        ]
+        object.__setattr__(self, "_cs_group_names", cs_group_names)
+
+        # We initialize tainted_regs last, as it's the most involved field to
+        # initialize and relies on other members of this class already being
+        # available.
         object.__setattr__(self, "tainted_regs", self._init_tainted_regs())
 
     def _init_tainted_regs(self) -> set[RegisterDef]:
+        regs_written: list[str | RegisterDef] = []
+
+        # Captsone is not aware of syscall conventions, so we handle this
+        # special case first.
+        if self.is_syscall():
+            regs_written.append(self.triple.syscall_convention.result)
+
+        try:
+            # Ideally, we will get the tainted register names from Captone's
+            # semantic understanding of the instruction.
+            _, regs_written_cs_id = self.cs_insn.regs_access()
+            regs_written.extend(
+                self.cs_insn.reg_name(cs_reg_id) for cs_reg_id in regs_written_cs_id
+            )
+        except CsError:
+            # If that's not supported on an architecture, we assume the
+            # destination register of the operation is tainted.
+            if self.is_jump() or self.is_branch():
+                pass
+            elif len(self.operands) >= 1 and self.operands.is_reg(0):
+                regs_written.append(self.operands.reg(0))
+            else:
+                pass
+
         tainted_regs = set()
-        for cs_reg_id in self.cs_insn.regs_write:
-            reg_name = self.cs_insn.reg_name(cs_reg_id)
+        for reg_or_str in regs_written:
             try:
-                reg = self.arch.reg(reg_name)
-            except Int3MissingEntityError as e:
-                logger.debug(f"Skipping reported tainted reg: {reg_name}")
+                if isinstance(reg_or_str, str):
+                    reg = self.arch.reg(reg_or_str)
+                else:
+                    reg = reg_or_str
+            except Int3MissingEntityError:
+                logger.debug(f"Skipping unexpected reported tainted reg: {reg_or_str}")
                 continue
 
             tainted_regs |= set(self.arch.expand_regs(reg))
 
         return tainted_regs
+
+    @property
+    def arch(self) -> Architecture:
+        return self.triple.arch
 
     @property
     def op_str(self) -> str:
@@ -108,16 +150,22 @@ class Instruction:
     def is_dirty(self, bad_bytes: bytes) -> bool:
         return any(b in self.raw for b in bad_bytes)
 
+    def is_jump(self) -> bool:
+        return "jump" in self._cs_group_names
+
+    def is_branch(self) -> bool:
+        return "branch_relative" in self._cs_group_names
+
+    def is_syscall(self) -> bool:
+        return self.mnemonic.startswith("syscall")
+
     def is_mov(self) -> bool:
-        # XXX: This is kind of a lazy approach that might be inaccurate.
         return self.mnemonic.startswith("mov")
 
     def is_add(self) -> bool:
-        # XXX: This is kind of a lazy approach that might be inaccurate.
         return self.mnemonic.startswith("add")
 
     def is_sub(self) -> bool:
-        # XXX: This is kind of a lazy approach that might be inaccurate.
         return self.mnemonic.startswith("sub")
 
     @staticmethod
@@ -134,8 +182,8 @@ class Instruction:
         ).splitlines()
 
     @staticmethod
-    def from_bytes(raw: bytes, arch: Architecture) -> tuple[Instruction, ...]:
+    def from_bytes(raw: bytes, triple: Triple) -> tuple[Instruction, ...]:
         return tuple(
-            Instruction(cs_insn=cs_insn, arch=arch)
-            for cs_insn in disassemble(arch=arch, machine_code=raw)
+            Instruction(cs_insn=cs_insn, triple=triple)
+            for cs_insn in disassemble(arch=triple.arch, machine_code=raw)
         )
