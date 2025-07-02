@@ -74,10 +74,10 @@ class OperandView:
         new_cs_insn = new_cs_insns[0]
         new_insn = Instruction(cs_insn=new_cs_insn, triple=self.insn.triple)
 
-        logger.info(f"Replaced operand index {index} of:")
-        logger.info(f"    {self.insn}")
-        logger.info(f"To:")
-        logger.info(f"    {new_insn}")
+        logger.debug(f"Replaced operand index {index} of:")
+        logger.debug(f"    {self.insn}")
+        logger.debug("To:")
+        logger.debug(f"    {new_insn}")
 
         return new_insn
 
