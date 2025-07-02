@@ -35,9 +35,7 @@ class CodeSegment:
     @staticmethod
     def from_asm(triple: Triple, asm: str, bad_bytes: bytes = b"") -> CodeSegment:
         assembled_asm = assemble(arch=triple.arch, assembly=asm)
-        return CodeSegment(
-            triple=triple, raw_asm=assembled_asm, bad_bytes=bad_bytes
-        )
+        return CodeSegment(triple=triple, raw_asm=assembled_asm, bad_bytes=bad_bytes)
 
     @property
     def arch(self) -> Architecture:
@@ -67,5 +65,5 @@ class CodeSegment:
             if reg not in self.tainted_regs
         )
 
-    def scratch_reg_for_size(self, bit_size: int) -> RegisterDef:
-        return next(reg for reg in self.scratch_regs if reg.bit_size == bit_size)
+    def scratch_regs_for_size(self, bit_size: int) -> tuple[RegisterDef, ...]:
+        return tuple(reg for reg in self.scratch_regs if reg.bit_size == bit_size)

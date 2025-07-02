@@ -9,7 +9,7 @@ from typing import cast
 from capstone import CS_OP_IMM, CS_OP_REG, CsError, CsInsn
 
 from int3.architecture import Architecture, RegisterDef
-from int3.assembly import disassemble
+from int3.assembly import assemble, disassemble
 from int3.errors import Int3CodeGenerationError, Int3MissingEntityError
 from int3.platform import Triple
 
@@ -51,6 +51,35 @@ class OperandView:
 
     def imm(self, index: int) -> int:
         return cast(int, self.cs_insn.operands[index].value.imm)
+
+    def replace(self, index: int, operand: int | RegisterDef) -> Instruction:
+        """Replace the operand at the specified index with an immediate or register."""
+        operands: list[int | str | RegisterDef] = [
+            token.strip() for token in self.insn.op_str.split(",")
+        ]
+        operands[index] = operand
+
+        new_insn_str = self.insn.mnemonic
+        new_insn_str += " "
+        new_insn_str += ", ".join(str(o) for o in operands)
+
+        new_machine_code = assemble(arch=self.arch, assembly=new_insn_str)
+        new_cs_insns = disassemble(arch=self.arch, machine_code=new_machine_code)
+        if len(new_cs_insns) != 1:
+            raise Int3CodeGenerationError(
+                f"Replacing operand {index} in {self.insn} turned it into {len(new_cs_insns)} "
+                f"instructions: {', '.join(new_cs_insns)}"
+            )
+
+        new_cs_insn = new_cs_insns[0]
+        new_insn = Instruction(cs_insn=new_cs_insn, triple=self.insn.triple)
+
+        logger.info(f"Replaced operand index {index} of:")
+        logger.info(f"    {self.insn}")
+        logger.info(f"To:")
+        logger.info(f"    {new_insn}")
+
+        return new_insn
 
     def __len__(self) -> int:
         return len(self.cs_insn.operands)
@@ -144,7 +173,7 @@ class Instruction:
             alignment += 1
         line = line.ljust(alignment, " ")
         if with_hex:
-            line += f"({asm_hex})"
+            line += f" ({asm_hex})"
         return line
 
     def is_dirty(self, bad_bytes: bytes) -> bool:

@@ -1,14 +1,7 @@
-from typing import Iterator
+from typing import Iterable
 
 from int3.architecture import RegisterDef
-from int3.errors import Int3UnsuitableCodeMutation, Int3WrappedKeystoneError
-from int3.factor import (
-    FactorClause,
-    FactorContext,
-    FactorOperation,
-    FactorResult,
-    compute_factor,
-)
+from int3.errors import Int3UnsuitableCodeMutation
 
 from ..instruction import Instruction
 from .abc import InstructionMutationPass
@@ -44,7 +37,8 @@ class InvertAddOrSubImmediateInstructionPass(InstructionMutationPass):
     def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
         reg = insn.operands.reg(0)
         imm = insn.operands.imm(1)
-        inverted_imm = ~imm & (2**reg.bit_size - 1)
+        inverted_imm = (~imm & (2**reg.bit_size - 1)) + 1
+        print(f"{hex(inverted_imm) = }")
 
         code = b""
         if insn.is_add():
@@ -55,94 +49,51 @@ class InvertAddOrSubImmediateInstructionPass(InstructionMutationPass):
         return self.to_instructions(code)
 
 
-class MoveFactorImmediateInstructionPass(InstructionMutationPass):
+class FactorImmediateInstructionPass(InstructionMutationPass):
     def should_mutate(self, insn: Instruction) -> bool:
-        return insn.is_mov() and insn.operands.is_reg(0) and insn.operands.is_imm(1)
+        # TODO: Deal with Mips-style 3-register instructions.
+        return insn.operands.is_reg(0) and insn.operands.is_imm(1)
 
     def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
         reg = insn.operands.reg(0)
         imm = insn.operands.imm(1)
-        factor_result = self._factor_to_imm(imm, width=reg.bit_size)
+        scratch_regs = tuple(self.segment.scratch_regs_for_size(reg.bit_size))
 
-        code = b""
-        for clause in factor_result.clauses:
-            asm_candidates = list(self._factor_clause_to_asm(clause, reg))
-            if not asm_candidates:
-                raise Int3UnsuitableCodeMutation(
-                    "Unable to generate any factor clauses"
-                )
+        # If the goal is to "simply" load an immediate into a register, then we
+        # can lean directly on the codegen API.
+        if insn.is_mov():
+            return self._put_insns(dest=reg, imm=imm, scratch_regs=scratch_regs)
 
-            filtered_asm_candidates = [
-                candidate
-                for candidate in asm_candidates
-                if not self.is_dirty(candidate)
-            ]
-            if not filtered_asm_candidates:
-                raise Int3UnsuitableCodeMutation(
-                    "Unable to generate clean factor clauses"
-                )
+        # Otherwise, we need to put a value into an intermediary scratch register,
+        # and then replace the immediate in the original instruction with the scratch
+        # register.
+        candidate_insn_sequences = []
+        for scratch_reg in scratch_regs:
+            modified_scratch_regs = set(scratch_regs) - {scratch_reg}
+            put_insns = self._put_insns(
+                dest=reg, imm=imm, scratch_regs=modified_scratch_regs
+            )
 
-            # Choose the shortest of the available candidates.
-            new_code = min(asm_candidates, key=len)
-            code += new_code
+            new_insns = *put_insns, insn.operands.replace(1, scratch_reg)
+            candidate_insn_sequences.append(new_insns)
 
-        return self.to_instructions(code)
-
-    def _factor_to_imm(self, imm: int, width: int) -> FactorResult:
-        allow_overflow = width == self.arch.bit_size
-        factor_ctx = FactorContext(
-            arch=self.arch,
-            target=imm,
-            bad_bytes=self.bad_bytes,
-            allow_overflow=allow_overflow,
-            width=width,
+        return min(
+            candidate_insn_sequences, key=lambda x: sum(len(insn.raw) for insn in x)
         )
-        return compute_factor(factor_ctx)
 
-    # TODO: We can split up clear gadgets
+    def _put_insns(
+        self, dest: RegisterDef, imm: int, scratch_regs: Iterable[RegisterDef]
+    ) -> tuple[Instruction, ...]:
+        raw_candidates: list[bytes] = []
 
-    def _mov_instructions(self, reg: RegisterDef, imm: int) -> Iterator[bytes]:
-        yield self.codegen.mov(reg, imm).bytes
+        for scratch_reg in scratch_regs:
+            gadgets = self.codegen.hl_put(
+                dest=dest,
+                value=imm,
+                scratch=scratch_reg,
+                bad_bytes=self.bad_bytes,
+            )
+            raw_candidate = b"".join(gadget.bytes for gadget in gadgets)
+            raw_candidates.append(raw_candidate)
 
-        try:
-            yield self.codegen.xor(reg, reg).bytes + self.codegen.add(reg, imm).bytes
-        except Int3WrappedKeystoneError:
-            pass
-
-        # TODO: Others
-
-    def _factor_clause_to_asm(
-        self, clause: FactorClause, reg: RegisterDef
-    ) -> Iterator[bytes]:
-        scratch_reg = self.segment.scratch_reg_for_size(reg.bit_size)
-        imm = clause.operand
-
-        match clause.operation:
-            case FactorOperation.Init:
-                yield from self._mov_instructions(reg, imm)
-            case FactorOperation.Sub:
-                try:
-                    yield self.codegen.sub(reg, imm).bytes
-                except Int3WrappedKeystoneError:
-                    pass
-
-                for mov_insn in self._mov_instructions(scratch_reg, imm):
-                    yield mov_insn + self.codegen.sub(reg, scratch_reg).bytes
-            case FactorOperation.Add:
-                try:
-                    yield self.codegen.add(reg, imm).bytes
-                except Int3WrappedKeystoneError:
-                    pass
-
-                for mov_insn in self._mov_instructions(scratch_reg, imm):
-                    yield mov_insn + self.codegen.add(reg, scratch_reg).bytes
-            case FactorOperation.Xor:
-                try:
-                    yield self.codegen.xor(reg, imm).bytes
-                except Int3WrappedKeystoneError:
-                    pass
-
-                for mov_insn in self._mov_instructions(scratch_reg, imm):
-                    yield mov_insn + self.codegen.xor(reg, scratch_reg).bytes
-            case FactorOperation.Neg:
-                raise NotImplementedError("Negation support not yet implemented")
+        return self.choose(raw_candidates)

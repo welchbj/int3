@@ -3,10 +3,18 @@ from __future__ import annotations
 import logging
 import textwrap
 from dataclasses import dataclass, field
+from typing import Iterator
 
 from int3.architecture import Architecture, Architectures, RegisterDef
 from int3.assembly import assemble
-from int3.errors import Int3CodeGenerationError
+from int3.errors import Int3CodeGenerationError, Int3WrappedKeystoneError
+from int3.factor import (
+    FactorClause,
+    FactorContext,
+    FactorOperation,
+    FactorResult,
+    compute_factor,
+)
 
 type RegType = RegisterDef | str
 type ImmType = int
@@ -128,3 +136,91 @@ class CodeGenerator:
                     return self.gadget(f"jr {value}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
+
+    def hl_put(
+        self,
+        dest: RegType,
+        value: ImmType,
+        scratch: RegisterDef,
+        bad_bytes: bytes = b"",
+    ) -> tuple[AsmGadget, ...]:
+        if isinstance(dest, str):
+            dest = self.arch.reg(dest)
+
+        factor_result = self._factor_imm(
+            value, width=dest.bit_size, bad_bytes=bad_bytes
+        )
+
+        gadget_sequence: list[AsmGadget] = []
+        for clause in factor_result.clauses:
+            asm_candidates = list(self._factor_clause_to_asm(clause, dest, scratch))
+            if not asm_candidates:
+                raise Int3CodeGenerationError("Unable to generate any factor clauses")
+
+            for asm_candidate in asm_candidates:
+                asm_candidate_raw = b"".join(gadget.bytes for gadget in asm_candidate)
+                if not any(b in asm_candidate_raw for b in bad_bytes):
+                    gadget_sequence.extend(asm_candidate)
+                    break
+            else:
+                raise Int3CodeGenerationError("Unable to generate clean factor clauses")
+
+        return tuple(gadget_sequence)
+
+    def hl_clear(self, dest: RegType) -> AsmGadget:
+        # TODO
+        raise NotImplementedError("hl_clear not yet implemented")
+
+    def ll_put(self, dest: RegisterDef, imm: int) -> Iterator[tuple[AsmGadget, ...]]:
+        yield (self.mov(dest, imm),)
+
+        try:
+            yield self.xor(dest, dest), self.add(dest, imm)
+        except Int3WrappedKeystoneError:
+            pass
+
+    def _factor_clause_to_asm(
+        self, clause: FactorClause, dest: RegisterDef, scratch: RegisterDef
+    ) -> Iterator[tuple[AsmGadget, ...]]:
+        imm = clause.operand
+
+        match clause.operation:
+            case FactorOperation.Init:
+                yield from self.ll_put(dest, imm)
+            case FactorOperation.Sub:
+                try:
+                    yield (self.sub(dest, imm),)
+                except Int3WrappedKeystoneError:
+                    pass
+
+                for gadgets in self.ll_put(scratch, imm):
+                    yield *gadgets, self.sub(dest, scratch)
+            case FactorOperation.Add:
+                try:
+                    yield (self.add(dest, imm),)
+                except Int3WrappedKeystoneError:
+                    pass
+
+                for gadgets in self.ll_put(scratch, imm):
+                    yield *gadgets, self.add(dest, scratch)
+            case FactorOperation.Xor:
+                try:
+                    yield (self.xor(dest, imm),)
+                except Int3WrappedKeystoneError:
+                    pass
+
+                for gadgets in self.ll_put(scratch, imm):
+                    yield *gadgets, self.xor(dest, scratch)
+            case FactorOperation.Neg:
+                raise NotImplementedError("Negation support not yet implemented")
+
+    def _factor_imm(self, imm: int, width: int, bad_bytes: bytes) -> FactorResult:
+        allow_overflow = width == self.arch.bit_size
+        factor_ctx = FactorContext(
+            arch=self.arch,
+            target=imm,
+            bad_bytes=bad_bytes,
+            allow_overflow=allow_overflow,
+            width=width,
+        )
+        return compute_factor(factor_ctx)

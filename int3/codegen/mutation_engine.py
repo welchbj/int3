@@ -7,9 +7,9 @@ from int3.platform import Triple
 from .code_segment import CodeSegment
 from .instruction import Instruction
 from .passes import (
+    FactorImmediateInstructionPass,
     InstructionMutationPass,
     InvertAddOrSubImmediateInstructionPass,
-    MoveFactorImmediateInstructionPass,
     MoveSmallImmediateInstructionPass,
 )
 
@@ -27,7 +27,7 @@ class MutationEngine:
     ) -> list[InstructionMutationPass]:
         pass_classes = [
             MoveSmallImmediateInstructionPass,
-            MoveFactorImmediateInstructionPass,
+            FactorImmediateInstructionPass,
             InvertAddOrSubImmediateInstructionPass,
         ]
         return [cls(segment, self.bad_bytes) for cls in pass_classes]  # type: ignore

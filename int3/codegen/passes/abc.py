@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 
 from int3.architecture import Architecture
 
@@ -29,6 +29,12 @@ class InstructionMutationPass(ABC):
 
     def to_instructions(self, data: bytes) -> tuple[Instruction, ...]:
         return Instruction.from_bytes(data, self.segment.triple)
+
+    def choose(self, seq: Iterable[bytes]) -> tuple[Instruction, ...]:
+        chosen_code = min(
+            iter(data for data in seq if not self.is_dirty(data)), key=len
+        )
+        return self.to_instructions(chosen_code)
 
     @abstractmethod
     def should_mutate(self, insn: Instruction) -> bool:
