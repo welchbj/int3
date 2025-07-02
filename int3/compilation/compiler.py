@@ -463,7 +463,7 @@ class Compiler:
         #
         # See: https://stackoverflow.com/a/40498306
         target_machine = target.create_target_machine(
-            opt=0, reloc="pic", codemodel="small"
+            opt=0, reloc="static", codemodel="small"
         )
         target_machine.set_asm_verbosity(verbose=True)
 
