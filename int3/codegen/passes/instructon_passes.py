@@ -71,7 +71,7 @@ class FactorImmediateInstructionPass(InstructionMutationPass):
         for scratch_reg in scratch_regs:
             modified_scratch_regs = set(scratch_regs) - {scratch_reg}
             put_insns = self._put_insns(
-                dest=reg, imm=imm, scratch_regs=modified_scratch_regs
+                dest=scratch_reg, imm=imm, scratch_regs=modified_scratch_regs
             )
 
             new_insns = *put_insns, insn.operands.replace(1, scratch_reg)
