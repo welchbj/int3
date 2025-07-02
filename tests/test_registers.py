@@ -76,9 +76,7 @@ def test_arithmetic_tainted_register_resolution():
 def test_linux_syscall_tainted_register_resolution(arch: Architecture):
     triple = Triple(arch, Platform.Linux)
     codegen = CodeGenerator(arch)
-    segment = CodeSegment(
-        triple=triple, raw_asm=codegen.syscall().bytes, bad_bytes=b""
-    )
+    segment = CodeSegment(triple=triple, raw_asm=codegen.syscall().bytes, bad_bytes=b"")
     assert segment.tainted_regs == set(
         arch.expand_regs(triple.syscall_convention.result)
     )
