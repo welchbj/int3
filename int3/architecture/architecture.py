@@ -61,6 +61,7 @@ class Architecture:
     # See: https://stackoverflow.com/a/39114754
     clang_name: str
     llvm_reg_prefix: str
+    keystone_reg_prefix: str
 
     keystone_arch: int
     keystone_mode: int
@@ -221,6 +222,7 @@ class Architectures(Enum):
         ghidra_name="x86:LE:32:default",
         clang_name="i386",
         llvm_reg_prefix="%",
+        keystone_reg_prefix="",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
@@ -249,6 +251,7 @@ class Architectures(Enum):
         ghidra_name="x86:LE:64:default",
         clang_name="x86_64",
         llvm_reg_prefix="%",
+        keystone_reg_prefix="",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
@@ -365,6 +368,7 @@ class Architectures(Enum):
         ghidra_name="MIPS:BE:32:default",
         clang_name="mips",
         llvm_reg_prefix="$$",
+        keystone_reg_prefix="$",
         keystone_arch=KS_ARCH_MIPS,
         keystone_mode=KS_MODE_MIPS32 + KS_MODE_BIG_ENDIAN,
         capstone_arch=CS_ARCH_MIPS,
