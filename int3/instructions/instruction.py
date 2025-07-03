@@ -66,7 +66,7 @@ class OperandView:
     def _fix_index(self, index: int) -> int:
         if len(self) == 0:
             raise Int3CodeGenerationError("Tried to index into an empty operand view")
-        elif index < 0 and abs(index) >= len(self):
+        elif index < 0 and abs(index) > len(self):
             raise Int3CodeGenerationError(
                 f"Negative index {index} is too large for operand view of length {len(self)}"
             )
