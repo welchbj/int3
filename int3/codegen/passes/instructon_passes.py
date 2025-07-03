@@ -26,27 +26,23 @@ class MoveSmallImmediateInstructionPass(InstructionMutationPass):
         raise Int3UnsuitableCodeMutation(f"Immediate {imm:#x} is too large")
 
 
-class InvertAddOrSubImmediateInstructionPass(InstructionMutationPass):
+class AddSyscallOperandInstructionPass(InstructionMutationPass):
+    """Add an operand to a syscall instruction to eliminate bad bytes.
+
+    For example, the naked syscall instruction on Mips assembles to
+    0000000c, containing null bytes. The addition of an immediate operand
+    encodes the immediate in the place of these null bytes.
+
+    """
+
     def should_mutate(self, insn: Instruction) -> bool:
-        return (
-            (insn.is_add() or insn.is_sub())
-            and insn.operands.is_reg(0)
-            and insn.operands.is_imm(1)
-        )
+        return insn.is_syscall() and len(insn.operands) == 0
 
     def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
-        reg = insn.operands.reg(0)
-        imm = insn.operands.imm(1)
-        inverted_imm = (~imm & (2**reg.bit_size - 1)) + 1
-        print(f"{hex(inverted_imm) = }")
+        imm = self.segment.make_clean_imm()
+        raw_asm = self.codegen.syscall(imm).bytes
+        return self.to_instructions(raw_asm)
 
-        code = b""
-        if insn.is_add():
-            code += self.codegen.sub(reg, inverted_imm).bytes
-        else:
-            code += self.codegen.add(reg, inverted_imm).bytes
-
-        return self.to_instructions(code)
 
 
 class FactorImmediateInstructionPass(InstructionMutationPass):

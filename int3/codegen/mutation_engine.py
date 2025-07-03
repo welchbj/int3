@@ -7,6 +7,7 @@ from int3.platform import Triple
 
 from .code_segment import CodeSegment
 from .passes import (
+    AddSyscallOperandInstructionPass,
     FactorImmediateInstructionPass,
     InstructionMutationPass,
     InvertAddOrSubImmediateInstructionPass,
@@ -26,6 +27,7 @@ class MutationEngine:
         self, segment: CodeSegment
     ) -> list[InstructionMutationPass]:
         pass_classes = [
+            AddSyscallOperandInstructionPass,
             MoveSmallImmediateInstructionPass,
             FactorImmediateInstructionPass,
             InvertAddOrSubImmediateInstructionPass,
