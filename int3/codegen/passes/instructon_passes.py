@@ -9,7 +9,12 @@ from .abc import InstructionMutationPass
 
 class MoveSmallImmediateInstructionPass(InstructionMutationPass):
     def should_mutate(self, insn: Instruction) -> bool:
-        return insn.is_mov() and insn.operands.is_reg(0) and insn.operands.is_imm(1)
+        return (
+            insn.is_mov()
+            and len(insn.operands) >= 2
+            and insn.operands.is_reg(0)
+            and insn.operands.is_imm(-1)
+        )
 
     def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
         reg = insn.operands.reg(0)
@@ -47,7 +52,11 @@ class AddSyscallOperandInstructionPass(InstructionMutationPass):
 
 class FactorImmediateInstructionPass(InstructionMutationPass):
     def should_mutate(self, insn: Instruction) -> bool:
-        return insn.operands.is_reg(0) and insn.operands.is_imm(-1)
+        return (
+            len(insn.operands) >= 2
+            and insn.operands.is_reg(0)
+            and insn.operands.is_imm(-1)
+        )
 
     def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
         reg = insn.operands.reg(0)
