@@ -34,6 +34,7 @@ def test_triple_insn_factory():
     assert insns[0].operands.is_reg(0)
     assert not insns[0].operands.is_imm(0)
     assert insns[0].operands.reg(0) == x86_64.reg("rdx")
+    assert insns[0].operands.token(0) == "rdx"
 
     # syscall
     assert insns[1].mnemonic == "syscall"
@@ -50,6 +51,8 @@ def test_triple_insn_factory():
     assert insns[2].operands.is_reg(1)
     assert insns[2].operands.reg(0) == x86_64.reg("rax")
     assert insns[2].operands.reg(1) == x86_64.reg("r15")
+    assert insns[2].operands.token(0) == "rax"
+    assert insns[2].operands.token(1) == "r15"
 
     # lea rdi, [rip+0x100]
     assert insns[3].mnemonic == "lea"
@@ -60,6 +63,8 @@ def test_triple_insn_factory():
     assert insns[3].operands.reg(0) == x86_64.reg("rdi")
     assert insns[3].operands.is_mem(1)
     assert insns[3].operands.mem(1) == MemoryOperand(x86_64.reg("rip"), 0x100)
+    assert insns[3].operands.token(0) == "rdi"
+    assert insns[3].operands.token(1) == "[rip + 0x100]"
 
     # mov byte ptr [rax], 0x1
     assert insns[4].mnemonic == "mov"
@@ -67,6 +72,8 @@ def test_triple_insn_factory():
     assert len(insns[4].operands) == 2
     assert insns[4].operands.mem(0) == MemoryOperand(x86_64.reg("rax"), 0, "byte ptr")
     assert insns[4].operands.imm(1) == 1
+    assert insns[4].operands.token(0) == "byte ptr [rax]"
+    assert insns[4].operands.token(1) == "1"
 
     # call qword ptr [rsp-0x10]
     assert insns[5].mnemonic == "call"
@@ -76,6 +83,7 @@ def test_triple_insn_factory():
     assert insns[5].operands.mem(0) == MemoryOperand(
         x86_64.reg("rsp"), -0x10, "qword ptr"
     )
+    assert insns[5].operands.token(0) == "qword ptr [rsp - 0x10]"
 
     # Mips tests
     # ~~~~~~~~~~
@@ -136,11 +144,23 @@ def test_access_operand_out_of_bounds():
 
 
 def test_access_operand_via_negative_index():
+    x86_64 = Architectures.x86_64.value
+    linux_x86_64 = Triple(x86_64, Platform.Linux)
+
+    insn = linux_x86_64.one_insn_or_raise("xor rax, rbx")
+    assert insn.operands.reg(-1) == x86_64.reg("rbx")
+    assert insn.operands.reg(-2) == x86_64.reg("rax")
+
+    with pytest.raises(Int3CodeGenerationError):
+        insn.operands.token(-3)
+
+
+def test_patch_immediate_with_register():
     # TODO
     assert False
 
 
-def test_patch_immediate_with_register():
+def test_patch_memory_operand():
     # TODO
     assert False
 
@@ -149,6 +169,7 @@ def test_memory_operand_str():
     x86_64 = Architectures.x86_64.value
     rax = x86_64.reg("rax")
 
-    assert str(MemoryOperand(rax, 0xFF)) == "[rax + 0xff]"
+    assert str(MemoryOperand(rax, 100)) == "[rax + 100]"
     assert str(MemoryOperand(rax, 0)) == "[rax]"
-    assert str(MemoryOperand(rax, 0)) == "[rax]"
+    assert str(MemoryOperand(rax, -200)) == "[rax - 200]"
+    assert str(MemoryOperand(rax, 1, "byte ptr")) == "byte ptr [rax + 1]"

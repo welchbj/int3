@@ -4,7 +4,7 @@ import binascii
 import logging
 import textwrap
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from capstone import CS_OP_IMM, CS_OP_MEM, CS_OP_REG, CsError, CsInsn
 
@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class MemoryOperand:
     reg: RegisterDef
     offset: int
-    ptr_desc: str = ""
+    ptr_desc: Literal["", "byte ptr", "dword ptr", "qword ptr"] = ""
 
     def __str__(self) -> str:
         deref_str: str
@@ -45,6 +45,15 @@ class MemoryOperand:
 @dataclass(frozen=True)
 class OperandView:
     insn: Instruction
+
+    tokens: tuple[str, ...] = field(init=False)
+
+    def __post_init__(self):
+        object.__setattr__(
+            self,
+            "tokens",
+            tuple(token.strip() for token in self.insn.op_str.split(",")),
+        )
 
     @property
     def cs_insn(self) -> CsInsn:
@@ -84,8 +93,7 @@ class OperandView:
     def token(self, index: int) -> str:
         """Retrieve the raw operand token."""
         index = self._fix_index(index)
-        tokens = [token.strip() for token in self.insn.op_str.split(",")]
-        return tokens[index]
+        return self.tokens[index]
 
     def is_reg(self, index: int) -> bool:
         index = self._fix_index(index)
@@ -132,11 +140,13 @@ class OperandView:
 
         return MemoryOperand(reg, offset, ptr_desc)
 
-    def replace(self, index: int, operand: int | RegisterDef) -> Instruction:
+    def replace(
+        self, index: int, operand: int | RegisterDef | MemoryOperand
+    ) -> Instruction:
         """Replace the operand at the specified index with an immediate or register."""
         index = self._fix_index(index)
 
-        operands: list[int | str | RegisterDef] = [
+        operands: list[int | str | RegisterDef | MemoryOperand] = [
             token.strip() for token in self.insn.op_str.split(",")
         ]
         operands[index] = operand
@@ -290,9 +300,6 @@ class Instruction:
 
     def is_or(self) -> bool:
         return self.mnemonic.startswith("or")
-
-    def is_pop(self) -> bool:
-        return self.mnemonic.startswith("pop")
 
     def is_and(self) -> bool:
         return self.mnemonic.startswith("and")
