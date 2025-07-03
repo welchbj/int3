@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 
 from int3.architecture import Architecture, RegisterDef
 from int3.assembly import assemble, disassemble
+from int3.errors import Int3CodeGenerationError
 from int3.instructions import Instruction
 from int3.platform import Triple
 
@@ -66,3 +67,26 @@ class CodeSegment:
 
     def scratch_regs_for_size(self, bit_size: int) -> tuple[RegisterDef, ...]:
         return tuple(reg for reg in self.scratch_regs if reg.bit_size == bit_size)
+
+    def make_clean_imm(self, bit_size: int | None = None) -> int:
+        """Create an immediate value that won't contain bad bytes when assembled."""
+        # XXX: This will need to account for arch-specific immediate encoding (.e.g., for ARM).
+        if bit_size is None:
+            bit_size = self.arch.bit_size
+
+        if bit_size % self.arch.BITS_IN_A_BYTE:
+            raise Int3CodeGenerationError(
+                f"bit_size must be aligned to {self.arch.BITS_IN_A_BYTE}"
+            )
+
+        num_bytes = bit_size // self.arch.BITS_IN_A_BYTE
+        clean_bytes = bytes([i for i in range(0x100) if i not in self.bad_bytes])
+        if not clean_bytes:
+            raise Int3CodeGenerationError(
+                "Unable to find any byte values that would be clean"
+            )
+
+        clean_byte = clean_bytes[-1]
+        return self.arch.unpack(
+            bytes([clean_byte for _ in range(num_bytes)]), width=bit_size
+        )
