@@ -2,10 +2,10 @@ import logging
 from dataclasses import dataclass
 
 from int3.errors import Int3CodeGenerationError
+from int3.instructions import Instruction
 from int3.platform import Triple
 
 from .code_segment import CodeSegment
-from .instruction import Instruction
 from .passes import (
     FactorImmediateInstructionPass,
     InstructionMutationPass,

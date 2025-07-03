@@ -4,9 +4,8 @@ from dataclasses import dataclass, field
 
 from int3.architecture import Architecture, RegisterDef
 from int3.assembly import assemble, disassemble
+from int3.instructions import Instruction
 from int3.platform import Triple
-
-from .instruction import Instruction
 
 
 @dataclass(frozen=True)

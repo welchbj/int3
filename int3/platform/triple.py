@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from int3.architecture import Architecture, Architectures, RegisterDef, Registers
+from int3.errors import Int3CodeGenerationError
+from int3.instructions import Instruction
 
 from .platform import Platform
 from .syscall_convention import SyscallConvention
@@ -166,3 +168,18 @@ class Triple:
             raise NotImplementedError(
                 "Non-Linux Syscall convention resolution not yet implemented"
             )
+
+    def insns(self, raw: str | bytes) -> tuple[Instruction, ...]:
+        if isinstance(raw, str):
+            return Instruction.from_str(raw, triple=self)
+        else:
+            return Instruction.from_bytes(raw, triple=self)
+
+    def one_insn_or_raise(self, raw: str | bytes) -> Instruction:
+        insns = self.insns(raw)
+        if len(insns) != 1:
+            raise Int3CodeGenerationError(
+                f"Expected one insruction but generated {len(insns)}"
+            )
+
+        return insns[0]

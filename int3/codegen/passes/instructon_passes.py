@@ -2,8 +2,8 @@ from typing import Iterable
 
 from int3.architecture import RegisterDef
 from int3.errors import Int3UnsuitableCodeMutation
+from int3.instructions import Instruction
 
-from ..instruction import Instruction
 from .abc import InstructionMutationPass
 
 
@@ -51,12 +51,11 @@ class InvertAddOrSubImmediateInstructionPass(InstructionMutationPass):
 
 class FactorImmediateInstructionPass(InstructionMutationPass):
     def should_mutate(self, insn: Instruction) -> bool:
-        # TODO: Deal with Mips-style 3-register instructions.
-        return insn.operands.is_reg(0) and insn.operands.is_imm(1)
+        return insn.operands.is_reg(0) and insn.operands.is_imm(-1)
 
     def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
         reg = insn.operands.reg(0)
-        imm = insn.operands.imm(1)
+        imm = insn.operands.imm(-1)
         scratch_regs = tuple(self.segment.scratch_regs_for_size(reg.bit_size))
 
         # If the goal is to "simply" load an immediate into a register, then we
@@ -74,12 +73,13 @@ class FactorImmediateInstructionPass(InstructionMutationPass):
                 dest=scratch_reg, imm=imm, scratch_regs=modified_scratch_regs
             )
 
-            new_insns = *put_insns, insn.operands.replace(1, scratch_reg)
+            new_insns = *put_insns, insn.operands.replace(-1, scratch_reg)
             candidate_insn_sequences.append(new_insns)
 
-        return min(
-            candidate_insn_sequences, key=lambda x: sum(len(insn.raw) for insn in x)
-        )
+        def _insn_tuple_len(insns: tuple[Instruction, ...]) -> int:
+            return sum(len(insn.raw) for insn in insns)
+
+        return min(candidate_insn_sequences, key=_insn_tuple_len)
 
     def _put_insns(
         self, dest: RegisterDef, imm: int, scratch_regs: Iterable[RegisterDef]

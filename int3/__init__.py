@@ -23,11 +23,13 @@ llvm.initialize_all_asmparsers()
 
 # Expose int3 library interface.
 from .architecture import *
+from .codegen import *
 from .compilation import *
 from .errors import *
 from .execution import *
 from .factor import *
 from .format import *
+from .instructions import *
 from .meta import *
 from .platform import *
 from .version import *

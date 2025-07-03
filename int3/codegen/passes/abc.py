@@ -3,9 +3,9 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Iterable
 
 from int3.architecture import Architecture
+from int3.instructions import Instruction
 
 from ..code_generator import CodeGenerator
-from ..instruction import Instruction
 
 if TYPE_CHECKING:
     from ..code_segment import CodeSegment

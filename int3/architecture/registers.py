@@ -19,6 +19,8 @@ class RegisterDef:
 
 
 class x86_64Registers:
+    rip = RegisterDef(name="rip", bit_size=64)
+
     rsp = RegisterDef(name="rsp", bit_size=64)
     esp = RegisterDef(name="esp", bit_size=32)
     sp = RegisterDef(name="sp", bit_size=16)
@@ -101,6 +103,8 @@ class x86_64Registers:
 
 
 class x86Registers:
+    eip = RegisterDef(name="rip", bit_size=32)
+
     esp = RegisterDef(name="esp", bit_size=32)
     sp = RegisterDef(name="sp", bit_size=16)
     spl = RegisterDef(name="spl", bit_size=8)
@@ -138,6 +142,7 @@ class MipsRegisters:
     # llvm_alt_name values are populated from the Registers section of:
     # https://github.com/llvm/llvm-project/blob/main/llvm/lib/Target/Mips/MipsRegisterInfo.td
 
+    zero = RegisterDef(name="zero", bit_size=32, llvm_alt_name="0")
     at = RegisterDef(name="at", bit_size=32, llvm_alt_name="1")
     gp = RegisterDef(name="gp", bit_size=32, llvm_alt_name="28")
     sp = RegisterDef(name="sp", bit_size=32, llvm_alt_name="29")
