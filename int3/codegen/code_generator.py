@@ -69,8 +69,9 @@ class CodeGenerator:
     def nop_pad(self, pad_len: int) -> bytes:
         nop_bytes = self.gadget("nop").bytes
         if pad_len % len(nop_bytes):
-            # TODO
-            1 / 0
+            raise Int3CodeGenerationError(
+                f"Attempted to pad to misaligned length {pad_len:#x}"
+            )
 
         num_repeats = pad_len // len(nop_bytes)
         return nop_bytes * num_repeats
