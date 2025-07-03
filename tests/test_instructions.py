@@ -155,14 +155,30 @@ def test_access_operand_via_negative_index():
         insn.operands.token(-3)
 
 
-def test_patch_immediate_with_register():
-    # TODO
-    assert False
+def test_patch_immediates_and_registers():
+    x86_64 = Architectures.x86_64.value
+    Mips = Architectures.Mips.value
+
+    linux_x86_64 = Triple(x86_64, Platform.Linux)
+    linux_mips = Triple(Mips, Platform.Linux)
+
+    insn = linux_x86_64.one_insn_or_raise("add rax, rcx")
+    insn = insn.operands.replace(-1, 0xBEEF)
+    assert str(insn).startswith("add rax, 0xbeef")
+
+    insn = linux_mips.one_insn_or_raise("xor $a0, $v0, $zero")
+    insn = insn.operands.replace(1, "t9")
+    assert str(insn).startswith("xor $a0, $t9, $zero")
 
 
 def test_patch_memory_operand():
-    # TODO
-    assert False
+    x86_64 = Architectures.x86_64.value
+    linux_x86_64 = Triple(x86_64, Platform.Linux)
+
+    insn = linux_x86_64.one_insn_or_raise("mov dword ptr [ebx], 0xbeef")
+    insn = insn.operands.replace(0, MemoryOperand(x86_64.reg("rax"), 0x64, "qword ptr"))
+    insn = insn.operands.replace(-1, 0xDEAD)
+    assert str(insn).startswith("mov qword ptr [rax + 0x64], 0xdead")
 
 
 def test_memory_operand_str():

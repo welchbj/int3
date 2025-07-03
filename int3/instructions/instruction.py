@@ -15,6 +15,8 @@ from int3.errors import Int3CodeGenerationError, Int3MissingEntityError
 if TYPE_CHECKING:
     from int3.platform import Triple
 
+type PointerDesc = Literal["", "byte ptr", "dword ptr", "qword ptr"]
+
 logger = logging.getLogger(__name__)
 
 
@@ -22,7 +24,7 @@ logger = logging.getLogger(__name__)
 class MemoryOperand:
     reg: RegisterDef
     offset: int
-    ptr_desc: Literal["", "byte ptr", "dword ptr", "qword ptr"] = ""
+    ptr_desc: PointerDesc = ""
 
     def __str__(self) -> str:
         deref_str: str
@@ -122,6 +124,7 @@ class OperandView:
         index = self._fix_index(index)
         cs_mem = self.cs_insn.operands[index].value.mem
 
+        ptr_desc: PointerDesc
         mem_token = self.token(index)
         if mem_token.startswith("["):
             ptr_desc = ""
@@ -141,10 +144,13 @@ class OperandView:
         return MemoryOperand(reg, offset, ptr_desc)
 
     def replace(
-        self, index: int, operand: int | RegisterDef | MemoryOperand
+        self, index: int, operand: int | str | RegisterDef | MemoryOperand
     ) -> Instruction:
         """Replace the operand at the specified index with an immediate or register."""
         index = self._fix_index(index)
+
+        if isinstance(operand, (str, RegisterDef)):
+            operand = self.arch.keystone_reg_prefix + str(operand)
 
         operands: list[int | str | RegisterDef | MemoryOperand] = [
             token.strip() for token in self.insn.op_str.split(",")
