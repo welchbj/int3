@@ -10,7 +10,6 @@ from .passes import (
     AddSyscallOperandInstructionPass,
     FactorImmediateInstructionPass,
     InstructionMutationPass,
-    InvertAddOrSubImmediateInstructionPass,
     MoveSmallImmediateInstructionPass,
 )
 
@@ -30,7 +29,6 @@ class MutationEngine:
             AddSyscallOperandInstructionPass,
             MoveSmallImmediateInstructionPass,
             FactorImmediateInstructionPass,
-            InvertAddOrSubImmediateInstructionPass,
         ]
         return [cls(segment, self.bad_bytes) for cls in pass_classes]  # type: ignore
 
