@@ -1,56 +1,50 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterable
 
-from capstone import CsInsn
-from capstone.x86_const import X86_OP_IMM, X86_OP_REG
-
-from int3.architecture import Architecture, Architectures
+from int3.architecture import Architecture
+from int3.instructions import Instruction
 
 from ..code_generator import CodeGenerator
 
 if TYPE_CHECKING:
-    from ..compiled_segment import CompiledSegment
+    from ..code_segment import CodeSegment
 
 
-class SegmentMutationPass(ABC):
-    @abstractmethod
-    def mutate_segment(self, segment: "CompiledSegment") -> "CompiledSegment":
-        """Apply a mutation to an input segment, producing a new output segment."""
-
-
-@dataclass
+@dataclass(frozen=True)
 class InstructionMutationPass(ABC):
-    arch: Architecture
+    segment: "CodeSegment"
+    bad_bytes: bytes
     codegen: CodeGenerator = field(init=False)
 
     def __post_init__(self):
-        self.codegen = CodeGenerator(self.arch)
+        object.__setattr__(self, "codegen", CodeGenerator(self.arch))
+
+    @property
+    def arch(self) -> Architecture:
+        return self.segment.arch
+
+    def is_dirty(self, data: bytes) -> bool:
+        return any(b in data for b in self.bad_bytes)
+
+    def to_instructions(self, data: bytes) -> tuple[Instruction, ...]:
+        return Instruction.from_bytes(data, self.segment.triple)
+
+    def choose(self, seq: Iterable[bytes]) -> tuple[Instruction, ...]:
+        chosen_code = min(
+            iter(data for data in seq if not self.is_dirty(data)), key=len
+        )
+        return self.to_instructions(chosen_code)
 
     @abstractmethod
-    def mutate_instruction(self, insn: CsInsn) -> bytes:
-        """Apply a mutation to an input instruction, producing new raw instruction(s).
+    def should_mutate(self, insn: Instruction) -> bool:
+        """Determine whether a mutation should fire."""
 
-        The returned sequence of bytes must correspond to instructions that are functionallity-
-        equivalent to the input instruction. Returned sequences of bytes may include bad bytes,
-        but will be ignored by the mutation engine.
+    @abstractmethod
+    def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
+        """Apply a mutation to an input instruction, producing equivalent instruction(s).
+
+        Returned sequences of instructions may include bad bytes, but will be skipped by
+        the mutation engine.
 
         """
-
-    def is_mov_insn(self, insn: CsInsn) -> bool:
-        # XXX: This is kind of a lazy approach that might be inaccurate.
-        mnemonic: str = insn.mnemonic
-        return mnemonic.startswith("mov")
-
-    def is_reg_imm_insn(self, insn: CsInsn) -> bool:
-        if len(insn.operands) != 2:
-            return False
-
-        match self.arch:
-            case Architectures.x86_64.value:
-                return bool(
-                    insn.operands[0].type == X86_OP_REG
-                    and insn.operands[1].type == X86_OP_IMM
-                )
-            case _:
-                raise NotImplementedError(f"Not yet supported: {self.arch.name}")

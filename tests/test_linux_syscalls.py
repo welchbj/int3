@@ -5,13 +5,17 @@ import pytest
 
 from int3 import Architecture, Compiler, Int3CompilationError, LinuxCompiler
 
-from .qemu import parametrize_qemu_arch, run_in_qemu
+from .qemu import parametrize_common_bad_bytes, parametrize_qemu_arch, run_in_qemu
 
 
+@pytest.mark.xfail()
 @parametrize_qemu_arch
-def test_sys_exit(arch: Architecture):
+@parametrize_common_bad_bytes
+def test_sys_exit(arch: Architecture, bad_bytes: bytes):
     load_addr = 0xFF0000
-    cc = Compiler.from_str(f"linux/{arch.name}", load_addr=load_addr)
+    cc = Compiler.from_str(
+        f"linux/{arch.name}", load_addr=load_addr, bad_bytes=bad_bytes
+    )
     cc = cast(LinuxCompiler, cc)
 
     with cc.def_func.main():

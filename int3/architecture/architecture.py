@@ -1,6 +1,7 @@
 import platform
 import struct
 import sys
+from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import ClassVar, cast
@@ -60,6 +61,7 @@ class Architecture:
     # See: https://stackoverflow.com/a/39114754
     clang_name: str
     llvm_reg_prefix: str
+    keystone_reg_prefix: str
 
     keystone_arch: int
     keystone_mode: int
@@ -67,15 +69,41 @@ class Architecture:
     capstone_arch: int
     capstone_mode: int
 
-    sp_reg: RegisterDef
-    gp_regs: tuple[RegisterDef, ...]
+    reg_cls: type
+    reg_clobber_groups: tuple[set[RegisterDef], ...]
 
     byte_size: int = field(init=False)
+    regs: tuple[RegisterDef, ...] = field(init=False)
+
+    _reg_name_map: dict[str, RegisterDef] = field(init=False)
+    _reg_clobber_map: dict[RegisterDef, set[RegisterDef]] = field(init=False)
 
     BITS_IN_A_BYTE: ClassVar[int] = 8
 
     def __post_init__(self):
         object.__setattr__(self, "byte_size", self.bit_size // self.BITS_IN_A_BYTE)
+
+        # Init regs tuple.
+        regs = tuple(
+            getattr(self.reg_cls, attr)
+            for attr in dir(self.reg_cls)
+            if not attr.startswith("__")
+        )
+        object.__setattr__(self, "regs", regs)
+
+        # Init _reg_name_map.
+        reg_name_map = {reg.name: reg for reg in self.regs}
+        object.__setattr__(self, "_reg_name_map", reg_name_map)
+
+        # Init _reg_clobber_map. We ensure every register is marked as a
+        # clobber of itself before adding the explicit clobbers.
+        reg_clobber_map = defaultdict(set)
+        for reg in self.regs:
+            reg_clobber_map[reg].add(reg)
+        for reg_clobber_set in self.reg_clobber_groups:
+            for reg in reg_clobber_set:
+                reg_clobber_map[reg] |= reg_clobber_set
+        object.__setattr__(self, "_reg_clobber_map", reg_clobber_map)
 
     def is_okay_value(self, imm: int) -> bool:
         """Tests whether a value can be represented on this architecture."""
@@ -101,6 +129,26 @@ class Architecture:
             width_format = width_format.upper()
 
         return f"{endian_format}{width_format}"
+
+    def expand_regs(self, *regs: RegisterDef | str) -> tuple[RegisterDef, ...]:
+        """Expand an input set of registers to include all implicit clobbers."""
+        reg_list: list[RegisterDef] = []
+        for reg in regs:
+            if isinstance(reg, str):
+                reg = self.reg(reg)
+
+            reg_list.append(reg)
+            reg_list.extend(self._reg_clobber_map[reg])
+
+        # Using dict.fromkeys to emulate an ordered set.
+        return tuple(dict.fromkeys(reg_list))
+
+    def reg(self, name: str) -> RegisterDef:
+        """Resolve a register definition by name."""
+        try:
+            return self._reg_name_map[name]
+        except KeyError as e:
+            raise Int3MissingEntityError(f"No reg {name} for arch {self.name}") from e
 
     def align_up_to_min_insn_width(self, value: int) -> int:
         while value % self.min_insn_width != 0:
@@ -141,7 +189,6 @@ class Architecture:
             )
 
         signed = value < 0
-
         format_str = self._make_struct_format_str(width=width, signed=signed)
         try:
             return struct.pack(format_str, value)
@@ -175,22 +222,21 @@ class Architectures(Enum):
         ghidra_name="x86:LE:32:default",
         clang_name="i386",
         llvm_reg_prefix="%",
+        keystone_reg_prefix="",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_32,
-        sp_reg=Registers.x86.esp,
-        gp_regs=(
-            Registers.x86.ebp,
-            Registers.x86.eax,
-            # LLVM is doing weird stuff with ebx with regard to function calls.
-            #
-            # See: https://groups.google.com/g/native-client-discuss/c/a6AAns1nOl4
-            # Registers.x86.ebx,
-            Registers.x86.ecx,
-            Registers.x86.edx,
-            Registers.x86.esi,
-            Registers.x86.edi,
+        reg_cls=Registers.x86,
+        reg_clobber_groups=(
+            {Registers.x86.esp, Registers.x86.sp, Registers.x86.spl},
+            {Registers.x86.ebp, Registers.x86.bp, Registers.x86.bpl},
+            {Registers.x86.eax, Registers.x86.ax, Registers.x86.al},
+            {Registers.x86.ebx, Registers.x86.bx, Registers.x86.bl},
+            {Registers.x86.ecx, Registers.x86.cx, Registers.x86.cl},
+            {Registers.x86.edx, Registers.x86.dx, Registers.x86.dl},
+            {Registers.x86.esi, Registers.x86.si, Registers.x86.sil},
+            {Registers.x86.edi, Registers.x86.di, Registers.x86.dil},
         ),
     )
     x86_64 = Architecture(
@@ -205,27 +251,109 @@ class Architectures(Enum):
         ghidra_name="x86:LE:64:default",
         clang_name="x86_64",
         llvm_reg_prefix="%",
+        keystone_reg_prefix="",
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_64,
-        sp_reg=Registers.x86_64.rsp,
-        gp_regs=(
-            Registers.x86_64.rbp,
-            Registers.x86_64.rax,
-            Registers.x86_64.rbx,
-            Registers.x86_64.rcx,
-            Registers.x86_64.rdx,
-            Registers.x86_64.rdi,
-            Registers.x86_64.rsi,
-            Registers.x86_64.r8,
-            Registers.x86_64.r9,
-            Registers.x86_64.r10,
-            Registers.x86_64.r11,
-            Registers.x86_64.r12,
-            Registers.x86_64.r13,
-            Registers.x86_64.r14,
-            Registers.x86_64.r15,
+        reg_cls=Registers.x86_64,
+        reg_clobber_groups=(
+            {
+                Registers.x86_64.rsp,
+                Registers.x86_64.esp,
+                Registers.x86_64.sp,
+                Registers.x86_64.spl,
+            },
+            {
+                Registers.x86_64.rbp,
+                Registers.x86_64.ebp,
+                Registers.x86_64.bp,
+                Registers.x86_64.bpl,
+            },
+            {
+                Registers.x86_64.rax,
+                Registers.x86_64.eax,
+                Registers.x86_64.ax,
+                Registers.x86_64.al,
+            },
+            {
+                Registers.x86_64.rbx,
+                Registers.x86_64.ebx,
+                Registers.x86_64.bx,
+                Registers.x86_64.bl,
+            },
+            {
+                Registers.x86_64.rcx,
+                Registers.x86_64.ecx,
+                Registers.x86_64.cx,
+                Registers.x86_64.cl,
+            },
+            {
+                Registers.x86_64.rdx,
+                Registers.x86_64.edx,
+                Registers.x86_64.dx,
+                Registers.x86_64.dl,
+            },
+            {
+                Registers.x86_64.rdi,
+                Registers.x86_64.edi,
+                Registers.x86_64.di,
+                Registers.x86_64.dil,
+            },
+            {
+                Registers.x86_64.rsi,
+                Registers.x86_64.esi,
+                Registers.x86_64.si,
+                Registers.x86_64.sil,
+            },
+            {
+                Registers.x86_64.r8,
+                Registers.x86_64.r8d,
+                Registers.x86_64.r8w,
+                Registers.x86_64.r8b,
+            },
+            {
+                Registers.x86_64.r9,
+                Registers.x86_64.r9d,
+                Registers.x86_64.r9w,
+                Registers.x86_64.r9b,
+            },
+            {
+                Registers.x86_64.r10,
+                Registers.x86_64.r10d,
+                Registers.x86_64.r10w,
+                Registers.x86_64.r10b,
+            },
+            {
+                Registers.x86_64.r11,
+                Registers.x86_64.r11d,
+                Registers.x86_64.r11w,
+                Registers.x86_64.r11b,
+            },
+            {
+                Registers.x86_64.r12,
+                Registers.x86_64.r12d,
+                Registers.x86_64.r12w,
+                Registers.x86_64.r12b,
+            },
+            {
+                Registers.x86_64.r13,
+                Registers.x86_64.r13d,
+                Registers.x86_64.r13w,
+                Registers.x86_64.r13b,
+            },
+            {
+                Registers.x86_64.r14,
+                Registers.x86_64.r14d,
+                Registers.x86_64.r14w,
+                Registers.x86_64.r14b,
+            },
+            {
+                Registers.x86_64.r15,
+                Registers.x86_64.r15d,
+                Registers.x86_64.r15w,
+                Registers.x86_64.r15b,
+            },
         ),
     )
     Mips = Architecture(
@@ -240,41 +368,13 @@ class Architectures(Enum):
         ghidra_name="MIPS:BE:32:default",
         clang_name="mips",
         llvm_reg_prefix="$$",
+        keystone_reg_prefix="$",
         keystone_arch=KS_ARCH_MIPS,
         keystone_mode=KS_MODE_MIPS32 + KS_MODE_BIG_ENDIAN,
         capstone_arch=CS_ARCH_MIPS,
         capstone_mode=CS_MODE_MIPS32 + CS_MODE_BIG_ENDIAN,
-        sp_reg=Registers.Mips.sp,
-        gp_regs=(
-            Registers.Mips.v0,
-            Registers.Mips.v1,
-            Registers.Mips.a0,
-            Registers.Mips.a1,
-            Registers.Mips.a2,
-            Registers.Mips.a3,
-            Registers.Mips.t0,
-            Registers.Mips.t1,
-            Registers.Mips.t2,
-            Registers.Mips.t3,
-            Registers.Mips.t4,
-            Registers.Mips.t5,
-            Registers.Mips.t6,
-            Registers.Mips.t7,
-            Registers.Mips.t8,
-            Registers.Mips.t9,
-            Registers.Mips.s0,
-            Registers.Mips.s1,
-            Registers.Mips.s2,
-            Registers.Mips.s3,
-            Registers.Mips.s4,
-            Registers.Mips.s5,
-            Registers.Mips.s6,
-            Registers.Mips.s7,
-            Registers.Mips.t8,
-            Registers.Mips.t9,
-            Registers.Mips.k0,
-            Registers.Mips.k1,
-        ),
+        reg_cls=Registers.Mips,
+        reg_clobber_groups=tuple(),
     )
 
     @staticmethod

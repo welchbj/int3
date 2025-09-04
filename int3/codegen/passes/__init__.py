@@ -1,2 +1,6 @@
-from .abc import InstructionMutationPass, SegmentMutationPass
-from .instructon_passes import MoveSmallImmediateInstructionPass
+from .abc import InstructionMutationPass
+from .instructon_passes import (
+    AddSyscallOperandInstructionPass,
+    FactorImmediateInstructionPass,
+    MoveSmallImmediateInstructionPass,
+)

@@ -3,7 +3,6 @@ from __future__ import annotations
 import logging
 import operator
 import platform
-import random
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -112,9 +111,6 @@ class Compiler:
     # Assembly code generatgor
     codegen: CodeGenerator = field(init=False)
 
-    # Syscall convention for this arch/platform combination.
-    syscall_conv: SyscallConvention = field(init=False)
-
     # Wrapped llvmlite LLVM IR module.
     llvm_module: llvmir.Module = field(init=False)
 
@@ -140,12 +136,15 @@ class Compiler:
         self.call = CallFactory(compiler=self)
         self.types = TypeManager(compiler=self)
         self.codegen = CodeGenerator(arch=self.arch)
-        self.syscall_conv = self.triple.resolve_syscall_convention()
 
         # We create a fresh llvmlite context for our module. Otherwise, multiple
         # compiler instances will reference the same llvmlite library-level global
         # context.
         self.llvm_module = llvmir.Module(context=llvmir.Context())
+
+    @property
+    def syscall_conv(self) -> SyscallConvention:
+        return self.triple.syscall_convention
 
     @property
     def current_func(self) -> FunctionProxy:
@@ -464,7 +463,7 @@ class Compiler:
         #
         # See: https://stackoverflow.com/a/40498306
         target_machine = target.create_target_machine(
-            opt=0, reloc="pic", codemodel="small"
+            opt=0, reloc="static", codemodel="small"
         )
         target_machine.set_asm_verbosity(verbose=True)
 
@@ -515,7 +514,7 @@ class Compiler:
 
         # Otherwise, we apply all the mutations available in our engine.
         mutation_engine = MutationEngine(
-            arch=self.arch,
+            triple=self.triple,
             raw_asm=input_asm,
             bad_bytes=self.bad_bytes,
         )
@@ -551,7 +550,13 @@ class Compiler:
         # entry stub, clamping down on the allocated pad space each iteration in order
         # to optimize the entry stub's total length. We use a binary search on the length.
         num_pad_bytes_targt = max(3, self.arch.min_insn_width)
-        pc_transfer_reg = random.choice(self.arch.gp_regs)
+        # XXX: We may need to cycle through pc_transfer_reg options if a specific register
+        #      introduces bad bytes.
+        pc_transfer_reg = next(
+            reg
+            for reg in self.triple.call_clobbered_regs
+            if reg.bit_size == self.arch.bit_size
+        )
         lower_bound_pad_len = 0
         upper_bound_pad_len = 2 * self.arch.align_up_to_min_insn_width(
             self._start_entry_stub_padded_len
@@ -587,8 +592,8 @@ class Compiler:
 
         pad_len = entry_stub_padded_len - len(entry_stub)
 
-        logger.debug(f"Entry stub is {len(entry_stub)} bytes long")
-        logger.debug(f"Using entry stub padding length of {pad_len}")
+        logger.info(f"Entry stub is {len(entry_stub)} bytes long")
+        logger.info(f"Using entry stub padding length of {pad_len}")
 
         preamble = entry_stub + self.codegen.nop_pad(pad_len)
 
@@ -746,7 +751,9 @@ class Compiler:
             )
 
         stub_program = get_pc_stub
-        stub_program += sub_cc.compile_funcs()["entry_stub"]
+        # get_pc_stub has already been cleaned.
+        entry_stub_raw = sub_cc.compile_funcs()["entry_stub"]
+        stub_program += sub_cc._clean_asm(entry_stub_raw)
         return stub_program
 
     def clean_slate(self) -> Compiler:

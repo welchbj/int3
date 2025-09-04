@@ -1,7 +1,5 @@
-import sys
 from typing import NoReturn
 
 
-def execute_windows(machine_code: bytes) -> NoReturn:
-    # TODO
-    sys.exit(0)
+def execute_windows(machine_code: bytes, load_addr: int | None = None) -> NoReturn:
+    raise NotImplementedError("Windows shellcode execution not yet implemented")
