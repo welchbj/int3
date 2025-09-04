@@ -49,7 +49,6 @@ class AddSyscallOperandInstructionPass(InstructionMutationPass):
         return self.to_instructions(raw_asm)
 
 
-
 class FactorImmediateInstructionPass(InstructionMutationPass):
     def should_mutate(self, insn: Instruction) -> bool:
         return (
