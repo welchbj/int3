@@ -44,6 +44,7 @@ mkdir -p "$work_dir"
 echo "Using work directory: $work_dir"
 
 # Ensure Conda is installed, since we need it do install the llvmdev package.
+source ~/miniconda3/etc/profile.d/conda.sh
 which conda || (echo "Conda must be installed to use this script" && exit 1)
 
 # Move to our work directory.
