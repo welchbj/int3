@@ -8,6 +8,5 @@ trap "RC=1" ERR
 ruff check --select I .
 ruff format --check .
 mypy int3/ tests/
-pytest
 
 exit $RC
