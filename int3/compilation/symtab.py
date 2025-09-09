@@ -44,6 +44,7 @@ class SymbolTable:
         return cast(llvmir.Constant, self.compiler.i32(value).wrapped_llvm_node)
 
     def slot_ptr(self, struct_ptr: llvmir.PointerType, idx: int) -> llvmir.Instruction:
+        """Obtain the relative slot pointer for a given index within table."""
         indices = [self._make_gep_idx(idx)]
 
         # llvmlite gep examples:

@@ -5,6 +5,7 @@ from int3.errors import Int3WrappedCapstoneError
 
 
 def disassemble(arch: Architecture, machine_code: bytes) -> tuple[CsInsn, ...]:
+    """Disassemble machine code into a series of Capstone instructions."""
     try:
         cs = Cs(arch=arch.capstone_arch, mode=arch.capstone_mode)
         cs.detail = True
@@ -14,6 +15,7 @@ def disassemble(arch: Architecture, machine_code: bytes) -> tuple[CsInsn, ...]:
 
 
 def disassemble_to_str(arch: Architecture, machine_code: bytes) -> str:
+    """Disassemble machine code into its textual assembly form."""
     instructions = disassemble(arch, machine_code)
     asm_text = "\n".join(
         f"{instr.address:#06x}: {instr.mnemonic} {instr.op_str}"
