@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from int3._vendored.llvmlite import ir as llvmir
 from int3.errors import Int3InsufficientWidthError
 
 if TYPE_CHECKING:
     from .compiler import Compiler
+
+
+type ComparisonOp = Literal["<", "<=", "==", "!=", ">=", ">"]
+"""Valid comparison operations."""
 
 
 @dataclass
@@ -49,6 +53,13 @@ class TypeManager:
         self.u16 = IntType(bit_size=16, is_signed=False)
         self.u32 = IntType(bit_size=32, is_signed=False)
         self.u64 = IntType(bit_size=64, is_signed=False)
+
+
+@dataclass(frozen=True)
+class Predicate:
+    """Wrapper around an LLVM comparison result (an implicit 1-bit integer)."""
+
+    wrapped_llvm_node: llvmir.Instruction
 
 
 @dataclass(frozen=True)
@@ -139,6 +150,24 @@ class _IntBase:
 
     def __add__(self, other: PyIntArgType) -> IntVariable:
         return self.compiler.add(cast(PyIntValueType, self), other)
+
+    def __eq__(self, other: PyIntArgType) -> Predicate:  # type: ignore
+        return self.compiler.icmp("==", cast(PyIntValueType, self), other)
+
+    def __ne__(self, other: PyIntArgType) -> Predicate:  # type: ignore
+        return self.compiler.icmp("!=", cast(PyIntValueType, self), other)
+
+    def __gt__(self, other: PyIntArgType) -> Predicate:
+        return self.compiler.icmp(">", cast(PyIntValueType, self), other)
+
+    def __ge__(self, other: PyIntArgType) -> Predicate:
+        return self.compiler.icmp(">=", cast(PyIntValueType, self), other)
+
+    def __lt__(self, other: PyIntArgType) -> Predicate:
+        return self.compiler.icmp("<", cast(PyIntValueType, self), other)
+
+    def __le__(self, other: PyIntArgType) -> Predicate:
+        return self.compiler.icmp("<=", cast(PyIntValueType, self), other)
 
 
 @dataclass

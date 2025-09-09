@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
 from itertools import pairwise
-from typing import TYPE_CHECKING, Iterator, Literal, cast, overload
+from typing import TYPE_CHECKING, ContextManager, Iterator, Literal, cast, overload
 
 from int3._vendored.llvmlite import binding as llvm
 from int3._vendored.llvmlite import ir as llvmir
@@ -26,10 +26,12 @@ from .function_proxy import FunctionFactory, FunctionProxy, FunctionStore
 from .symtab import SymbolTable
 from .types import (
     BytesPointer,
+    ComparisonOp,
     IntConstant,
     IntType,
     IntVariable,
     Pointer,
+    Predicate,
     PyArgType,
     PyIntArgType,
     PyIntValueType,
@@ -386,6 +388,25 @@ class Compiler:
             wrapped_llvm_node=result_inst,
         )
 
+    def icmp(self, op: ComparisonOp, one: PyIntArgType, two: PyIntArgType) -> Predicate:
+        coercion = self.coerce(one, two)
+        if coercion.result_type.is_signed:
+            result_inst = self.builder.icmp_signed(
+                op,
+                coercion.args[0].wrapped_llvm_node,
+                coercion.args[1].wrapped_llvm_node,
+                name=self.make_name(hint="signed_cmp_res"),
+            )
+        else:
+            result_inst = self.builder.icmp_unsigned(
+                op,
+                coercion.args[0].wrapped_llvm_node,
+                coercion.args[1].wrapped_llvm_node,
+                name=self.make_name(hint="unsigned_cmp_res"),
+            )
+
+        return Predicate(wrapped_llvm_node=result_inst)
+
     def ret(self, value: PyIntArgType | None = None):
         if value is None and self.current_func.return_type == self.types.void:
             return self.builder.ret_void()
@@ -401,6 +422,21 @@ class Compiler:
             return_type = cast(IntType, self.current_func.return_type)
             value = self.coerce_to_type(value, type=return_type)
             return self.builder.ret(value.wrapped_llvm_node)
+
+    @contextmanager
+    def if_else(
+        self, predicate: Predicate
+    ) -> Iterator[tuple[ContextManager[None], ContextManager[None]]]:
+        """Helper for defining if-else blocks.
+
+        This a very thin wrapper around llvmlite's builder method of the same name. The
+        respective if/else block should be acquired as a context manager, like:
+
+        TODO: doctest.
+
+        """
+        with self.builder.if_else(predicate.wrapped_llvm_node) as (then, otherwise):
+            yield then, otherwise
 
     def llvm_ir(self) -> str:
         llvm_mod_str = str(self.llvm_module)
