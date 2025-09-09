@@ -7,7 +7,8 @@ Welcome to the documentation site for the int3 framework.
 -----
 
 .. warning::
-    int3 is heavily tested and fully usable, but is still pre-1.0/stable software with **no guarantees** of avoiding breaking API changes until hitting version 1.0.
+
+    int3 is heavily tested and fully usable, but is still pre-1.0/stable software. This means there are several features yet to be implemented as well as **no guarantees** of avoiding breaking API changes prior to version 1.0.
 
 
 .. include:: ../README.rst
@@ -17,6 +18,7 @@ Welcome to the documentation site for the int3 framework.
     :hidden:
 
     user_guide
+    coverage
     development
     prior_art
     acknowledgements
