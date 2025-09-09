@@ -6,17 +6,19 @@ from int3.meta import Int3Files
 from int3.platform import LinuxSyscallNumbers
 
 from .compiler import Compiler
+from .high_level_compiler import HighLevelCompilerInterface
 from .types import (
     BytesPointer,
     IntVariable,
     PyArgType,
+    PyBytesArgType,
     PyIntArgType,
     PyIntValueType,
 )
 
 
 @dataclass
-class LinuxCompiler(Compiler):
+class LinuxCompiler(Compiler, HighLevelCompilerInterface):
     sys_nums: LinuxSyscallNumbers = field(init=False)
 
     def __post_init__(self):
@@ -25,6 +27,17 @@ class LinuxCompiler(Compiler):
         self.sys_nums = LinuxSyscallNumbers(
             Int3Files.SyscallTablesDir / f"syscalls-{self.arch.linux_kernel_name}"
         )
+
+    #
+    # High-level interface.
+    #
+
+    def puts(self, s: PyBytesArgType) -> IntVariable:
+        return self.sys_write(fd=1, buf=s)
+
+    #
+    # Linux syscall interface.
+    #
 
     def syscall(
         self,
@@ -61,6 +74,11 @@ class LinuxCompiler(Compiler):
         return IntVariable(compiler=self, type=self.types.unat, wrapped_llvm_node=res)
 
     def sys_exit(self, status: PyIntArgType) -> IntVariable:
+        """Linux exit syscall.
+
+        See: https://man7.org/linux/man-pages/man3/exit.3.html
+
+        """
         return self.syscall(self.sys_nums.exit, status, hint="exit")
 
     def sys_write(
@@ -69,6 +87,11 @@ class LinuxCompiler(Compiler):
         buf: PyArgType,
         count: PyIntArgType | None = None,
     ) -> IntVariable:
+        """Linux write syscall.
+
+        See: https://man7.org/linux/man-pages/man2/write.2.html
+
+        """
         if isinstance(buf, bytes):
             buf = self.b(buf)
         elif isinstance(buf, int):
@@ -85,4 +108,9 @@ class LinuxCompiler(Compiler):
         return self.syscall(self.sys_nums.write, fd, buf, count, hint="write")
 
     def sys_dup2(self, oldfd: PyIntArgType, newfd: PyIntArgType) -> IntVariable:
+        """Linux dup2 syscall.
+
+        See: https://man7.org/linux/man-pages/man2/dup.2.html
+
+        """
         return self.syscall(self.sys_nums.dup2, oldfd, newfd, hint="dup2")
