@@ -190,7 +190,18 @@ class MipsRegisters:
 
 
 class Registers:
-    """Primary interface for accessing architecture-specific register sets."""
+    """Primary interface for accessing architecture-specific register sets.
+
+    .. doctest::
+
+        >>> from int3 import Registers
+        >>> Registers.x86.eax
+        RegisterDef(name='eax', bit_size=32, llvm_alt_name=None)
+        >>> Registers.Mips.a0
+        RegisterDef(name='a0', bit_size=32, llvm_alt_name='4')
+
+    """
+
     x86_64 = x86_64Registers
     x86 = x86Registers
     Mips = MipsRegisters
