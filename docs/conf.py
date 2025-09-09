@@ -32,6 +32,7 @@ release = int3_version
 
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.doctest",
     "sphinx_rtd_theme",
 ]
 
