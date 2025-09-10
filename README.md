@@ -11,7 +11,7 @@ $ echo -n "int3" | int3 assemble -a x86_64 | int3 format
 b"\xcc"
 ```
 
-A Python interface for writing your own position-independent programs ([`examples/linux/hello_world.py`](examples/linux/hello_world.py)):
+A Python interface for writing your own position-independent programs with automatic bad byte avoidance ([`examples/linux/hello_world.py`](examples/linux/hello_world.py)):
 
 ```python
 import sys
