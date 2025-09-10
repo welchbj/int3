@@ -25,3 +25,17 @@ def test_basic_if_else(arch: Architecture):
 
     qemu_result = run_in_qemu(cc, load_addr=load_addr, strace=True)
     assert "Else taken" in qemu_result.stdout.decode()
+
+
+def test_detection_of_broken_control_flow():
+    cc = Compiler.from_host(bad_bytes=b"\x00")
+    cc = cast(LinuxCompiler, cc)
+
+    with cc.def_func.main():
+        with cc.if_else(cc.i(1).equals(2)) as (if_, else_):
+            with if_:
+                cc.sys_exit(1)
+            with else_:
+                cc.sys_exit(0)
+
+    cc.compile()

@@ -46,24 +46,26 @@ class MutationEngine:
 
         # Apply instruction-level passes.
         insn_passes = self._create_instruction_passes(mutated_segment)
+        did_change_segment_len = False
         new_insn_list: list[Instruction] = []
-        for insn in mutated_segment.instructions:
+        for original_insn in mutated_segment.instructions:
             # Simply record the instruction if it doesn't contain bad bytes.
-            if not insn.is_dirty(self.bad_bytes):
-                new_insn_list.append(insn)
+            if not original_insn.is_dirty(self.bad_bytes):
+                new_insn_list.append(original_insn)
                 continue
 
-            # TODO: We need logic to discern between instruction passes that
-            #       will break relative jumps.
-
             for insn_pass in insn_passes:
-                if not insn_pass.should_mutate(insn):
-                    logger.debug(f"Skipping {insn_pass.__class__.__name__} for {insn}")
+                if not insn_pass.should_mutate(original_insn):
+                    logger.debug(
+                        f"Skipping {insn_pass.__class__.__name__} for {original_insn}"
+                    )
                     continue
 
                 try:
-                    logger.info(f"Invoking {insn_pass.__class__.__name__} for {insn}")
-                    mutated_insns = insn_pass.mutate(insn)
+                    logger.info(
+                        f"Invoking {insn_pass.__class__.__name__} for {original_insn}"
+                    )
+                    mutated_insns = insn_pass.mutate(original_insn)
                 except Int3CodeGenerationError as e:
                     logger.info(f"{insn_pass.__class__.__name__} failed: {e}")
                     continue
@@ -73,16 +75,39 @@ class MutationEngine:
                     # instruction.
                     new_insn_list.extend(mutated_insns)
 
+                    mutated_len = sum(len(bytes(insn)) for insn in mutated_insns)
+                    original_len = len(bytes(original_insn))
+                    if mutated_len != original_len:
+                        logger.info(
+                            f"Mutation modified instruction len from {original_len:#x} "
+                            f"to {mutated_len:#x}"
+                        )
+                        did_change_segment_len = True
+
                     logger.info(f"{insn_pass.__class__.__name__} transformed:")
-                    logger.info(f"{Instruction.summary(insn, indent=4)[0]}")
+                    logger.info(f"{Instruction.summary(original_insn, indent=4)[0]}")
                     logger.info("into:")
                     for line in Instruction.summary(*mutated_insns, indent=4):
                         logger.info(line)
                     break
             else:
-                new_insn_list.append(insn)
+                new_insn_list.append(original_insn)
                 logger.info("Instruction-level passes could not remove bad bytes from:")
-                logger.info(f"{Instruction.summary(insn, indent=4)[0]}")
+                logger.info(f"{Instruction.summary(original_insn, indent=4)[0]}")
+
+        # If we modified the program length and our program contains relative jumps,
+        # we error out to avoid emitting potentially-corrupt programs.
+        #
+        # In the future, we'll patch these relative jumps to workaround these scenarios.
+        relative_insns = [
+            insn for insn in new_insn_list if insn.is_branch() or insn.is_jump()
+        ]
+        if did_change_segment_len and relative_insns:
+            relative_insn_lines = Instruction.summary(*relative_insns, indent=4)
+            raise Int3CodeGenerationError(
+                "\n\nCode mutations modified segment length, which may break the following instructions:\n"
+                + "\n".join(relative_insn_lines)
+            )
 
         new_program = b"".join(bytes(insn) for insn in new_insn_list)
         mutated_segment = CodeSegment(
