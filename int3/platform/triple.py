@@ -16,7 +16,7 @@ class Triple:
 
     Triple strings have the form:
 
-        <arch><sub>-<vendor>-<sys>-<env>
+        ``<arch><sub>-<vendor>-<sys>-<env>``
 
     See:
         * https://mcyoung.xyz/2025/04/14/target-triples/
