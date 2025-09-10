@@ -68,4 +68,4 @@ pip install int3
 
 ## License & Usage
 
-`int3` is intended for educational use. `int3`'s unique code is released under the `GNU LGPLv3 <https://choosealicense.com/licenses/lgpl-3.0>`_, as per the [`LICENSE.txt`](LICENSE.txt) file in the root of this repository. Code belonging to other open source projects is licensed under the respective licenses of those projects.
+`int3` is intended for educational use. `int3`'s unique code is released under the [GNU LGPLv3](https://choosealicense.com/licenses/lgpl-3.0), as per the [`LICENSE.txt`](LICENSE.txt) file in the root of this repository. Code belonging to other open source projects is licensed under the respective licenses of those projects.
