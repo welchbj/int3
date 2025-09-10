@@ -473,10 +473,10 @@ class Compiler:
 
         return Predicate(wrapped_llvm_node=result_inst)
 
-    def ret(self, value: PyIntArgType | None = None):
+    def ret(self, value: PyIntArgType | None = None) -> None:
         """Return from the current function, optionally specifying a return value."""
         if value is None and self.current_func.return_type == self.types.void:
-            return self.builder.ret_void()
+            self.builder.ret_void()
         elif value is None:
             raise Int3CompilationError(
                 "No return value specified for non-void function"
@@ -488,7 +488,7 @@ class Compiler:
         else:
             return_type = cast(IntType, self.current_func.return_type)
             value = self.coerce_to_type(value, type=return_type)
-            return self.builder.ret(value.wrapped_llvm_node)
+            self.builder.ret(value.wrapped_llvm_node)
 
     @contextmanager
     def if_else(
