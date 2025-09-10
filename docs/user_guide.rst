@@ -73,16 +73,15 @@ The simplest function definition creates a function with no arguments and a void
     >>> cc.func.my_function.return_type == cc.types.void
     True
 
-Arguments can be specified using Python type hints or :py:mod:`int3` types, and we can then access those arguments from within the function definition:
+Arguments can be specified using Python type hints or :py:mod:`int3.compilation.types` types. Note that both the return type and argument type are specified in a sequence in the ``increment_number`` signature below, with the return type being the first positional argument. We can then access the argument from within the function definition:
 
 .. doctest::
 
-    >>> with cc.def_func.add_numbers(int, int):
-    ...     a = cc.func.add_numbers.args[0]
-    ...     b = cc.func.add_numbers.args[1]
-    ...     result = cc.add(a, b)
-    ...     cc.ret(result)
-    >>> cc.func.add_numbers.return_type == cc.types.inat
+    >>> from int3 import Compiler
+    >>> cc = Compiler.from_host()
+    >>> with cc.def_func.increment_number(int, int):
+    ...     cc.ret(cc.args[0] + 1)
+    >>> cc.func.increment_number.return_type == cc.types.inat
     True
 
 Note in the above example that the Python ``int`` type was promoted to our compiler's native width. We can enforce a specific return type with:
@@ -97,14 +96,17 @@ Note in the above example that the Python ``int`` type was promoted to our compi
 Calling functions
 -----------------
 
+Calling an already-defined function can be performed by accessing the function by name off of our compiler's ``call`` attributer:
+
 .. doctest::
 
-    >>> assert False
-    >>> with cc.def_func.helper():
+    >>> from int3 import Compiler
+    >>> cc = Compiler.from_str("linux/x86_64")
+    >>> with cc.def_func.helper(int):
     ...     cc.ret(cc.i(42))
     >>> with cc.def_func.main():
     ...     result = cc.call.helper()
-    ...     cc.ret(result)
+    ...     _ = cc.sys_exit(result)
 
 
 Program entrypoint
@@ -121,7 +123,7 @@ Conditional control flow
 
     >>> from int3 import Compiler
     >>> cc = Compiler.from_host()
-    >>> with cc.def_func.check_value():
+    >>> with cc.def_func.check_value(int):
     ...     x = cc.i(1)
     ...     with cc.if_else(x > 2) as (if_, else_):
     ...         with if_:
