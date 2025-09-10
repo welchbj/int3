@@ -9,7 +9,7 @@ To setup the full development environment on a Debian-based system, some additio
 
 .. code-block:: bash
 
-    sudo apt-get install qemu-user build-essential git
+    sudo apt-get install qemu-user build-essential git patchelf
 
 Install required Python packages and activate the corresponding virtual environment with:
 
@@ -56,6 +56,8 @@ The PyPI package can be published from a fresh checkout with:
     cd int3
     ./scripts/install_custom_llvmlite.sh --python-version 3.13 --build-name dev --strip
     uv build
+    auditwheel repair dist/int3-*-cp313-cp313-linux_x86_64.whl
+    uv publish 'dist/*.tar.gz' 'wheelhouse/*'
 
 Then publish with:
 
