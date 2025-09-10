@@ -51,6 +51,7 @@ class AsmGadget:
 @dataclass(frozen=True)
 class CodeGenerator:
     """Common interface for emitting architecture-specific assembly."""
+
     arch: "Architecture"
 
     def gadget(self, asm: str) -> AsmGadget:

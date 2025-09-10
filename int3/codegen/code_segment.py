@@ -12,6 +12,7 @@ from int3.platform import Triple
 @dataclass(frozen=True)
 class CodeSegment:
     """A side effect aware series of instructions."""
+
     triple: Triple
     raw_asm: bytes
     bad_bytes: bytes
