@@ -25,8 +25,8 @@ Install cross-compilation toolchains from the excellent `musl.cc project <https:
     ./scripts/install_musl_cc_toolchains.sh
 
 
-Custom `llvmlite` Build
------------------------
+Custom ``llvmlite`` Build
+-------------------------
 
 In order to expose the full suite of LLVM's supported architecture assembly parsers (a requirement in order to parse generated inline assembly in LLVM IR code), a few adjustments to the `llvmlite` code base are required. ``llvmlite`` discusses how to do so `here <https://llvmlite.readthedocs.io/en/latest/admin-guide/install.html>`_.
 
