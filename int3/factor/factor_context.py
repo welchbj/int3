@@ -8,6 +8,8 @@ from .factor_operation import FactorOperation
 
 @dataclass(frozen=True)
 class FactorContext:
+    """The context for a factoring solve."""
+
     arch: Architecture
 
     # The target value.
