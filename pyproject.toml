@@ -21,13 +21,13 @@ classifiers = [
     "Topic :: Utilities"
 ]
 authors = [
-  {name = "Brian Welch", email = "me@brianwel.ch"},
+  {name = "Brian Welch", email = "12776611+welchbj@users.noreply.github.com"},
 ]
 maintainers = [
-  {name = "Brian Welch", email = "me@brianwel.ch"}
+  {name = "Brian Welch", email = "12776611+welchbj@users.noreply.github.com"}
 ]
-description = "The shellcoder's toolkit"
-keywords = ["shellcode", "assembly"]
+description = "Compiler for position-independent assembly programs"
+keywords = ["assembly", "llvm", "compiler"]
 dependencies = [
     "capstone>=5.0.6",
     "click>=8.2.1",
@@ -37,10 +37,9 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://github.com/welchbj/int3"
-Documentation = "https://github.com/welchbj/int3"
+Documentation = "https://int3.readthedocs.io"
 Repository = "https://github.com/welchbj/int3"
 "Bug Tracker" = "https://github.com/welchbj/int3/issues"
-Changelog = "https://github.com/welchbj/int3"
 
 [project.scripts]
 tt = "int3.__main__:cli"
