@@ -22,7 +22,6 @@ Welcome to the documentation site for the int3 framework.
     development
     prior_art
     acknowledgements
-    release_notes
 
 
 Want to learn more?
