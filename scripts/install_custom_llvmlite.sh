@@ -5,6 +5,7 @@ set -eo pipefail
 scripts_dir=$(realpath $(dirname "$0"))
 int3_root_dir=$(dirname "$scripts_dir")
 llvmlite_patch_file="$int3_root_dir/patches/llvmlite_0.44.0_enable_all_asm_parsers.patch"
+strip_binary=false
 
 # Parse command-line options.
 while [[ $# -gt 0 ]]; do
@@ -19,8 +20,23 @@ while [[ $# -gt 0 ]]; do
       shift
       shift
       ;;
+    -s|--strip)
+      strip_binary=true
+      shift
+      ;;
+    -h|--help)
+      echo "Usage: $0 -p <python_version> -b <build_name> [-s|--strip]"
+      echo ""
+      echo "Options:"
+      echo "  -p, --python-version  Python version to use for the build environment"
+      echo "  -b, --build-name      Name for the temporary build directory"
+      echo "  -s, --strip           Strip debug symbols from the built shared object"
+      echo "  -h, --help            Show this help message"
+      exit 0
+      ;;
     *)
       echo "Invalid option: $1"
+      echo "Use -h or --help for usage information."
       exit 1
       ;;
   esac
@@ -34,7 +50,10 @@ elif [[ -z "$build_name" ]]; then
     exit 1
 fi
 
-if [[ -d "$int3_root_dir/int3/_vendored/llvmlite" ]]; then
+if [[ -f "$int3_root_dir/int3/_vendored/llvmlite.py" ]]; then
+    echo "Removing placeholder llvmlite mocks"
+    rm "$int3_root_dir/int3/_vendored/llvmlite.py"
+elif [[ -d "$int3_root_dir/int3/_vendored/llvmlite" ]]; then
     echo "Vendored llvmlite directory already exists"
     exit 1
 fi
@@ -78,6 +97,27 @@ python3 -c "import llvmlite.binding as llvm; llvm.initialize_all_asmparsers()"
 built_llvmlite_dir=$(find "$work_dir/llvmlite/build" -type d -name llvmlite)
 echo "Copying over built llvmlite directory to int3 source tree"
 cp -r "$built_llvmlite_dir" "$int3_root_dir/int3/_vendored"
+
+# Potentially strip debug symbols from the llvmlite shared object (mainly for releases).
+if [[ "$strip_binary" == true ]]; then
+    echo "Stripping debug symbols from llvmlite shared object..."
+
+    # Find the llvmlite wrapped shared object.
+    shared_obj=$(find "$int3_root_dir/int3/_vendored/llvmlite" -name "libllvmlite.so" | head -1)
+
+    if [[ -n "$shared_obj" && -f "$shared_obj" ]]; then
+        size_before=$(du -h "$shared_obj" | cut -f1)
+        echo "Size before stripping: $size_before"
+
+        strip "$shared_obj"
+
+        size_after=$(du -h "$shared_obj" | cut -f1)
+        echo "Size after stripping: $size_after"
+    else
+        echo "Could not find llvmlite shared object to strip"
+        exit 1
+    fi
+fi
 
 popd
 popd
