@@ -14,8 +14,10 @@ The ``int3`` library provides a high-level Python interface for generating posit
 
     >>> from int3 import Compiler
     >>> cc = Compiler.from_str("linux/x86_64")
-    >>> type(cc)
-    'Linux'
+    >>> cc.__class__.__name__
+    'LinuxCompiler'
+    >>> cc.arch.name
+    'x86_64'
 
 Load addresses
 --------------
@@ -28,7 +30,14 @@ A static load address can be specified with:
 
 .. doctest::
 
-    >>> assert False
+    >>> from int3 import Compiler
+    >>> cc = Compiler.from_str("linux/x86_64", load_addr=0xBEEF0000)
+
+Keep in mind that your program must actually be loaded at the address you specify, or it will certainly crash. The ``int3`` command-line interface provides a utility for doing this:
+
+.. code-block:: bash
+
+    cat program.bin | int3 execute --load-address 0xBEEF0000
 
 Bad bytes
 ---------
@@ -37,21 +46,21 @@ When we initialize our compiler, we can inform it of bad bytes we want to avoid 
 
 .. doctest::
 
-    >>> cc = Compiler.from_str("linux/x86_64", bad_bytes=b"\x00")
-    >>> with cc.def_func.main():
-    ...     # This might normally generate null bytes
-    ...     value = cc.i32(0x12345678)
+    >>> cc = Compiler.from_str("linux/x86_64", bad_bytes=b"\n")
+    >>> with cc.def_func.my_func(return_type=int):
+    ...     value = cc.i32(0x0a0a0a0a)
     ...     cc.ret(value)
-    >>> machine_code = cc.compile()
-    >>> b'\x00' in machine_code
+    >>> with cc.def_func.main():
+    ...     unused = cc.call.my_func()
+    >>> b'\n' in cc.compile()
     False
 
-Bad bytes are removed after our compiler's LLVM IR has been translated to its initial series of per-function machine code segments. We then apply a series of mutation passes to lift and transform these machine instructions to do things like replacing dirty instructions with their semantic equivalents and breaking apart dirty immediate values into multiple operations with clean immediate values.
+Bad bytes are removed after our compiler's LLVM IR has been translated to its initial series of per-function machine code segments. We then apply a series of mutation passes to lift and transform these machine instructions to do things like replacing dirty instructions with their clean semantic equivalents and breaking apart dirty immediate values into multiple operations that use clean immediate values to construct the dirty value at runtime.
 
 Defining functions
 ------------------
 
-The main unit of execution within an ``int3`` program is a function. Functions are defined using the :py:attr:`~int3.Compiler.def_func` attribute as a context manager, with the enclosed scope of that context manager defining the function's body.
+The main unit of execution within an ``int3`` program is a function. Functions are defined using the :py:attr:`~int3.compilation.compiler.Compiler.def_func` attribute as a context manager, with the enclosed scope of that context manager defining the function's body.
 
 The simplest function definition creates a function with no arguments and a void return type:
 
