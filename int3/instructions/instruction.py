@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class MemoryOperand:
+    """Specialized operand type for representing memory access."""
+
     reg: RegisterDef
     offset: int
     ptr_desc: PointerDesc = ""
@@ -46,6 +48,8 @@ class MemoryOperand:
 
 @dataclass(frozen=True)
 class OperandView:
+    """A view into an instruction's operands."""
+
     insn: Instruction
 
     tokens: tuple[str, ...] = field(init=False)
@@ -59,6 +63,7 @@ class OperandView:
 
     @property
     def cs_insn(self) -> CsInsn:
+        """The underlying Capstone instruction instance."""
         return self.insn.cs_insn
 
     @property
@@ -98,10 +103,12 @@ class OperandView:
         return self.tokens[index]
 
     def is_reg(self, index: int) -> bool:
+        """Whether the operand at the specific position is a register."""
         index = self._fix_index(index)
         return self._is_cs_type(index, CS_OP_REG)
 
     def reg(self, index: int) -> RegisterDef:
+        """Get the register definition at the specific operand position."""
         index = self._fix_index(index)
         reg_name = cast(
             str, self.cs_insn.reg_name(self.cs_insn.operands[index].value.reg)
@@ -109,18 +116,22 @@ class OperandView:
         return self.arch.reg(reg_name)
 
     def is_imm(self, index: int) -> bool:
+        """Whether the operand at the specific position is an immediate."""
         index = self._fix_index(index)
         return self._is_cs_type(index, CS_OP_IMM)
 
     def imm(self, index: int) -> int:
+        """Get the immediate at the specific operand position"""
         index = self._fix_index(index)
         return cast(int, self.cs_insn.operands[index].value.imm)
 
     def is_mem(self, index: int) -> bool:
+        """Whether the operand at the specific position is a memory access."""
         index = self._fix_index(index)
         return self._is_cs_type(index, CS_OP_MEM)
 
     def mem(self, index: int) -> MemoryOperand:
+        """Get the memory access operand at the specific operand position"""
         index = self._fix_index(index)
         cs_mem = self.cs_insn.operands[index].value.mem
 
@@ -185,6 +196,8 @@ class OperandView:
 
 @dataclass(frozen=True)
 class Instruction:
+    """Wrapper around a machine code instruction."""
+
     cs_insn: CsInsn
     triple: "Triple"
 
@@ -270,6 +283,7 @@ class Instruction:
         return f"<{self.__class__.__name__} [{self}]>"
 
     def to_str(self, alignment: int = 0, with_hex: bool = True) -> str:
+        """Pretty print this instructions mnemonic and operands."""
         asm_hex = binascii.hexlify(self.raw).decode()
         line = f"{self.mnemonic} {self.op_str}"
         if with_hex:
@@ -318,6 +332,7 @@ class Instruction:
 
     @staticmethod
     def summary(*insns: Instruction, indent: int = 0) -> list[str]:
+        """Summary text for a sequence of instructions."""
         max_insn_str_len = max(len(insn.to_str(with_hex=False)) for insn in insns)
 
         dirty_insn_lines: list[str] = []
@@ -331,11 +346,13 @@ class Instruction:
 
     @staticmethod
     def from_str(raw: str, triple: "Triple") -> tuple[Instruction, ...]:
+        """Factory method to produce an instruction from assembly text."""
         raw_asm = assemble(arch=triple.arch, assembly=raw)
         return Instruction.from_bytes(raw_asm, triple)
 
     @staticmethod
     def from_bytes(raw: bytes, triple: "Triple") -> tuple[Instruction, ...]:
+        """Factory method to produce an instruction from machine code bytes."""
         return tuple(
             Instruction(cs_insn=cs_insn, triple=triple)
             for cs_insn in disassemble(arch=triple.arch, machine_code=raw)
