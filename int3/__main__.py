@@ -9,6 +9,7 @@ from int3.assembly import assemble, disassemble_to_str
 from int3.errors import Int3Error
 from int3.execution import execute
 from int3.format import FormatStyle, Formatter
+from int3.version import __version__
 
 
 def _architecture_from_str(ctx, param, value: str):
@@ -40,6 +41,7 @@ def _setup_logging(debug: bool):
 
 
 @click.group
+@click.version_option(__version__, prog_name="int3")
 def cli():
     pass
 
