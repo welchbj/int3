@@ -110,10 +110,15 @@ class IntType:
         sign_str = "i" if self.is_signed else "u"
         return f"{sign_str}{self.bit_size}"
 
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
+
     def can_represent_value(self, value: int) -> bool:
+        """Whether this type could represent the integer value."""
         return self.min_value <= value <= self.max_value
 
     def can_represent_type(self, other: IntType) -> bool:
+        """Whether this type could represent integer values of another type."""
         return self.min_value <= other.min_value and self.max_value >= other.max_value
 
     def _max_value(self) -> int:
@@ -172,7 +177,15 @@ class _IntBase:
 
 @dataclass
 class IntConstant(_IntBase):
+    """An integer constant value."""
+
     value: int
+
+    def __str__(self) -> str:
+        return f"{self.value} ({self.type})"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
 
     def __post_init__(self):
         if not self.type.can_represent_value(self.value):
@@ -183,6 +196,8 @@ class IntConstant(_IntBase):
 
 @dataclass
 class BytesPointer:
+    """A pointer to an array of bytes."""
+
     compiler: "Compiler"
     len_: int
 
@@ -222,17 +237,31 @@ class BytesPointer:
     def __post_init__(self):
         self.symtab_index = self.compiler.reserve_symbol_index()
 
+    def __str__(self) -> str:
+        return f"byte ptr (len={self.len_})"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
+
     def __len__(self) -> int:
         return self.len_
 
 
 @dataclass
 class IntVariable(_IntBase):
-    pass
+    """An integer with a non-constant value."""
+
+    def __str__(self) -> str:
+        return f"var ({self.type})"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
 
 
 @dataclass
 class TypeCoercion:
+    """The result of coercing two types together."""
+
     result_type: IntType
     args: list[PyIntValueType]
 

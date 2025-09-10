@@ -19,6 +19,8 @@ from .types import (
 
 @dataclass
 class LinuxCompiler(Compiler, HighLevelCompilerInterface):
+    """A compiler that targets Linux platforms."""
+
     sys_nums: LinuxSyscallNumbers = field(init=False)
 
     def __post_init__(self):

@@ -48,6 +48,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class CodeSection:
+    """Section of object code emitted by the LLVM IR compiler."""
+
     name: str
     address: int
     size: int
@@ -84,6 +86,15 @@ class BytesPointerWithValue:
 
 @dataclass
 class Compiler:
+    """The core program compiler and main interface into ``int3``.
+
+    This class should typically be created via one of its static factory methods:
+
+    * :py:meth:`~Compiler.from_str`
+    * :py:meth:`~Compiler.from_host`
+
+    """
+
     arch: Architecture
     platform: Platform
     platform_spec: str
@@ -213,6 +224,18 @@ class Compiler:
     def coerce_to_type(
         self, value: PyArgType, type: IntType
     ) -> IntConstant | IntVariable:
+        """Coerce a value into the specified type.
+
+        .. doctest::
+
+            >>> from int3 import Compiler
+            >>> cc = Compiler.from_host()
+            >>> cc.coerce_to_type(value=123, type=cc.types.i64)
+            <IntConstant [123 (i64)]>
+            >>> cc.coerce_to_type(value=123, type=cc.types.i8)
+            <IntConstant [123 (i8)]>
+
+        """
         if isinstance(value, (int, IntConstant)):
             if isinstance(value, IntConstant):
                 raw_value = value.value
@@ -275,6 +298,17 @@ class Compiler:
             )
 
     def coerce(self, one: PyIntArgType, two: PyIntArgType) -> TypeCoercion:
+        """Coerce two values into the same type.
+
+        .. doctest::
+
+            >>> from int3 import Compiler
+            >>> cc = Compiler.from_host()
+            >>> cc.coerce(0xdead, cc.u32(0xbeef0000)).result_type
+            <IntType [u32]>
+
+        """
+
         if isinstance(one, int) and isinstance(two, int):
             # Both arguments are raw integers.
             raise NotImplementedError("Coercion of raw integers WIP")
@@ -297,6 +331,19 @@ class Compiler:
             raise NotImplementedError("Coercion of typed integers WIP")
 
     def make_int(self, value: int, type: IntType) -> IntConstant:
+        """Create an int constant.
+
+        This method should seldom be used. Instead, reach for one of the ``i``/``i8``/
+        ``i16``/etc helper methods.
+
+        .. doctest::
+
+            >>> from int3 import Compiler
+            >>> cc = Compiler.from_str("linux/x86_64")
+
+
+        """
+
         return IntConstant(
             compiler=self,
             type=type,
@@ -305,6 +352,7 @@ class Compiler:
         )
 
     def b(self, value: bytes | None = None, len_: int | None = None) -> BytesPointer:
+        """Create a bytes pointer from a value or specified length."""
         if value is None and len_ is None:
             raise Int3ProgramDefinitionError(
                 "Must specify bytes length if no value specified"
@@ -331,36 +379,47 @@ class Compiler:
         return new_bytes_ptr
 
     def i(self, value: int) -> IntConstant:
+        """Create a signed integer constant of the architecture's native width."""
         return self.make_int(value, type=self.types.inat)
 
     def i8(self, value: int) -> IntConstant:
+        """Create an 8-bit signed integer constant."""
         return self.make_int(value, type=self.types.i8)
 
     def i16(self, value: int) -> IntConstant:
+        """Create a 16-bit signed integer constant."""
         return self.make_int(value, type=self.types.i16)
 
     def i32(self, value: int) -> IntConstant:
+        """Create a 32-bit signed integer constant."""
         return self.make_int(value, type=self.types.i32)
 
     def i64(self, value: int) -> IntConstant:
+        """Create a 64-bit signed integer constant."""
         return self.make_int(value, type=self.types.i64)
 
     def u(self, value: int) -> IntConstant:
+        """Create an unsigned integer constant of the architecture's native width."""
         return self.make_int(value, type=self.types.unat)
 
     def u8(self, value: int) -> IntConstant:
+        """Create an 8-bit unsigned integer constant."""
         return self.make_int(value, type=self.types.u8)
 
     def u16(self, value: int) -> IntConstant:
+        """Create a 16-bit unsigned integer constant."""
         return self.make_int(value, type=self.types.u16)
 
     def u32(self, value: int) -> IntConstant:
+        """Create a 32-bit unsigned integer constant."""
         return self.make_int(value, type=self.types.u32)
 
     def u64(self, value: int) -> IntConstant:
+        """Create a 64-bit unsigned integer constant."""
         return self.make_int(value, type=self.types.u64)
 
     def breakpoint(self):
+        """Emit an architecture-aware assembly breakpoint."""
         llvm_func_type = llvmir.FunctionType(
             return_type=self.types.void.wrapped_type,
             args=[],
@@ -376,6 +435,7 @@ class Compiler:
         )
 
     def add(self, one: PyIntArgType, two: PyIntArgType) -> IntVariable:
+        """Add two variables or constants together."""
         coercion = self.coerce(one, two)
         result_inst = self.builder.add(
             coercion.args[0].wrapped_llvm_node,
@@ -389,6 +449,12 @@ class Compiler:
         )
 
     def icmp(self, op: ComparisonOp, one: PyIntArgType, two: PyIntArgType) -> Predicate:
+        """Emit a comparison operation.
+
+        Generally, it's easier to use the overloaded Python dunder methods
+        on the integer variable and constant wrapper classes.
+
+        """
         coercion = self.coerce(one, two)
         if coercion.result_type.is_signed:
             result_inst = self.builder.icmp_signed(
@@ -408,6 +474,7 @@ class Compiler:
         return Predicate(wrapped_llvm_node=result_inst)
 
     def ret(self, value: PyIntArgType | None = None):
+        """Return from the current function, optionally specifying a return value."""
         if value is None and self.current_func.return_type == self.types.void:
             return self.builder.ret_void()
         elif value is None:
@@ -432,13 +499,12 @@ class Compiler:
         This a very thin wrapper around llvmlite's builder method of the same name. The
         respective if/else block should be acquired as a context manager, like:
 
-        TODO: doctest.
-
         """
         with self.builder.if_else(predicate.wrapped_llvm_node) as (then, otherwise):
             yield then, otherwise
 
     def llvm_ir(self) -> str:
+        """Produce the LLVM IR for the current program definition."""
         llvm_mod_str = str(self.llvm_module)
 
         # We hot patch the preliminary LLVM IR to include a prefix before each function. This
@@ -513,6 +579,7 @@ class Compiler:
         return self._get_text_from_object(raw_object)
 
     def compile_funcs(self) -> dict[str, bytes]:
+        """Compile each defined function into its assembled bytes."""
         # Compile the raw object.
         text_bytes = self._llvm_module_to_text()
 
@@ -558,6 +625,8 @@ class Compiler:
         return bytes(func_segment)
 
     def compile(self) -> bytes:
+        """Compile the current program definition into assembled bytes."""
+
         # Compile all of our functions into raw bytes. This is the raw result of
         # LLVM's IR to native code generation. Consequently, these functions will
         # likely contain bad bytes.
@@ -798,6 +867,7 @@ class Compiler:
 
     @staticmethod
     def from_host(bad_bytes: bytes = b"") -> Compiler:
+        """Create a compiler from the current host's platform and architecture."""
         os_type = platform.system().lower()
         arch = Architectures.from_host().name
         return Compiler.from_str(f"{os_type}/{arch}", bad_bytes=bad_bytes)
@@ -805,7 +875,7 @@ class Compiler:
     @overload
     @staticmethod
     def from_str(
-        platform_spec: Literal["linux/x86_64"],
+        platform_spec: Literal["linux/x86_64", "linux/x86", "linux/mips"],
         bad_bytes: bytes = b"",
         load_addr: int | None = None,
     ) -> "LinuxCompiler": ...
@@ -820,6 +890,16 @@ class Compiler:
     def from_str(
         platform_spec: str, bad_bytes: bytes = b"", load_addr: int | None = None
     ) -> Compiler:
+        """Create a compiler from a string specifying the platform and architecture.
+
+        .. doctest::
+
+            >>> from int3 import Compiler
+            >>> cc = Compiler.from_str("linux/x86")
+            >>> cc.triple
+            <Triple [i386-pc-linux-unknown]>
+
+        """
         parts = platform_spec.split("/")
         if len(parts) != 2:
             raise Int3ArgumentError(f"Invalid platform spec: {platform_spec}")

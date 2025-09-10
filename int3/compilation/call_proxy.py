@@ -13,9 +13,12 @@ if TYPE_CHECKING:
 
 @dataclass
 class CallProxy:
+    """Implementation detail for enabling compiler function calls."""
+
     func: "FunctionProxy"
 
     def __call__(self, *args: PyArgType) -> IntVariable | None:
+        """Emit a function call into the IR."""
         compiler = self.func.compiler
         symtab_ptr = compiler.current_func.raw_symtab_ptr
         return self.call_func(
@@ -111,6 +114,8 @@ class CallProxy:
 
 @dataclass
 class CallFactory:
+    """Simple wrapper to enable ``getattr``-style function calls."""
+
     compiler: "Compiler"
 
     def __getattr__(self, attr: str) -> CallProxy:

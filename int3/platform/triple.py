@@ -59,6 +59,9 @@ class Triple:
     def __str__(self) -> str:
         return f"{self.arch_str}{self.sub_str}-{self.vendor_str}-{self.sys_str}-{self.env_str}"
 
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
+
     def _resolve_call_preserved_regs(self) -> tuple[RegisterDef, ...]:
         """Determine which registers LLVM considers call-preserved for this platform/architecture.
 

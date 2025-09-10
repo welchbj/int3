@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 class SymbolTable:
     """Implementation of basic table for runtime resolution of symbols.
 
-    Only one SymbolTable instance should be created for a given Compiler.
+    Only one ``SymbolTable`` instance should be created for a given ``Compiler``,
+    which the ``Compiler`` should implicitly handle.
 
     """
 
