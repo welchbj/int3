@@ -117,7 +117,7 @@ TODO
 Conditional control flow
 ------------------------
 
-``int3`` supports conditional execution using :py:meth:`~int3.Compiler.if_else` blocks. Conditions are created using comparison operations that implicitly produce :py:class:`~int3.Predicate` instances:
+``int3`` supports conditional execution using :py:meth:`~int3.compilation.compiler.Compiler.if_else` blocks. Conditions are created using comparison operations that implicitly produce :py:class:`~int3.compilation.types.Predicate` instances:
 
 .. doctest::
 
@@ -132,7 +132,7 @@ Conditional control flow
     ...             result = cc.i(0)
     ...     cc.ret(result)
 
-The astute reader will have noticed that the :py:class:`~int3.IntValue` and :py:class:`~int3.IntConstant` instances have overloaded most Python dunder methods for basic arithmetic operations.
+The astute reader will have noticed that the :py:class:`~int3.compilation.types.IntValue` and :py:class:`~int3.compilation.types.IntConstant` instances have overloaded most Python dunder methods for basic arithmetic operations.
 
 -----
 
@@ -149,12 +149,12 @@ Anatomy of an ``int3``-generated program
 Functions
 ---------
 
-Each function in an ``int3`` program becomes a separate code segment in the generated program. Functions are compiled to use the target platform's calling convention and can call each other. Functions are treated as independent units of execution, whose main interface TODO. Consequently, each function is "cleaned" of bad bytes in isolation during the compilation process before being stitched back together.
+Each function in an ``int3`` program becomes a separate code segment in the generated program. Functions are compiled to use the target platform's calling convention and can call each other. Functions are treated as independent units of execution, whose main interface to the rest of the program is through the program's symbol table. Consequently, each function is "cleaned" of bad bytes in isolation during the compilation process before being stitched back together.
 
 Entry Stub
 ----------
 
-When you compile an ``int3`` program using :py:meth:`~int3.Compiler.compile`, the generated machine code includes an entry stub that handles program initialization and calls your entrypoint function. This initialization involves
+When you compile an ``int3`` program using :py:meth:`~int3.compilation.compiler.Compiler.compile`, the generated machine code includes an entry stub that handles program initialization and calls your entrypoint function. This initialization involves
 
 * Running a program counter derivation stub so we can figure out where we're running in memory
 * Setting up offsets in the per-program symbol table
