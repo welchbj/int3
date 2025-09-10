@@ -2,7 +2,7 @@ from typing import cast
 
 import pytest
 
-from int3 import Architecture, Compiler, LinuxCompiler, Int3CodeGenerationError
+from int3 import Architecture, Compiler, Int3CodeGenerationError, LinuxCompiler
 
 from .qemu import parametrize_qemu_arch, run_in_qemu
 

@@ -23,7 +23,7 @@ A high-level command-line interface for common assembly tasks:
     $ echo -n "int3" | int3 assemble -a x86_64 | int3 format
     b"\xcc"
 
-A Python interface for writing your own position-independent programs:
+A Python interface for writing your own position-independent programs with automatic bad byte avoidance:
 
 .. literalinclude:: ../examples/linux/hello_world.py
     :language: python

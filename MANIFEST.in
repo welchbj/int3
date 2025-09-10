@@ -1,0 +1,5 @@
+include README.md
+include LICENSE.txt
+recursive-include int3 *.py
+recursive-include int3/_vendored *.py
+include int3/_vendored/llvmlite/binding/libllvmlite.so
