@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class MutationEngine:
+    """Engine for managing code mutation passes applied to machine code."""
+
     triple: Triple
     raw_asm: bytes
     bad_bytes: bytes
@@ -33,6 +35,7 @@ class MutationEngine:
         return [cls(segment, self.bad_bytes) for cls in pass_classes]  # type: ignore
 
     def clean(self) -> CodeSegment:
+        """Attempt to clean bad bytes from the machine code wrapped by this engine."""
         mutated_segment = CodeSegment(
             triple=self.triple,
             raw_asm=self.raw_asm,

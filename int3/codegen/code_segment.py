@@ -11,6 +11,7 @@ from int3.platform import Triple
 
 @dataclass(frozen=True)
 class CodeSegment:
+    """A side effect aware series of instructions."""
     triple: Triple
     raw_asm: bytes
     bad_bytes: bytes
@@ -34,6 +35,7 @@ class CodeSegment:
 
     @staticmethod
     def from_asm(triple: Triple, asm: str, bad_bytes: bytes = b"") -> CodeSegment:
+        """Factory method to create an instance from raw machine code."""
         assembled_asm = assemble(arch=triple.arch, assembly=asm)
         return CodeSegment(triple=triple, raw_asm=assembled_asm, bad_bytes=bad_bytes)
 
@@ -43,10 +45,12 @@ class CodeSegment:
 
     @property
     def is_clean(self) -> bool:
+        """Whether this segment doesn't contain bad bytes."""
         return len(self.dirty_instructions) == 0
 
     @property
     def raw(self) -> bytes:
+        """Raw machine code for this segment."""
         return b"".join(insn.raw for insn in self.instructions)
 
     def __bytes__(self) -> bytes:
@@ -66,6 +70,7 @@ class CodeSegment:
         )
 
     def scratch_regs_for_size(self, bit_size: int) -> tuple[RegisterDef, ...]:
+        """Find candidate scratch registers for a given bit width."""
         return tuple(reg for reg in self.scratch_regs if reg.bit_size == bit_size)
 
     def make_clean_imm(self, bit_size: int | None = None) -> int:

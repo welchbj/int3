@@ -8,7 +8,10 @@ from .abc import InstructionMutationPass
 
 
 class MoveSmallImmediateInstructionPass(InstructionMutationPass):
+    """Mutate small immediates into a series of increments."""
+
     def should_mutate(self, insn: Instruction) -> bool:
+        """Mutate instructions with small immediate values."""
         return (
             insn.is_mov()
             and len(insn.operands) >= 2
@@ -17,6 +20,7 @@ class MoveSmallImmediateInstructionPass(InstructionMutationPass):
         )
 
     def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
+        """Convert immediate values into a series of increments."""
         reg = insn.operands.reg(0)
         imm = insn.operands.imm(1)
 
@@ -32,7 +36,7 @@ class MoveSmallImmediateInstructionPass(InstructionMutationPass):
 
 
 class AddSyscallOperandInstructionPass(InstructionMutationPass):
-    """Add an operand to a syscall instruction to eliminate bad bytes.
+    """Add an operand to a syscall instruction.
 
     For example, the naked syscall instruction on Mips assembles to
     0000000c, containing null bytes. The addition of an immediate operand
@@ -41,16 +45,21 @@ class AddSyscallOperandInstructionPass(InstructionMutationPass):
     """
 
     def should_mutate(self, insn: Instruction) -> bool:
+        """Mutate syscall instructions."""
         return insn.is_syscall() and len(insn.operands) == 0
 
     def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
+        """Replace the syscall immediate operand."""
         imm = self.segment.make_clean_imm()
         raw_asm = self.codegen.syscall(imm).bytes
         return self.to_instructions(raw_asm)
 
 
 class FactorImmediateInstructionPass(InstructionMutationPass):
+    """Reconstruct an immediate operand across factored operations."""
+
     def should_mutate(self, insn: Instruction) -> bool:
+        """Mutate instructions that have reg and imm operands."""
         return (
             len(insn.operands) >= 2
             and insn.operands.is_reg(0)
@@ -58,6 +67,7 @@ class FactorImmediateInstructionPass(InstructionMutationPass):
         )
 
     def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
+        """Factor immediate values into multiple instructions."""
         reg = insn.operands.reg(0)
         imm = insn.operands.imm(-1)
         scratch_regs = tuple(self.segment.scratch_regs_for_size(reg.bit_size))
