@@ -2,4 +2,8 @@
 ``int3.assembly``
 =================
 
-TODO
+.. automodule:: int3.assembly.assemble
+    :members:
+
+.. automodule:: int3.assembly.disassemble
+    :members:
