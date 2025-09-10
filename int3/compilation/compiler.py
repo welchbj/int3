@@ -304,7 +304,7 @@ class Compiler:
 
             >>> from int3 import Compiler
             >>> cc = Compiler.from_host()
-            >>> cc.coerce(0xdead, cc.u32(0xbeef0000)).result_type
+            >>> cc.coerce(0xDEAD, cc.u32(0xBEEF0000)).result_type
             <IntType [u32]>
 
         """
