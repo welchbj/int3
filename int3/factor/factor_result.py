@@ -6,6 +6,8 @@ from .factor_operation import FactorOperation
 
 @dataclass(frozen=True)
 class FactorResult:
+    """The result of a factoring solve."""
+
     clauses: tuple[FactorClause, ...]
 
     def __str__(self) -> str:

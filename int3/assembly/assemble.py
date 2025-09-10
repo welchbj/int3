@@ -7,6 +7,7 @@ from int3.errors import Int3WrappedKeystoneError
 
 
 def assemble(arch: Architecture, assembly: str, vma: int = 0) -> bytes:
+    """Assemble the provided assembly text into machine code."""
     try:
         ks = Ks(arch=arch.keystone_arch, mode=arch.keystone_mode)
         encoding, _ = ks.asm(assembly, addr=vma, as_bytes=True)

@@ -7,6 +7,8 @@ from .factor_operation import FactorOperation
 
 @dataclass(frozen=True)
 class FactorClause:
+    """A operation/operand clause within a factor result."""
+
     operation: FactorOperation
     operand: int
 

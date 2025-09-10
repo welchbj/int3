@@ -25,12 +25,15 @@ class InstructionMutationPass(ABC):
         return self.segment.arch
 
     def is_dirty(self, data: bytes) -> bool:
+        """Return whether the byte sequence contains bad bytes."""
         return any(b in data for b in self.bad_bytes)
 
     def to_instructions(self, data: bytes) -> tuple[Instruction, ...]:
+        """Convert a byte sequence to Instruction instances."""
         return Instruction.from_bytes(data, self.segment.triple)
 
     def choose(self, seq: Iterable[bytes]) -> tuple[Instruction, ...]:
+        """Choose the shortest clean candidate byte sequence."""
         chosen_code = min(
             iter(data for data in seq if not self.is_dirty(data)), key=len
         )

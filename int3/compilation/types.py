@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Literal, cast
 
 from int3._vendored.llvmlite import ir as llvmir
 from int3.errors import Int3InsufficientWidthError
 
 if TYPE_CHECKING:
     from .compiler import Compiler
+
+
+type ComparisonOp = Literal["<", "<=", "==", "!=", ">=", ">"]
+"""Valid comparison operations."""
 
 
 @dataclass
@@ -49,6 +53,13 @@ class TypeManager:
         self.u16 = IntType(bit_size=16, is_signed=False)
         self.u32 = IntType(bit_size=32, is_signed=False)
         self.u64 = IntType(bit_size=64, is_signed=False)
+
+
+@dataclass(frozen=True)
+class Predicate:
+    """Wrapper around an LLVM comparison result (an implicit 1-bit integer)."""
+
+    wrapped_llvm_node: llvmir.Instruction
 
 
 @dataclass(frozen=True)
@@ -99,10 +110,15 @@ class IntType:
         sign_str = "i" if self.is_signed else "u"
         return f"{sign_str}{self.bit_size}"
 
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
+
     def can_represent_value(self, value: int) -> bool:
+        """Whether this type could represent the integer value."""
         return self.min_value <= value <= self.max_value
 
     def can_represent_type(self, other: IntType) -> bool:
+        """Whether this type could represent integer values of another type."""
         return self.min_value <= other.min_value and self.max_value >= other.max_value
 
     def _max_value(self) -> int:
@@ -140,10 +156,36 @@ class _IntBase:
     def __add__(self, other: PyIntArgType) -> IntVariable:
         return self.compiler.add(cast(PyIntValueType, self), other)
 
+    def equals(self, other: PyIntArgType) -> Predicate:
+        return self.compiler.icmp("==", cast(PyIntValueType, self), other)
+
+    def not_equals(self, other: PyIntArgType) -> Predicate:
+        return self.compiler.icmp("!=", cast(PyIntValueType, self), other)
+
+    def __gt__(self, other: PyIntArgType) -> Predicate:
+        return self.compiler.icmp(">", cast(PyIntValueType, self), other)
+
+    def __ge__(self, other: PyIntArgType) -> Predicate:
+        return self.compiler.icmp(">=", cast(PyIntValueType, self), other)
+
+    def __lt__(self, other: PyIntArgType) -> Predicate:
+        return self.compiler.icmp("<", cast(PyIntValueType, self), other)
+
+    def __le__(self, other: PyIntArgType) -> Predicate:
+        return self.compiler.icmp("<=", cast(PyIntValueType, self), other)
+
 
 @dataclass
 class IntConstant(_IntBase):
+    """An integer constant value."""
+
     value: int
+
+    def __str__(self) -> str:
+        return f"{self.value} ({self.type})"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
 
     def __post_init__(self):
         if not self.type.can_represent_value(self.value):
@@ -154,6 +196,8 @@ class IntConstant(_IntBase):
 
 @dataclass
 class BytesPointer:
+    """A pointer to an array of bytes."""
+
     compiler: "Compiler"
     len_: int
 
@@ -193,17 +237,31 @@ class BytesPointer:
     def __post_init__(self):
         self.symtab_index = self.compiler.reserve_symbol_index()
 
+    def __str__(self) -> str:
+        return f"byte ptr (len={self.len_})"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
+
     def __len__(self) -> int:
         return self.len_
 
 
 @dataclass
 class IntVariable(_IntBase):
-    pass
+    """An integer with a non-constant value."""
+
+    def __str__(self) -> str:
+        return f"var ({self.type})"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
 
 
 @dataclass
 class TypeCoercion:
+    """The result of coercing two types together."""
+
     result_type: IntType
     args: list[PyIntValueType]
 

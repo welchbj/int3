@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 class SymbolTable:
     """Implementation of basic table for runtime resolution of symbols.
 
-    Only one SymbolTable instance should be created for a given Compiler.
+    Only one ``SymbolTable`` instance should be created for a given ``Compiler``,
+    which the ``Compiler`` should implicitly handle.
 
     """
 
@@ -44,6 +45,7 @@ class SymbolTable:
         return cast(llvmir.Constant, self.compiler.i32(value).wrapped_llvm_node)
 
     def slot_ptr(self, struct_ptr: llvmir.PointerType, idx: int) -> llvmir.Instruction:
+        """Obtain the relative slot pointer for a given index within table."""
         indices = [self._make_gep_idx(idx)]
 
         # llvmlite gep examples:

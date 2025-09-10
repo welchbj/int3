@@ -19,8 +19,8 @@ class Triple:
         <arch><sub>-<vendor>-<sys>-<env>
 
     See:
-        https://mcyoung.xyz/2025/04/14/target-triples/
-        https://clang.llvm.org/docs/CrossCompilation.html#target-triple
+        * https://mcyoung.xyz/2025/04/14/target-triples/
+        * https://clang.llvm.org/docs/CrossCompilation.html#target-triple
 
     """
 
@@ -58,6 +58,9 @@ class Triple:
 
     def __str__(self) -> str:
         return f"{self.arch_str}{self.sub_str}-{self.vendor_str}-{self.sys_str}-{self.env_str}"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
 
     def _resolve_call_preserved_regs(self) -> tuple[RegisterDef, ...]:
         """Determine which registers LLVM considers call-preserved for this platform/architecture.
@@ -170,12 +173,14 @@ class Triple:
             )
 
     def insns(self, raw: str | bytes) -> tuple[Instruction, ...]:
+        """Transform assembly or machine code into a sequence of instructions."""
         if isinstance(raw, str):
             return Instruction.from_str(raw, triple=self)
         else:
             return Instruction.from_bytes(raw, triple=self)
 
     def one_insn_or_raise(self, raw: str | bytes) -> Instruction:
+        """Transform assembly or machine code into exactly one instruction."""
         insns = self.insns(raw)
         if len(insns) != 1:
             raise Int3CodeGenerationError(

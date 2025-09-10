@@ -1,5 +1,5 @@
 from .abc import InstructionMutationPass
-from .instructon_passes import (
+from .instruction_passes import (
     AddSyscallOperandInstructionPass,
     FactorImmediateInstructionPass,
     MoveSmallImmediateInstructionPass,

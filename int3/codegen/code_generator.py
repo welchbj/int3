@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class AsmGadget:
+    """An assembly gadget."""
+
     text: str
     bytes: bytes
     len: int = field(init=False)
@@ -48,6 +50,8 @@ class AsmGadget:
 
 @dataclass(frozen=True)
 class CodeGenerator:
+    """Common interface for emitting architecture-specific assembly."""
+
     arch: "Architecture"
 
     def gadget(self, asm: str) -> AsmGadget:

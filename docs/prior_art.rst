@@ -9,6 +9,7 @@ Assembly and Shellcoding
 
 * `Capstone Python documentation <https://www.capstone-engine.org/lang_python.html>`_
 * `Phrack - Writing ia32 alphanumeric shellcodes <https://phrack.org/issues/57/15.html>`_
+* `pwntools shellcraft module <https://docs.pwntools.com/en/stable/shellcraft.html>`_
 
 Intermediate Representation
 ---------------------------

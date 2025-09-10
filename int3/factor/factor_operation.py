@@ -2,6 +2,8 @@ from enum import Enum, auto
 
 
 class FactorOperation(Enum):
+    """Supported factor operations."""
+
     Init = auto()
 
     Add = auto()

@@ -48,6 +48,23 @@ _endian_to_format_str_map = {
 
 @dataclass(frozen=True)
 class Architecture:
+    """Metadata for a specific computing architecture.
+
+    Names referring to the same architecture are often fragmented across different
+    low-level tools and libraries (the Linux kernel, LLVM/Clang, Keystone/Capstone,
+    and so on). This class centralizes that information along with the registers
+    belonging to an architecture and other relevant metadata needed for proper code
+    and program generation.
+
+    An architecture instance servers as the main interface for size-aware integer
+    packing and unpacking utilities.
+
+    An architecture instance also provides the simplest interface for accessing the
+    architecture's registers and unmasking their aliases and clobbers via the
+    ``expand_regs`` and ``reg`` methods.
+
+    """
+
     name: str
     bit_size: int
     endian: Endian
@@ -131,7 +148,16 @@ class Architecture:
         return f"{endian_format}{width_format}"
 
     def expand_regs(self, *regs: RegisterDef | str) -> tuple[RegisterDef, ...]:
-        """Expand an input set of registers to include all implicit clobbers."""
+        """Expand an input set of registers to include all implicit clobbers.
+
+        .. doctest::
+
+            >>> from int3 import Architectures
+            >>> x86_64 = Architectures.x86_64.value
+            >>> sorted([reg.name for reg in x86_64.expand_regs("ebx")])
+            ['bl', 'bx', 'ebx', 'rbx']
+
+        """
         reg_list: list[RegisterDef] = []
         for reg in regs:
             if isinstance(reg, str):
@@ -144,7 +170,16 @@ class Architecture:
         return tuple(dict.fromkeys(reg_list))
 
     def reg(self, name: str) -> RegisterDef:
-        """Resolve a register definition by name."""
+        """Resolve a register definition by name.
+
+        .. doctest::
+
+            >>> from int3 import Architectures
+            >>> x86_64 = Architectures.x86_64.value
+            >>> x86_64.reg("rax")
+            RegisterDef(name='rax', bit_size=64, llvm_alt_name=None)
+
+        """
         try:
             return self._reg_name_map[name]
         except KeyError as e:
@@ -165,6 +200,18 @@ class Architecture:
     def pad(
         self, value: bytes, width: int | None = None, fill_byte: bytes = b"\x00"
     ) -> bytes:
+        """Pack and pad an integer value to a byte length.
+
+        .. doctest::
+
+            >>> from int3 import Architectures
+            >>> mips = Architectures.Mips.value
+            >>> mips.pad(b"AA", fill_byte=b"B")
+            b'BBAA'
+            >>> mips.pad(b"AA", width=64, fill_byte=b"C")
+            b'CCCCCCAA'
+
+        """
         if width is None:
             width = self.bit_size
 
@@ -183,6 +230,19 @@ class Architecture:
             return value.rjust(byte_width, fill_byte)
 
     def pack(self, value: int, width: int | None = None) -> bytes:
+        """Pack an integer value into bytes.
+
+        When ``width`` is omitted, the native width of the architecture will be used.
+
+        .. doctest::
+
+            >>> import binascii
+            >>> from int3 import Architectures
+            >>> mips = Architectures.Mips.value
+            >>> binascii.hexlify(mips.pack(0x4141)).decode()
+            '00004141'
+
+        """
         if not self.is_okay_value(value):
             raise Int3InsufficientWidthError(
                 f"Architecture {self.__class__.__name__} cannot hold value {value}"
@@ -200,6 +260,19 @@ class Architecture:
     def unpack(
         self, data: bytes, width: int | None = None, signed: bool = False
     ) -> int:
+        """Unpack bytes into an integer for this architecture.
+
+        When ``width`` is omitted, the native width of the architecture will be used.
+
+        .. doctest::
+
+            >>> from int3 import Architectures
+            >>> mips = Architectures.Mips.value
+            >>> hex(mips.unpack(b"AA", width=16))
+            '0x4141'
+
+        """
+
         format_str = self._make_struct_format_str(width=width, signed=signed)
         try:
             return cast(int, struct.unpack(format_str, data)[0])
@@ -210,6 +283,16 @@ class Architecture:
 
 
 class Architectures(Enum):
+    """Interface for accessing supported ``Architecture`` definitions.
+
+    .. doctest::
+
+        >>> from int3 import Architectures
+        >>> sorted([arch.name for arch in Architectures])
+        ['Mips', 'x86', 'x86_64']
+
+    """
+
     x86 = Architecture(
         name="x86",
         bit_size=32,
@@ -379,6 +462,7 @@ class Architectures(Enum):
 
     @staticmethod
     def from_host() -> Architecture:
+        """Derive an architecture from the host."""
         # References:
         # https://stackoverflow.com/a/45125525
         # https://en.wikipedia.org/wiki/Uname
@@ -400,6 +484,15 @@ class Architectures(Enum):
 
     @staticmethod
     def from_str(architecture_name: str) -> Architecture:
+        """Derive an architecture from a string name.
+
+        .. doctest::
+
+            >>> from int3 import Architectures
+            >>> Architectures.from_str("mips").name
+            'mips'
+
+        """
         architecture = _ARCHITECTURE_MAP.get(architecture_name, None)
         if architecture is None:
             raise Int3MissingEntityError(f"No such architecture {architecture_name}")
@@ -408,6 +501,7 @@ class Architectures(Enum):
 
     @staticmethod
     def names() -> list[str]:
+        """Retrieve the names of all supported architectures."""
         return list(_ARCHITECTURE_MAP.keys())
 
 

@@ -3,6 +3,16 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class RegisterDef:
+    """Metadata for an architecture's specific register.
+
+    .. doctest::
+
+        >>> from int3 import Registers
+        >>> Registers.Mips.zero
+        RegisterDef(name='zero', bit_size=32, llvm_alt_name='0')
+
+    """
+
     name: str
     bit_size: int
     llvm_alt_name: str | None = None
@@ -180,6 +190,18 @@ class MipsRegisters:
 
 
 class Registers:
+    """Primary interface for accessing architecture-specific register sets.
+
+    .. doctest::
+
+        >>> from int3 import Registers
+        >>> Registers.x86.eax
+        RegisterDef(name='eax', bit_size=32, llvm_alt_name=None)
+        >>> Registers.Mips.a0
+        RegisterDef(name='a0', bit_size=32, llvm_alt_name='4')
+
+    """
+
     x86_64 = x86_64Registers
     x86 = x86Registers
     Mips = MipsRegisters
