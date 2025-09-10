@@ -28,7 +28,7 @@ Install cross-compilation toolchains from the excellent `musl.cc project <https:
 Custom ``llvmlite`` Build
 -------------------------
 
-In order to expose the full suite of LLVM's supported architecture assembly parsers (a requirement in order to parse generated inline assembly in LLVM IR code), a few adjustments to the `llvmlite` code base are required. ``llvmlite`` discusses how to do so `here <https://llvmlite.readthedocs.io/en/latest/admin-guide/install.html>`_.
+In order to expose the full suite of LLVM's supported architecture assembly parsers (a requirement in order to parse generated inline assembly in LLVM IR code), a few adjustments to the `llvmlite` code base are required. ``llvmlite`` discusses how to do so `in their installation guide <https://llvmlite.readthedocs.io/en/latest/admin-guide/install.html>`_.
 
 This process requires having `Miniconda <https://www.anaconda.com/docs/getting-started/miniconda/main>`_ installed, in order to download LLVM builds that ``llvmlite`` in turn depends on. Before following the below steps, you should consult the `Anaconda Terms of Service <https://www.anaconda.com/legal>`_ to ensure your work falls within scope of their free platform use.
 
@@ -48,7 +48,16 @@ For the sake of convenience, building and copying over a modified `llvmlite` tre
 Releases
 --------
 
-The PyPI package can be published with:
+The PyPI package can be published from a fresh checkout with:
+
+.. code-block:: bash
+
+    git clone git@github.com:welchbj/int3.git
+    cd int3
+    ./scripts/install_custom_llvmlite.sh --python-version 3.13 --build-name dev --strip
+    uv build
+
+Then publish with:
 
 .. code-block:: bash
 
