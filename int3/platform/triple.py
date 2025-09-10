@@ -173,12 +173,14 @@ class Triple:
             )
 
     def insns(self, raw: str | bytes) -> tuple[Instruction, ...]:
+        """Transform assembly or machine code into a sequence of instructions."""
         if isinstance(raw, str):
             return Instruction.from_str(raw, triple=self)
         else:
             return Instruction.from_bytes(raw, triple=self)
 
     def one_insn_or_raise(self, raw: str | bytes) -> Instruction:
+        """Transform assembly or machine code into exactly one instruction."""
         insns = self.insns(raw)
         if len(insns) != 1:
             raise Int3CodeGenerationError(
