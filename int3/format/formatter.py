@@ -10,12 +10,23 @@ from .format_style import FormatStyle
 
 @dataclass
 class Formatter:
+    """Raw data formatter."""
     style_in: FormatStyle
     style_out: FormatStyle
 
     width: int = 88
 
     def format(self, data: bytes) -> bytes:
+        """Format data of an input style into an output style.
+
+        .. doctest::
+
+            >>> from int3 import FormatStyle, Formatter
+            >>> formatter = Formatter(style_in=FormatStyle.Raw, style_out=FormatStyle.Hex)
+            >>> formatter.format(b"AAAA")
+            b'41414141'
+
+        """
         parsed_data: bytes
 
         match self.style_in:
