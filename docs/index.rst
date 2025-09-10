@@ -2,7 +2,7 @@
 int3
 ====
 
-Welcome to the documentation site for the int3 framework.
+Welcome to the documentation site for the ``int3`` framework.
 
 -----
 
@@ -20,26 +20,43 @@ A high-level command-line interface for common assembly tasks:
 
 .. code-block:: bash
 
-    echo -n "int3" | int3 assemble -a x86_64 | int3 format
+    $ echo -n "int3" | int3 assemble -a x86_64 | int3 format
     b"\xcc"
 
-A full-featured Python framework interface for writing your own position-independent programs:
+A Python interface for writing your own position-independent programs:
 
 .. literalinclude:: ../examples/linux/hello_world.py
     :language: python
 
-Support for executing them:
+Support for disassembling them:
 
 .. code-block:: bash
 
-    python3 examples/linux/hello_world.py | int3 execute
+    $ python3 examples/linux/hello_world.py | python3 -m int3 disassemble | tail -10
+    0x0078: inc edx
+    0x007a: inc edx
+    0x007c: inc edx
+    0x007e: inc edx
+    0x0080: mov rax, rdi
+    0x0083: syscall
+    0x0085: mov rdi, rax
+    0x0088: mov eax, 0x3c
+    0x008d: syscall
+    0x008f: ret
+
+And executing them:
+
+.. code-block:: bash
+
+    $ python3 examples/linux/hello_world.py | python3 -m int3 execute ; echo $?
     Hello, world
+    13
 
 
 Installation
 ------------
 
-int3 is tested on the latest three major versions of CPython. You can get the latest release from PyPI with:
+int3 is tested on the latest major version of CPython. You can get the latest release from PyPI with:
 
 .. code-block:: bash
 
@@ -49,7 +66,10 @@ int3 is tested on the latest three major versions of CPython. You can get the la
 Features
 --------
 
-TODO
+* Write position-independent assembly code in a higher-level Python interface
+* Builtin support for cross-compiling to various architectures
+* Mutate generated machine code to remove bad bytes
+* Command-line interface for common formatting and exploratory reversing tasks
 
 
 License & Usage
