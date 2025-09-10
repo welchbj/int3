@@ -156,10 +156,10 @@ class _IntBase:
     def __add__(self, other: PyIntArgType) -> IntVariable:
         return self.compiler.add(cast(PyIntValueType, self), other)
 
-    def __eq__(self, other: PyIntArgType) -> Predicate:  # type: ignore
+    def equals(self, other: PyIntArgType) -> Predicate:
         return self.compiler.icmp("==", cast(PyIntValueType, self), other)
 
-    def __ne__(self, other: PyIntArgType) -> Predicate:  # type: ignore
+    def not_equals(self, other: PyIntArgType) -> Predicate:
         return self.compiler.icmp("!=", cast(PyIntValueType, self), other)
 
     def __gt__(self, other: PyIntArgType) -> Predicate:
