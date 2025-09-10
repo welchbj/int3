@@ -10,6 +10,10 @@ Some code and data from other open source projects is `vendored <https://stackov
 * Syscall number tables from the `syscall-tables <https://github.com/hrw/syscalls-table>`_ project
 * LLVM IR code generation and interfacing with the LLVM API via a modified version of the `llvmlite <https://github.com/numba/llvmlite>`_ project
 
+The base for the modified version of the ``llvmlite`` package is bootstrapped into the build process via ``miniconda``. The licenses of these vendored projects, as well as the Anaconda Terms of Service, should be reviewed prior to using or modifying ``int3``.
+
+Also note that ``llvmlite`` in turn wraps LLVM library code, which has `its own license <https://llvm.org/LICENSE.txt>`_.
+
 
 Dependencies
 ------------
