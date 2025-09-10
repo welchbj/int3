@@ -5,6 +5,19 @@ User Guide
 Defining functions and programs
 ===============================
 
+Compiler interfaces
+-------------------
+
+TODO
+
+Defining functions
+------------------
+
+TODO
+
+Conditional control flow
+------------------------
+
 TODO
 
 -----
