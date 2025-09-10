@@ -1,6 +1,8 @@
 from typing import cast
 
-from int3 import Architecture, Compiler, LinuxCompiler
+import pytest
+
+from int3 import Architecture, Compiler, LinuxCompiler, Int3CodeGenerationError
 
 from .qemu import parametrize_qemu_arch, run_in_qemu
 
@@ -38,4 +40,5 @@ def test_detection_of_broken_control_flow():
             with else_:
                 cc.sys_exit(0)
 
-    cc.compile()
+    with pytest.raises(Int3CodeGenerationError):
+        cc.compile()
