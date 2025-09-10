@@ -7,7 +7,7 @@ name = "int3"
 version = "0.0.2"
 license = "LGPL-3.0-only"
 license-files = ["LICENSE.txt"]
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 readme = "README.md"
 classifiers = [
     "Environment :: Console",
@@ -38,7 +38,7 @@ Repository = "https://github.com/welchbj/int3"
 "Bug Tracker" = "https://github.com/welchbj/int3/issues"
 
 [project.scripts]
-tt = "int3.__main__:cli"
+int3 = "int3.__main__:cli"
 
 [tool.uv]
 package = true
