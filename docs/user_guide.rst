@@ -51,7 +51,7 @@ When we initialize our compiler, we can inform it of bad bytes we want to avoid 
     ...     value = cc.i32(0x0a0a0a0a)
     ...     cc.ret(value)
     >>> with cc.def_func.main():
-    ...     unused = cc.call.my_func()
+    ...     _ = cc.call.my_func()
     >>> b'\n' in cc.compile()
     False
 
@@ -112,7 +112,9 @@ Calling an already-defined function can be performed by accessing the function b
 Program entrypoint
 ------------------
 
-TODO
+By default, ``int3`` programs use a function named ``main`` as their entrypoint. This function must take no arguments and have a void return type.
+
+Alternatively, you can specify a custom entrypoint by setting the compiler's ``entry`` attribute.
 
 Conditional control flow
 ------------------------
@@ -139,7 +141,18 @@ The astute reader will have noticed that the :py:class:`~int3.compilation.types.
 Linux-specific interface
 ========================
 
-TODO
+When targeting Linux platforms, ``int3`` provides the :py:class:`~int3.compilation.linux_compiler.LinuxCompiler` class with convenience wrappers for various Linux syscalls. Using ``sys_write`` as an example:
+
+.. doctest::
+
+    >>> from int3 import Compiler
+    >>> cc = Compiler.from_str("linux/x86_64")
+    >>> with cc.def_func.main():
+    ...     message = cc.b(b"hello\n")
+    ...     bytes_written = cc.sys_write(fd=1, buf=message)
+    ...     _ = cc.sys_exit(bytes_written)
+
+For direct syscall access, you can use the generic :py:meth:`~int3.compilation.linux_compiler.LinuxCompiler.syscall` method.
 
 -----
 
