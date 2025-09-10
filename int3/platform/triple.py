@@ -19,8 +19,8 @@ class Triple:
         <arch><sub>-<vendor>-<sys>-<env>
 
     See:
-        https://mcyoung.xyz/2025/04/14/target-triples/
-        https://clang.llvm.org/docs/CrossCompilation.html#target-triple
+        * https://mcyoung.xyz/2025/04/14/target-triples/
+        * https://clang.llvm.org/docs/CrossCompilation.html#target-triple
 
     """
 
