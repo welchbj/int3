@@ -7,19 +7,27 @@ from enum import Enum
 from typing import ClassVar, cast
 
 from capstone import (
+    CS_ARCH_ARM,
+    CS_ARCH_ARM64,
     CS_ARCH_MIPS,
     CS_ARCH_X86,
     CS_MODE_32,
     CS_MODE_64,
+    CS_MODE_ARM,
     CS_MODE_BIG_ENDIAN,
+    CS_MODE_LITTLE_ENDIAN,
     CS_MODE_MIPS32,
 )
 from keystone import (
+    KS_ARCH_ARM,
+    KS_ARCH_ARM64,
     KS_ARCH_MIPS,
     KS_ARCH_X86,
     KS_MODE_32,
     KS_MODE_64,
+    KS_MODE_ARM,
     KS_MODE_BIG_ENDIAN,
+    KS_MODE_LITTLE_ENDIAN,
     KS_MODE_MIPS32,
 )
 
@@ -459,6 +467,82 @@ class Architectures(Enum):
         reg_cls=Registers.Mips,
         reg_clobber_groups=tuple(),
     )
+    Arm = Architecture(
+        name="arm",
+        bit_size=32,
+        endian=Endian.Little,
+        insn_width_flavor=InstructionWidth.Fixed,
+        min_insn_width=4,
+        toolchain_triple="arm-linux-musleabihf",
+        qemu_name="arm",
+        linux_kernel_name="armoabi",
+        ghidra_name="ARM:LE:32:v7",
+        clang_name="armv7",
+        llvm_reg_prefix="%",
+        keystone_reg_prefix="",
+        keystone_arch=KS_ARCH_ARM,
+        keystone_mode=KS_MODE_ARM + KS_MODE_LITTLE_ENDIAN,
+        capstone_arch=CS_ARCH_ARM,
+        capstone_mode=CS_MODE_ARM + CS_MODE_LITTLE_ENDIAN,
+        reg_cls=Registers.Arm,
+        reg_clobber_groups=(
+            {Registers.Arm.r13, Registers.Arm.sp},
+            {Registers.Arm.r14, Registers.Arm.lr},
+            {Registers.Arm.r15, Registers.Arm.pc},
+        ),
+    )
+    Aarch64 = Architecture(
+        name="aarch64",
+        bit_size=64,
+        endian=Endian.Little,
+        insn_width_flavor=InstructionWidth.Fixed,
+        min_insn_width=4,
+        toolchain_triple="aarch64-linux-musl",
+        qemu_name="aarch64",
+        linux_kernel_name="arm64",
+        ghidra_name="AARCH64:LE:64:default",
+        clang_name="aarch64",
+        llvm_reg_prefix="%",
+        keystone_reg_prefix="",
+        keystone_arch=KS_ARCH_ARM64,
+        keystone_mode=KS_MODE_LITTLE_ENDIAN,
+        capstone_arch=CS_ARCH_ARM64,
+        capstone_mode=CS_MODE_LITTLE_ENDIAN,
+        reg_cls=Registers.Aarch64,
+        reg_clobber_groups=(
+            {Registers.Aarch64.x0, Registers.Aarch64.w0},
+            {Registers.Aarch64.x1, Registers.Aarch64.w1},
+            {Registers.Aarch64.x2, Registers.Aarch64.w2},
+            {Registers.Aarch64.x3, Registers.Aarch64.w3},
+            {Registers.Aarch64.x4, Registers.Aarch64.w4},
+            {Registers.Aarch64.x5, Registers.Aarch64.w5},
+            {Registers.Aarch64.x6, Registers.Aarch64.w6},
+            {Registers.Aarch64.x7, Registers.Aarch64.w7},
+            {Registers.Aarch64.x8, Registers.Aarch64.w8},
+            {Registers.Aarch64.x9, Registers.Aarch64.w9},
+            {Registers.Aarch64.x10, Registers.Aarch64.w10},
+            {Registers.Aarch64.x11, Registers.Aarch64.w11},
+            {Registers.Aarch64.x12, Registers.Aarch64.w12},
+            {Registers.Aarch64.x13, Registers.Aarch64.w13},
+            {Registers.Aarch64.x14, Registers.Aarch64.w14},
+            {Registers.Aarch64.x15, Registers.Aarch64.w15},
+            {Registers.Aarch64.x16, Registers.Aarch64.w16},
+            {Registers.Aarch64.x17, Registers.Aarch64.w17},
+            {Registers.Aarch64.x18, Registers.Aarch64.w18},
+            {Registers.Aarch64.x19, Registers.Aarch64.w19},
+            {Registers.Aarch64.x20, Registers.Aarch64.w20},
+            {Registers.Aarch64.x21, Registers.Aarch64.w21},
+            {Registers.Aarch64.x22, Registers.Aarch64.w22},
+            {Registers.Aarch64.x23, Registers.Aarch64.w23},
+            {Registers.Aarch64.x24, Registers.Aarch64.w24},
+            {Registers.Aarch64.x25, Registers.Aarch64.w25},
+            {Registers.Aarch64.x26, Registers.Aarch64.w26},
+            {Registers.Aarch64.x27, Registers.Aarch64.w27},
+            {Registers.Aarch64.x28, Registers.Aarch64.w28},
+            {Registers.Aarch64.x29, Registers.Aarch64.w29},
+            {Registers.Aarch64.x30, Registers.Aarch64.w30, Registers.Aarch64.lr},
+        ),
+    )
 
     @staticmethod
     def from_host() -> Architecture:
@@ -479,6 +563,10 @@ class Architectures(Enum):
                     return Architectures.from_str("Mipsel")
                 else:
                     return Architectures.from_str("Mips")
+            case "armv6l" | "armv7l" | "armhf":
+                return Architectures.from_str("arm")
+            case "aarch64" | "arm64":
+                return Architectures.from_str("aarch64")
             case _:
                 raise Int3MissingEntityError(f"Unrecognized machine {machine}")
 

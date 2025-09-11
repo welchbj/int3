@@ -81,10 +81,23 @@ class CodeGenerator:
         return nop_bytes * num_repeats
 
     def syscall(self, value: ImmType | None = None) -> AsmGadget:
-        if value is None:
-            return self.gadget("syscall")
-        else:
-            return self.gadget(f"syscall {self.f(value)}")
+        match self.arch:
+            case (
+                Architectures.x86_64.value
+                | Architectures.x86.value
+                | Architectures.Mips.value
+            ):
+                if value is None:
+                    return self.gadget("syscall")
+                else:
+                    return self.gadget(f"syscall {self.f(value)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                if value is None:
+                    return self.gadget("svc #0")
+                else:
+                    return self.gadget(f"svc {self.f(value)}")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def breakpoint(self) -> AsmGadget:
         match self.arch:
@@ -92,6 +105,8 @@ class CodeGenerator:
                 return self.gadget("int3")
             case Architectures.Mips.value:
                 return self.gadget("break")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget("brk #0")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
@@ -101,17 +116,49 @@ class CodeGenerator:
                 return self.gadget(f"inc {self.f(reg)}")
             case Architectures.Mips.value:
                 return self.gadget(f"addi {self.f(reg)}, 0x1")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget(f"add {self.f(reg)}, {self.f(reg)}, #1")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def xor(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
-        return self.gadget(f"xor {self.f(one)}, {self.f(two)}")
+        match self.arch:
+            case (
+                Architectures.x86_64.value
+                | Architectures.x86.value
+                | Architectures.Mips.value
+            ):
+                return self.gadget(f"xor {self.f(one)}, {self.f(two)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget(f"eor {self.f(one)}, {self.f(one)}, {self.f(two)}")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def add(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
-        return self.gadget(f"add {self.f(one)}, {self.f(two)}")
+        match self.arch:
+            case (
+                Architectures.x86_64.value
+                | Architectures.x86.value
+                | Architectures.Mips.value
+            ):
+                return self.gadget(f"add {self.f(one)}, {self.f(two)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget(f"add {self.f(one)}, {self.f(one)}, {self.f(two)}")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def sub(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
-        return self.gadget(f"sub {self.f(one)}, {self.f(two)}")
+        match self.arch:
+            case (
+                Architectures.x86_64.value
+                | Architectures.x86.value
+                | Architectures.Mips.value
+            ):
+                return self.gadget(f"sub {self.f(one)}, {self.f(two)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget(f"sub {self.f(one)}, {self.f(one)}, {self.f(two)}")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def mov(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
         match self.arch:
@@ -122,6 +169,8 @@ class CodeGenerator:
                     return self.gadget(f"li {self.f(one)}, {self.f(two)}")
                 else:
                     return self.gadget(f"move {self.f(one)}, {self.f(two)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget(f"mov {self.f(one)}, {self.f(two)}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
@@ -134,21 +183,30 @@ class CodeGenerator:
                 raise Int3CodeGenerationError(
                     "Mips does not support fine-grained PC-relative addressing"
                 )
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget(f"adr {self.f(result)}, .")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def jump(self, value: ImmType | RegType) -> AsmGadget:
         match self.arch:
-            case Architectures.x86.value:
-                return self.gadget(f"jmp {self.f(value)}")
-            case Architectures.x86_64.value:
-                # See: https://www.felixcloutier.com/x86/jmp
+            case Architectures.x86.value | Architectures.x86_64.value:
                 return self.gadget(f"jmp {self.f(value)}")
             case Architectures.Mips.value:
                 if isinstance(value, int):
                     return self.gadget(f"j {self.f(value)}")
                 else:
                     return self.gadget(f"jr {self.f(value)}")
+            case Architectures.Arm.value:
+                if isinstance(value, int):
+                    return self.gadget(f"b {self.f(value)}")
+                else:
+                    return self.gadget(f"bx {self.f(value)}")
+            case Architectures.Aarch64.value:
+                if isinstance(value, int):
+                    return self.gadget(f"b {self.f(value)}")
+                else:
+                    return self.gadget(f"br {self.f(value)}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 

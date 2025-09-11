@@ -716,6 +716,8 @@ class Compiler:
                 raw_asm = f".set noat\nmove $0, {reg_str}"
             case Architectures.x86_64.value | Architectures.x86.value:
                 raw_asm = f"mov {reg_str}, $0"
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                raw_asm = f"mov $0, {reg_str}"
             case _:
                 raise NotImplementedError(
                     f"No reg lifting routine for {self.arch.name}"
