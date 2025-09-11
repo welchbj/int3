@@ -96,6 +96,7 @@ class Architecture:
 
     reg_cls: type
     reg_clobber_groups: tuple[set[RegisterDef], ...]
+    reserved_regs: set[RegisterDef]
 
     byte_size: int = field(init=False)
     regs: tuple[RegisterDef, ...] = field(init=False)
@@ -329,6 +330,7 @@ class Architectures(Enum):
             {Registers.x86.esi, Registers.x86.si, Registers.x86.sil},
             {Registers.x86.edi, Registers.x86.di, Registers.x86.dil},
         ),
+        reserved_regs={Registers.x86.esp, Registers.x86.eip},
     )
     x86_64 = Architecture(
         name="x86_64",
@@ -446,6 +448,7 @@ class Architectures(Enum):
                 Registers.x86_64.r15b,
             },
         ),
+        reserved_regs={Registers.x86_64.rsp, Registers.x86_64.rip},
     )
     Mips = Architecture(
         name="mips",
@@ -466,6 +469,7 @@ class Architectures(Enum):
         capstone_mode=CS_MODE_MIPS32 + CS_MODE_BIG_ENDIAN,
         reg_cls=Registers.Mips,
         reg_clobber_groups=tuple(),
+        reserved_regs={Registers.Mips.sp, Registers.Mips.gp},
     )
     Arm = Architecture(
         name="arm",
@@ -478,7 +482,7 @@ class Architectures(Enum):
         linux_kernel_name="armoabi",
         ghidra_name="ARM:LE:32:v7",
         clang_name="armv7",
-        llvm_reg_prefix="%",
+        llvm_reg_prefix="",
         keystone_reg_prefix="",
         keystone_arch=KS_ARCH_ARM,
         keystone_mode=KS_MODE_ARM + KS_MODE_LITTLE_ENDIAN,
@@ -490,6 +494,12 @@ class Architectures(Enum):
             {Registers.Arm.r14, Registers.Arm.lr},
             {Registers.Arm.r15, Registers.Arm.pc},
         ),
+        reserved_regs={
+            Registers.Arm.sp,
+            Registers.Arm.pc,
+            Registers.Arm.r13,
+            Registers.Arm.r15,
+        },
     )
     Aarch64 = Architecture(
         name="aarch64",
@@ -502,7 +512,7 @@ class Architectures(Enum):
         linux_kernel_name="arm64",
         ghidra_name="AARCH64:LE:64:default",
         clang_name="aarch64",
-        llvm_reg_prefix="%",
+        llvm_reg_prefix="",
         keystone_reg_prefix="",
         keystone_arch=KS_ARCH_ARM64,
         keystone_mode=KS_MODE_LITTLE_ENDIAN,
@@ -542,6 +552,11 @@ class Architectures(Enum):
             {Registers.Aarch64.x29, Registers.Aarch64.w29},
             {Registers.Aarch64.x30, Registers.Aarch64.w30, Registers.Aarch64.lr},
         ),
+        reserved_regs={
+            Registers.Aarch64.sp,
+            Registers.Aarch64.xzr,
+            Registers.Aarch64.wzr,
+        },
     )
 
     @staticmethod

@@ -660,7 +660,7 @@ class Compiler:
         pc_transfer_reg = next(
             reg
             for reg in self.triple.call_clobbered_regs
-            if reg.bit_size == self.arch.bit_size
+            if reg.bit_size == self.arch.bit_size and reg not in self.arch.reserved_regs
         )
         lower_bound_pad_len = 0
         upper_bound_pad_len = 2 * self.arch.align_up_to_min_insn_width(
