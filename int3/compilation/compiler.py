@@ -877,7 +877,9 @@ class Compiler:
     @overload
     @staticmethod
     def from_str(
-        platform_spec: Literal["linux/x86_64", "linux/x86", "linux/mips"],
+        platform_spec: Literal[
+            "linux/x86_64", "linux/x86", "linux/mips", "linux/arm", "linux/aarch64"
+        ],
         bad_bytes: bytes = b"",
         load_addr: int | None = None,
     ) -> "LinuxCompiler": ...
