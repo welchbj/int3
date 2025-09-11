@@ -564,9 +564,9 @@ class Architectures(Enum):
                 else:
                     return Architectures.from_str("Mips")
             case "armv6l" | "armv7l" | "armhf":
-                return Architectures.from_str("arm")
+                return Architectures.from_str("Arm")
             case "aarch64" | "arm64":
-                return Architectures.from_str("aarch64")
+                return Architectures.from_str("Aarch64")
             case _:
                 raise Int3MissingEntityError(f"Unrecognized machine {machine}")
 

@@ -32,7 +32,7 @@ Support for disassembling them:
 
 .. code-block:: bash
 
-    $ python3 examples/linux/hello_world.py | python3 -m int3 disassemble | tail -10
+    $ python3 examples/linux/hello_world.py | int3 disassemble | tail -10
     0x0078: inc edx
     0x007a: inc edx
     0x007c: inc edx
@@ -48,7 +48,7 @@ And executing them:
 
 .. code-block:: bash
 
-    $ python3 examples/linux/hello_world.py | python3 -m int3 execute ; echo $?
+    $ python3 examples/linux/hello_world.py | int3 execute ; echo $?
     Hello, world
     13
 

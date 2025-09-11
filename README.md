@@ -30,7 +30,7 @@ sys.stdout.buffer.write(cc.compile())
 Support for disassembling them:
 
 ```sh
-$ python3 examples/linux/hello_world.py | python3 -m int3 disassemble | tail -10
+$ python3 examples/linux/hello_world.py | int3 disassemble | tail -10
 0x0078: inc edx
 0x007a: inc edx
 0x007c: inc edx
@@ -46,7 +46,7 @@ $ python3 examples/linux/hello_world.py | python3 -m int3 disassemble | tail -10
 And executing them:
 
 ```sh
-$ python3 examples/linux/hello_world.py | python3 -m int3 execute ; echo $?
+$ python3 examples/linux/hello_world.py | int3 execute ; echo $?
 Hello, world
 13
 ```
