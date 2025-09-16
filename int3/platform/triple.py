@@ -193,7 +193,7 @@ class Triple:
                             Registers.Mips.a1,
                             Registers.Mips.a2,
                             Registers.Mips.a3,
-                            # XXX: How do pass additinal arguments on the stack?
+                            # XXX: How to pass additional arguments on the stack?
                         ),
                     )
                 case Architectures.Arm.value:
