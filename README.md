@@ -56,7 +56,7 @@ Hello, world
 `int3` has support for the following cross-compilation targets:
 
 | Platform | Name      | Width | Endianness | Shorthand       |
-| -------- | --------- | ----- | ---------- | --------------- |
+| :------- | :-------- | :---- | :--------- | :-------------- |
 | Linux    | `x86`     | 32    | Little     | `linux/x86`     |
 | Linux    | `x86_64`  | 64    | Little     | `linux/x86_64`  |
 | Linux    | `mips`    | 32    | Big        | `linux/mips`    |
