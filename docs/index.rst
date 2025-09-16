@@ -58,13 +58,21 @@ Supported Platforms
 
 ``int3`` has support for the following cross-compilation targets:
 
-* ``linux/x86_64``
-* ``linux/x86``
-* ``linux/mips``
-* ``linux/arm``
-* ``linux/aarch64``
++----------+-------------+-------+------------+-------------------+
+| Platform | Name        | Width | Endianness | Shorthand         |
++==========+=============+=======+============+===================+
+| Linux    | ``x86``     | 32    | Little     | ``linux/x86``     |
++----------+-------------+-------+------------+-------------------+
+| Linux    | ``x86_64``  | 64    | Little     | ``linux/x86_64``  |
++----------+-------------+-------+------------+-------------------+
+| Linux    | ``mips``    | 32    | Big        | ``linux/mips``    |
++----------+-------------+-------+------------+-------------------+
+| Linux    | ``arm``     | 32    | Little     | ``linux/arm``     |
++----------+-------------+-------+------------+-------------------+
+| Linux    | ``aarch64`` | 64    | Little     | ``linux/aarch64`` |
++----------+-------------+-------+------------+-------------------+
 
-Note that things like available bad byte removal techniques or position-independent program counter derivation techniques will vary by architecture, which may affect the ability to cross-compile a given program to all supported architectures.
+Note that available bad byte removal techniques or position-independent program counter derivation techniques will vary by architecture and platform, which may affect the ability to cross-compile a given program to all supported compilation targets.
 
 
 Installation
