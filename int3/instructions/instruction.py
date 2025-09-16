@@ -306,7 +306,7 @@ class Instruction:
         return "branch_relative" in self._cs_group_names
 
     def is_syscall(self) -> bool:
-        return self.mnemonic.startswith("syscall")
+        return self.mnemonic.startswith("syscall") or self.mnemonic.startswith("svc")
 
     def is_mov(self) -> bool:
         mov_needles = ["mov", "lea", "li", "lui"]

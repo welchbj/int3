@@ -183,7 +183,9 @@ class CodeGenerator:
                 raise Int3CodeGenerationError(
                     "Mips does not support fine-grained PC-relative addressing"
                 )
-            case Architectures.Arm.value | Architectures.Aarch64.value:
+            case Architectures.Arm.value:
+                return self.gadget(f"mov {self.f(result)}, pc")
+            case Architectures.Aarch64.value:
                 return self.gadget(f"adr {self.f(result)}, .")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")

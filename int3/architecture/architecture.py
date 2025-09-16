@@ -100,6 +100,7 @@ class Architecture:
 
     byte_size: int = field(init=False)
     regs: tuple[RegisterDef, ...] = field(init=False)
+    expanded_reserved_regs: set[RegisterDef] = field(init=False)
 
     _reg_name_map: dict[str, RegisterDef] = field(init=False)
     _reg_clobber_map: dict[RegisterDef, set[RegisterDef]] = field(init=False)
@@ -130,6 +131,14 @@ class Architecture:
             for reg in reg_clobber_set:
                 reg_clobber_map[reg] |= reg_clobber_set
         object.__setattr__(self, "_reg_clobber_map", reg_clobber_map)
+
+        # We also initialize our fully-expanded set of reserved registers,
+        # which prevents us from selecting reserved registers or any of their
+        # aliases/clobbers as scratch registers.
+        expanded_reserved_regs = set()
+        for reg in self.reserved_regs:
+            expanded_reserved_regs |= reg_clobber_map[reg]
+        object.__setattr__(self, "expanded_reserved_regs", expanded_reserved_regs)
 
     def is_okay_value(self, imm: int) -> bool:
         """Tests whether a value can be represented on this architecture."""
@@ -298,7 +307,7 @@ class Architectures(Enum):
 
         >>> from int3 import Architectures
         >>> sorted([arch.name for arch in Architectures])
-        ['Mips', 'x86', 'x86_64']
+        ['Aarch64', 'Arm', 'Mips', 'x86', 'x86_64']
 
     """
 
@@ -479,7 +488,7 @@ class Architectures(Enum):
         min_insn_width=4,
         toolchain_triple="arm-linux-musleabihf",
         qemu_name="arm",
-        linux_kernel_name="armoabi",
+        linux_kernel_name="arm",
         ghidra_name="ARM:LE:32:v7",
         clang_name="armv7",
         llvm_reg_prefix="",
@@ -551,6 +560,7 @@ class Architectures(Enum):
             {Registers.Aarch64.x28, Registers.Aarch64.w28},
             {Registers.Aarch64.x29, Registers.Aarch64.w29},
             {Registers.Aarch64.x30, Registers.Aarch64.w30, Registers.Aarch64.lr},
+            {Registers.Aarch64.xzr, Registers.Aarch64.wzr},
         ),
         reserved_regs={
             Registers.Aarch64.sp,
