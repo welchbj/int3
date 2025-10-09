@@ -1,7 +1,7 @@
 from typing import Iterable
 
 from int3.architecture import RegisterDef
-from int3.errors import Int3UnsuitableCodeMutation
+from int3.errors import Int3UnsuitableCodeMutation, Int3CodeGenerationError
 from int3.instructions import Instruction
 
 from .abc import InstructionMutationPass
@@ -111,13 +111,23 @@ class FactorImmediateInstructionPass(InstructionMutationPass):
         raw_candidates: list[bytes] = []
 
         for scratch_reg in scratch_regs:
-            gadgets = self.codegen.hl_put(
-                dest=dest,
-                value=imm,
-                scratch=scratch_reg,
-                bad_bytes=self.bad_bytes,
+            try:
+                gadgets = self.codegen.hl_put(
+                    dest=dest,
+                    value=imm,
+                    scratch=scratch_reg,
+                    bad_bytes=self.bad_bytes,
+                )
+                raw_candidate = b"".join(gadget.bytes for gadget in gadgets)
+                raw_candidates.append(raw_candidate)
+            except Int3CodeGenerationError:
+                # This scratch register didn't work; try the next one.
+                continue
+
+        if not raw_candidates:
+            raise Int3CodeGenerationError(
+                f"Unable to generate clean code to load {imm:#x} into {dest} "
+                f"with any available scratch register"
             )
-            raw_candidate = b"".join(gadget.bytes for gadget in gadgets)
-            raw_candidates.append(raw_candidate)
 
         return self.choose(raw_candidates)
