@@ -247,7 +247,10 @@ class CodeGenerator:
         raise NotImplementedError("hl_clear not yet implemented")
 
     def ll_put(self, dest: RegisterDef, imm: int) -> Iterator[tuple[AsmGadget, ...]]:
-        yield (self.mov(dest, imm),)
+        try:
+            yield (self.mov(dest, imm),)
+        except Int3WrappedKeystoneError:
+            pass
 
         try:
             yield self.xor(dest, dest), self.add(dest, imm)

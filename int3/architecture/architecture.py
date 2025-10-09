@@ -78,6 +78,7 @@ class Architecture:
     endian: Endian
     insn_width_flavor: InstructionWidth
     min_insn_width: int
+    syscall_imm_bit_size: int
 
     toolchain_triple: str
     qemu_name: str
@@ -317,6 +318,7 @@ class Architectures(Enum):
         endian=Endian.Little,
         insn_width_flavor=InstructionWidth.Variable,
         min_insn_width=1,
+        syscall_imm_bit_size=32,
         toolchain_triple="i686-linux-musl",
         qemu_name="i386",
         linux_kernel_name="i386",
@@ -347,6 +349,7 @@ class Architectures(Enum):
         endian=Endian.Little,
         insn_width_flavor=InstructionWidth.Variable,
         min_insn_width=1,
+        syscall_imm_bit_size=64,
         toolchain_triple="x86_64-linux-musl",
         qemu_name="x86_64",
         linux_kernel_name="x86_64",
@@ -465,6 +468,7 @@ class Architectures(Enum):
         endian=Endian.Big,
         insn_width_flavor=InstructionWidth.Fixed,
         min_insn_width=4,
+        syscall_imm_bit_size=32,
         toolchain_triple="mips-linux-musl",
         qemu_name="mips",
         linux_kernel_name="mipso32",
@@ -486,6 +490,7 @@ class Architectures(Enum):
         endian=Endian.Little,
         insn_width_flavor=InstructionWidth.Fixed,
         min_insn_width=4,
+        syscall_imm_bit_size=24,
         toolchain_triple="arm-linux-musleabihf",
         qemu_name="arm",
         linux_kernel_name="arm",
@@ -516,6 +521,7 @@ class Architectures(Enum):
         endian=Endian.Little,
         insn_width_flavor=InstructionWidth.Fixed,
         min_insn_width=4,
+        syscall_imm_bit_size=16,
         toolchain_triple="aarch64-linux-musl",
         qemu_name="aarch64",
         linux_kernel_name="arm64",
