@@ -40,7 +40,7 @@ class AddSyscallOperandInstructionPass(InstructionMutationPass):
 
     For example, the naked syscall instruction on Mips assembles to
     0000000c, containing null bytes. The addition of an immediate operand
-    encodes the immediate in the place of these null bytes.
+    encodes the immediate in place of these null bytes.
 
     """
 
