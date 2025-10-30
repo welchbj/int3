@@ -56,13 +56,15 @@ class ArmConstraintProvider(ArchConstraintProvider):
 
     """
 
-    def add_constraints(self, solver: Solver, op: FactorOperation, var: Any) -> None:
+    def add_constraints(
+        self, solver: Solver, op: FactorOperation, bv: BitVecType
+    ) -> None:
         # TODO: We need to branch based on the actual instruction being used here.
         # TODO: In that event, how do we fall back to our pass-through behavior?
 
         # ARM uses movw for Init, and falls back to movw for Add/Sub/Xor when
         # immediates can't fit in the "modified immediate" encoding
-        self._add_movw_constraints(solver, var)
+        self._add_movw_constraints(solver, bv)
 
     def _add_movw_constraints(self, solver: Solver, var: Any) -> None:
         """Constrain immediates based on ARM movw encoding.
