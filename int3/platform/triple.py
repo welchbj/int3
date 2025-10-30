@@ -103,6 +103,37 @@ class Triple:
                     Registers.Mips.s6,
                     Registers.Mips.s7,
                 )
+            case Platform.Linux, Architectures.Arm.value:
+                # See: https://github.com/llvm/llvm-project/blob/release/15.x/llvm/lib/Target/ARM/ARMCallingConv.td#L270
+                return self.arch.expand_regs(
+                    Registers.Arm.r4,
+                    Registers.Arm.r5,
+                    Registers.Arm.r6,
+                    Registers.Arm.r7,
+                    Registers.Arm.r8,
+                    Registers.Arm.r9,
+                    Registers.Arm.r10,
+                    Registers.Arm.r11,
+                    Registers.Arm.sp,
+                    Registers.Arm.lr,
+                )
+            case Platform.Linux, Architectures.Aarch64.value:
+                # See: https://github.com/llvm/llvm-project/blob/release/15.x/llvm/lib/Target/AArch64/AArch64CallingConvention.td#L362
+                return self.arch.expand_regs(
+                    Registers.Aarch64.x19,
+                    Registers.Aarch64.x20,
+                    Registers.Aarch64.x21,
+                    Registers.Aarch64.x22,
+                    Registers.Aarch64.x23,
+                    Registers.Aarch64.x24,
+                    Registers.Aarch64.x25,
+                    Registers.Aarch64.x26,
+                    Registers.Aarch64.x27,
+                    Registers.Aarch64.x28,
+                    Registers.Aarch64.x29,
+                    Registers.Aarch64.x30,
+                    Registers.Aarch64.sp,
+                )
             case _:
                 raise NotImplementedError(
                     f"Unsupported combination: {self.platform.name}, {self.arch.name}"
@@ -162,7 +193,35 @@ class Triple:
                             Registers.Mips.a1,
                             Registers.Mips.a2,
                             Registers.Mips.a3,
-                            # XXX: How do pass additinal arguments on the stack?
+                            # XXX: How to pass additional arguments on the stack?
+                        ),
+                    )
+                case Architectures.Arm.value:
+                    syscall_conv = SyscallConvention(
+                        arch=self.arch,
+                        sys_num=Registers.Arm.r7,
+                        result=Registers.Arm.r0,
+                        args=(
+                            Registers.Arm.r0,
+                            Registers.Arm.r1,
+                            Registers.Arm.r2,
+                            Registers.Arm.r3,
+                            Registers.Arm.r4,
+                            Registers.Arm.r5,
+                        ),
+                    )
+                case Architectures.Aarch64.value:
+                    syscall_conv = SyscallConvention(
+                        arch=self.arch,
+                        sys_num=Registers.Aarch64.x8,
+                        result=Registers.Aarch64.x0,
+                        args=(
+                            Registers.Aarch64.x0,
+                            Registers.Aarch64.x1,
+                            Registers.Aarch64.x2,
+                            Registers.Aarch64.x3,
+                            Registers.Aarch64.x4,
+                            Registers.Aarch64.x5,
                         ),
                     )
 

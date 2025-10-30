@@ -661,6 +661,7 @@ class Compiler:
             reg
             for reg in self.triple.call_clobbered_regs
             if reg.bit_size == self.arch.bit_size
+            and reg not in self.arch.expanded_reserved_regs
         )
         lower_bound_pad_len = 0
         upper_bound_pad_len = 2 * self.arch.align_up_to_min_insn_width(
@@ -716,6 +717,8 @@ class Compiler:
                 raw_asm = f".set noat\nmove $0, {reg_str}"
             case Architectures.x86_64.value | Architectures.x86.value:
                 raw_asm = f"mov {reg_str}, $0"
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                raw_asm = f"mov $0, {reg_str}"
             case _:
                 raise NotImplementedError(
                     f"No reg lifting routine for {self.arch.name}"
@@ -875,7 +878,9 @@ class Compiler:
     @overload
     @staticmethod
     def from_str(
-        platform_spec: Literal["linux/x86_64", "linux/x86", "linux/mips"],
+        platform_spec: Literal[
+            "linux/x86_64", "linux/x86", "linux/mips", "linux/arm", "linux/aarch64"
+        ],
         bad_bytes: bytes = b"",
         load_addr: int | None = None,
     ) -> "LinuxCompiler": ...

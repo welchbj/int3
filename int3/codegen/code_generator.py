@@ -13,6 +13,8 @@ from int3.factor import (
     FactorContext,
     FactorOperation,
     FactorResult,
+    ImmediateDirectPutContext,
+    ImmediateMutationContext,
     compute_factor,
 )
 
@@ -81,10 +83,23 @@ class CodeGenerator:
         return nop_bytes * num_repeats
 
     def syscall(self, value: ImmType | None = None) -> AsmGadget:
-        if value is None:
-            return self.gadget("syscall")
-        else:
-            return self.gadget(f"syscall {self.f(value)}")
+        match self.arch:
+            case (
+                Architectures.x86_64.value
+                | Architectures.x86.value
+                | Architectures.Mips.value
+            ):
+                if value is None:
+                    return self.gadget("syscall")
+                else:
+                    return self.gadget(f"syscall {self.f(value)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                if value is None:
+                    return self.gadget("svc #0")
+                else:
+                    return self.gadget(f"svc {self.f(value)}")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def breakpoint(self) -> AsmGadget:
         match self.arch:
@@ -92,6 +107,8 @@ class CodeGenerator:
                 return self.gadget("int3")
             case Architectures.Mips.value:
                 return self.gadget("break")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget("brk #0")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
@@ -101,17 +118,49 @@ class CodeGenerator:
                 return self.gadget(f"inc {self.f(reg)}")
             case Architectures.Mips.value:
                 return self.gadget(f"addi {self.f(reg)}, 0x1")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget(f"add {self.f(reg)}, {self.f(reg)}, #1")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def xor(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
-        return self.gadget(f"xor {self.f(one)}, {self.f(two)}")
+        match self.arch:
+            case (
+                Architectures.x86_64.value
+                | Architectures.x86.value
+                | Architectures.Mips.value
+            ):
+                return self.gadget(f"xor {self.f(one)}, {self.f(two)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget(f"eor {self.f(one)}, {self.f(one)}, {self.f(two)}")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def add(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
-        return self.gadget(f"add {self.f(one)}, {self.f(two)}")
+        match self.arch:
+            case (
+                Architectures.x86_64.value
+                | Architectures.x86.value
+                | Architectures.Mips.value
+            ):
+                return self.gadget(f"add {self.f(one)}, {self.f(two)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget(f"add {self.f(one)}, {self.f(one)}, {self.f(two)}")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def sub(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
-        return self.gadget(f"sub {self.f(one)}, {self.f(two)}")
+        match self.arch:
+            case (
+                Architectures.x86_64.value
+                | Architectures.x86.value
+                | Architectures.Mips.value
+            ):
+                return self.gadget(f"sub {self.f(one)}, {self.f(two)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget(f"sub {self.f(one)}, {self.f(one)}, {self.f(two)}")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def mov(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
         match self.arch:
@@ -122,6 +171,8 @@ class CodeGenerator:
                     return self.gadget(f"li {self.f(one)}, {self.f(two)}")
                 else:
                     return self.gadget(f"move {self.f(one)}, {self.f(two)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.gadget(f"mov {self.f(one)}, {self.f(two)}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
@@ -134,47 +185,55 @@ class CodeGenerator:
                 raise Int3CodeGenerationError(
                     "Mips does not support fine-grained PC-relative addressing"
                 )
+            case Architectures.Arm.value:
+                return self.gadget(f"mov {self.f(result)}, pc")
+            case Architectures.Aarch64.value:
+                return self.gadget(f"adr {self.f(result)}, .")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def jump(self, value: ImmType | RegType) -> AsmGadget:
         match self.arch:
-            case Architectures.x86.value:
-                return self.gadget(f"jmp {self.f(value)}")
-            case Architectures.x86_64.value:
-                # See: https://www.felixcloutier.com/x86/jmp
+            case Architectures.x86.value | Architectures.x86_64.value:
                 return self.gadget(f"jmp {self.f(value)}")
             case Architectures.Mips.value:
                 if isinstance(value, int):
                     return self.gadget(f"j {self.f(value)}")
                 else:
                     return self.gadget(f"jr {self.f(value)}")
+            case Architectures.Arm.value:
+                if isinstance(value, int):
+                    return self.gadget(f"b {self.f(value)}")
+                else:
+                    return self.gadget(f"bx {self.f(value)}")
+            case Architectures.Aarch64.value:
+                if isinstance(value, int):
+                    return self.gadget(f"b {self.f(value)}")
+                else:
+                    return self.gadget(f"br {self.f(value)}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
     def hl_put(
         self,
-        dest: RegType,
-        value: ImmType,
-        scratch: RegisterDef,
-        bad_bytes: bytes = b"",
+        ctx: ImmediateDirectPutContext | ImmediateMutationContext,
+        selected_scratch: RegisterDef,
     ) -> tuple[AsmGadget, ...]:
-        if isinstance(dest, str):
-            dest = self.arch.reg(dest)
+        """High-level immediate put into register."""
 
-        factor_result = self._factor_imm(
-            value, width=dest.bit_size, bad_bytes=bad_bytes
-        )
+        factor_result = self._factor_imm(ctx)
 
         gadget_sequence: list[AsmGadget] = []
         for clause in factor_result.clauses:
-            asm_candidates = list(self._factor_clause_to_asm(clause, dest, scratch))
+            asm_candidates = list(
+                self._factor_clause_to_asm(clause, ctx.dest, selected_scratch)
+            )
             if not asm_candidates:
                 raise Int3CodeGenerationError("Unable to generate any factor clauses")
 
             for asm_candidate in asm_candidates:
                 asm_candidate_raw = b"".join(gadget.bytes for gadget in asm_candidate)
-                if not any(b in asm_candidate_raw for b in bad_bytes):
+                if not any(b in asm_candidate_raw for b in ctx.bad_bytes):
                     gadget_sequence.extend(asm_candidate)
                     break
             else:
@@ -187,7 +246,10 @@ class CodeGenerator:
         raise NotImplementedError("hl_clear not yet implemented")
 
     def ll_put(self, dest: RegisterDef, imm: int) -> Iterator[tuple[AsmGadget, ...]]:
-        yield (self.mov(dest, imm),)
+        try:
+            yield (self.mov(dest, imm),)
+        except Int3WrappedKeystoneError:
+            pass
 
         try:
             yield self.xor(dest, dest), self.add(dest, imm)
@@ -197,6 +259,15 @@ class CodeGenerator:
     def _factor_clause_to_asm(
         self, clause: FactorClause, dest: RegisterDef, scratch: RegisterDef
     ) -> Iterator[tuple[AsmGadget, ...]]:
+        """Convert a factor result clause into matching streams of assembly sequences.
+
+        This method is a primitive used by higher level functionality.
+
+        Because this method is used in high-level operations, it can only
+        depend on low-level utility methods (i.e., don't use hl_ prefixed
+        methods within this method).
+
+        """
         imm = clause.operand
 
         match clause.operation:
@@ -229,13 +300,18 @@ class CodeGenerator:
             case FactorOperation.Neg:
                 raise NotImplementedError("Negation support not yet implemented")
 
-    def _factor_imm(self, imm: int, width: int, bad_bytes: bytes) -> FactorResult:
+    def _factor_imm(
+        self,
+        ctx: ImmediateDirectPutContext | ImmediateMutationContext,
+    ) -> FactorResult:
+        width = ctx.dest.bit_size
         allow_overflow = width == self.arch.bit_size
         factor_ctx = FactorContext(
             arch=self.arch,
-            target=imm,
-            bad_bytes=bad_bytes,
+            target=ctx.imm,
+            bad_bytes=ctx.bad_bytes,
             allow_overflow=allow_overflow,
             width=width,
+            insn_ctx=ctx,
         )
         return compute_factor(factor_ctx)

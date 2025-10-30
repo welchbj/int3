@@ -30,7 +30,7 @@ sys.stdout.buffer.write(cc.compile())
 Support for disassembling them:
 
 ```sh
-$ python3 examples/linux/hello_world.py | python3 -m int3 disassemble | tail -10
+$ python3 examples/linux/hello_world.py | int3 disassemble | tail -10
 0x0078: inc edx
 0x007a: inc edx
 0x007c: inc edx
@@ -46,14 +46,28 @@ $ python3 examples/linux/hello_world.py | python3 -m int3 disassemble | tail -10
 And executing them:
 
 ```sh
-$ python3 examples/linux/hello_world.py | python3 -m int3 execute ; echo $?
+$ python3 examples/linux/hello_world.py | int3 execute ; echo $?
 Hello, world
 13
 ```
 
+## Supported Platforms
+
+`int3` has support for the following cross-compilation targets:
+
+| Platform | Name      | Width | Endianness | Shorthand       |
+| :------- | :-------- | :---- | :--------- | :-------------- |
+| Linux    | `x86`     | 32    | Little     | `linux/x86`     |
+| Linux    | `x86_64`  | 64    | Little     | `linux/x86_64`  |
+| Linux    | `mips`    | 32    | Big        | `linux/mips`    |
+| Linux    | `arm`     | 32    | Little     | `linux/arm`     |
+| Linux    | `aarch64` | 64    | Little     | `linux/aarch64` |
+
+Note that available bad byte removal techniques or position-independent program counter derivation techniques will vary by architecture and platform, which may affect the ability to cross-compile a given program to all supported compilation targets.
+
 ## Installation
 
-int3 is tested on the latest major version of CPython. You can get the latest release from PyPI with:
+`int3` is tested on the latest major version of CPython. You can get the latest release from PyPI with:
 
 ```sh
 pip install int3

@@ -68,6 +68,7 @@ class CodeSegment:
             reg
             for reg in self.triple.call_preserved_regs
             if reg not in self.tainted_regs
+            and reg not in self.arch.expanded_reserved_regs
         )
 
     def scratch_regs_for_size(self, bit_size: int) -> tuple[RegisterDef, ...]:

@@ -26,6 +26,8 @@ class SyscallConvention:
                 reg_prefix = ""
             case Architectures.Mips.value:
                 reg_prefix = self.arch.llvm_reg_prefix
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                reg_prefix = ""
             case _:
                 raise NotImplementedError(
                     f"Linux syscall convention for {self.arch.name} not yet implemented"

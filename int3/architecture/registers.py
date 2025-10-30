@@ -189,6 +189,101 @@ class MipsRegisters:
     k1 = RegisterDef(name="k1", bit_size=32, llvm_alt_name="27")
 
 
+class ArmRegisters:
+    r0 = RegisterDef(name="r0", bit_size=32)
+    r1 = RegisterDef(name="r1", bit_size=32)
+    r2 = RegisterDef(name="r2", bit_size=32)
+    r3 = RegisterDef(name="r3", bit_size=32)
+    r4 = RegisterDef(name="r4", bit_size=32)
+    r5 = RegisterDef(name="r5", bit_size=32)
+    r6 = RegisterDef(name="r6", bit_size=32)
+    r7 = RegisterDef(name="r7", bit_size=32)
+    r8 = RegisterDef(name="r8", bit_size=32)
+    r9 = RegisterDef(name="r9", bit_size=32)
+    r10 = RegisterDef(name="r10", bit_size=32)
+    r11 = RegisterDef(name="r11", bit_size=32)
+    r12 = RegisterDef(name="r12", bit_size=32)
+    r13 = RegisterDef(name="r13", bit_size=32)
+    r14 = RegisterDef(name="r14", bit_size=32)
+    r15 = RegisterDef(name="r15", bit_size=32)
+
+    sp = RegisterDef(name="sp", bit_size=32)  # Stack pointer (r13)
+    lr = RegisterDef(name="lr", bit_size=32)  # Link register (r14)
+    pc = RegisterDef(name="pc", bit_size=32)  # Program counter (r15)
+
+
+class Aarch64Registers:
+    x0 = RegisterDef(name="x0", bit_size=64)
+    x1 = RegisterDef(name="x1", bit_size=64)
+    x2 = RegisterDef(name="x2", bit_size=64)
+    x3 = RegisterDef(name="x3", bit_size=64)
+    x4 = RegisterDef(name="x4", bit_size=64)
+    x5 = RegisterDef(name="x5", bit_size=64)
+    x6 = RegisterDef(name="x6", bit_size=64)
+    x7 = RegisterDef(name="x7", bit_size=64)
+    x8 = RegisterDef(name="x8", bit_size=64)
+    x9 = RegisterDef(name="x9", bit_size=64)
+    x10 = RegisterDef(name="x10", bit_size=64)
+    x11 = RegisterDef(name="x11", bit_size=64)
+    x12 = RegisterDef(name="x12", bit_size=64)
+    x13 = RegisterDef(name="x13", bit_size=64)
+    x14 = RegisterDef(name="x14", bit_size=64)
+    x15 = RegisterDef(name="x15", bit_size=64)
+    x16 = RegisterDef(name="x16", bit_size=64)
+    x17 = RegisterDef(name="x17", bit_size=64)
+    x18 = RegisterDef(name="x18", bit_size=64)
+    x19 = RegisterDef(name="x19", bit_size=64)
+    x20 = RegisterDef(name="x20", bit_size=64)
+    x21 = RegisterDef(name="x21", bit_size=64)
+    x22 = RegisterDef(name="x22", bit_size=64)
+    x23 = RegisterDef(name="x23", bit_size=64)
+    x24 = RegisterDef(name="x24", bit_size=64)
+    x25 = RegisterDef(name="x25", bit_size=64)
+    x26 = RegisterDef(name="x26", bit_size=64)
+    x27 = RegisterDef(name="x27", bit_size=64)
+    x28 = RegisterDef(name="x28", bit_size=64)
+    x29 = RegisterDef(name="x29", bit_size=64)
+    x30 = RegisterDef(name="x30", bit_size=64)
+
+    # 32-bit register views (w0-w30)
+    w0 = RegisterDef(name="w0", bit_size=32)
+    w1 = RegisterDef(name="w1", bit_size=32)
+    w2 = RegisterDef(name="w2", bit_size=32)
+    w3 = RegisterDef(name="w3", bit_size=32)
+    w4 = RegisterDef(name="w4", bit_size=32)
+    w5 = RegisterDef(name="w5", bit_size=32)
+    w6 = RegisterDef(name="w6", bit_size=32)
+    w7 = RegisterDef(name="w7", bit_size=32)
+    w8 = RegisterDef(name="w8", bit_size=32)
+    w9 = RegisterDef(name="w9", bit_size=32)
+    w10 = RegisterDef(name="w10", bit_size=32)
+    w11 = RegisterDef(name="w11", bit_size=32)
+    w12 = RegisterDef(name="w12", bit_size=32)
+    w13 = RegisterDef(name="w13", bit_size=32)
+    w14 = RegisterDef(name="w14", bit_size=32)
+    w15 = RegisterDef(name="w15", bit_size=32)
+    w16 = RegisterDef(name="w16", bit_size=32)
+    w17 = RegisterDef(name="w17", bit_size=32)
+    w18 = RegisterDef(name="w18", bit_size=32)
+    w19 = RegisterDef(name="w19", bit_size=32)
+    w20 = RegisterDef(name="w20", bit_size=32)
+    w21 = RegisterDef(name="w21", bit_size=32)
+    w22 = RegisterDef(name="w22", bit_size=32)
+    w23 = RegisterDef(name="w23", bit_size=32)
+    w24 = RegisterDef(name="w24", bit_size=32)
+    w25 = RegisterDef(name="w25", bit_size=32)
+    w26 = RegisterDef(name="w26", bit_size=32)
+    w27 = RegisterDef(name="w27", bit_size=32)
+    w28 = RegisterDef(name="w28", bit_size=32)
+    w29 = RegisterDef(name="w29", bit_size=32)
+    w30 = RegisterDef(name="w30", bit_size=32)
+
+    sp = RegisterDef(name="sp", bit_size=64)  # Stack pointer
+    lr = RegisterDef(name="lr", bit_size=64)  # Link register (x30)
+    xzr = RegisterDef(name="xzr", bit_size=64)  # Zero register (64-bit)
+    wzr = RegisterDef(name="wzr", bit_size=32)  # Zero register (32-bit)
+
+
 class Registers:
     """Primary interface for accessing architecture-specific register sets.
 
@@ -205,3 +300,5 @@ class Registers:
     x86_64 = x86_64Registers
     x86 = x86Registers
     Mips = MipsRegisters
+    Arm = ArmRegisters
+    Aarch64 = Aarch64Registers

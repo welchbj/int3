@@ -16,15 +16,14 @@ from z3 import (
 
 from int3.errors import Int3ArgumentError, Int3MissingEntityError, Int3SatError
 
+from .constraints import constraint_provider_for
+from .context import FactorContext
 from .factor_clause import FactorClause
-from .factor_context import FactorContext
 from .factor_operation import FactorOperation
 from .factor_result import FactorResult
 
 
-def compute_factor(
-    factor_ctx: FactorContext,
-) -> FactorResult:
+def compute_factor(factor_ctx: FactorContext) -> FactorResult:
     """Emit sets of operations that achieve the target value.
 
     The `start` argument may specify an initial start value. When omitted, one
@@ -84,6 +83,7 @@ def compute_factor(
         )
 
     allowed_ops = cast(tuple[FactorOperation, ...], factor_ctx.allowed_ops)
+    constraint_provider = constraint_provider_for(factor_ctx)
 
     for depth in range(1, factor_ctx.max_depth + 1):
         for op_product in itertools.product(allowed_ops, repeat=depth):
@@ -96,25 +96,20 @@ def compute_factor(
                 start_with_bvv = True
                 start_bv = BitVecVal(factor_ctx.start, factor_ctx.width)
 
-                # XXX
-                # factor_ctx.do_arch_constraint_cb(
-                #     solver, FactorOperation.Init, start_bv
-                # )
-
             var_list = [start_bv]
             var_list.extend(BitVec(f"s{i}", factor_ctx.width) for i in range(depth))
 
-            bv_list = var_list[1:] if start_with_bvv else var_list
-            for bvv in bv_list:
-                _add_bad_byte_constraints(factor_ctx, solver, bvv)
+            # Add architecture-specific constraints for the start value.
+            if not start_with_bvv:
+                constraint_provider.add_constraints(
+                    solver=solver, op=FactorOperation.Init, bv=start_bv
+                )
 
             solver_clause = var_list[0]
 
             for bvv, op in zip(var_list[1:], op_product):
-                # XXX
-                # Invoke callback to allow for the addition of per-architecture
-                # constraints.
-                # factor_ctx.do_arch_constraint_cb(solver, op, bvv)
+                # Add architecture-specific constraints for this operation.
+                constraint_provider.add_constraints(solver=solver, op=op, bv=bvv)
 
                 match op:
                     case FactorOperation.Add:
@@ -164,11 +159,3 @@ def compute_factor(
         raise Int3SatError(
             f"Unable to solve for target value {factor_ctx.target} up to depth {depth}"
         )
-
-
-def _add_bad_byte_constraints(factor_ctx: FactorContext, solver: Solver, var: Any):
-    width = cast(int, factor_ctx.width)
-
-    for bad_byte in factor_ctx.bad_bytes:
-        for i in range(0, width, factor_ctx.byte_width):
-            solver.add(Extract(i + factor_ctx.byte_width - 1, i, var) != bad_byte)

@@ -77,6 +77,40 @@ def test_linux_syscall_tainted_register_resolution(arch: Architecture):
     triple = Triple(arch, Platform.Linux)
     codegen = CodeGenerator(arch)
     segment = CodeSegment(triple=triple, raw_asm=codegen.syscall().bytes, bad_bytes=b"")
-    assert segment.tainted_regs == set(
-        arch.expand_regs(triple.syscall_convention.result)
-    )
+
+    # The syscall result register should always be tainted.
+    expected_result_regs = set(arch.expand_regs(triple.syscall_convention.result))
+    assert expected_result_regs.issubset(segment.tainted_regs)
+
+    if arch.name in ("arm", "aarch64"):
+        # For ARM architectures, the syscall instruction may also taint the
+        # link register.
+        expected_lr_regs = set(arch.expand_regs(arch.reg("lr")))
+        assert expected_lr_regs.issubset(segment.tainted_regs)
+
+        expected_all_regs = expected_result_regs | expected_lr_regs
+        assert segment.tainted_regs == expected_all_regs
+    else:
+        # For other architectures, only the result register should be tainted.
+        assert segment.tainted_regs == expected_result_regs
+
+
+def test_expanded_reserved_regs():
+    """Test that expanded_reserved_regs includes expected register aliases."""
+    x86_64 = Architectures.x86_64.value
+    assert Registers.x86_64.rsp in x86_64.expanded_reserved_regs
+    assert Registers.x86_64.esp in x86_64.expanded_reserved_regs
+    assert Registers.x86_64.sp in x86_64.expanded_reserved_regs
+    assert Registers.x86_64.spl in x86_64.expanded_reserved_regs
+    assert Registers.x86_64.rip in x86_64.expanded_reserved_regs
+
+    arm = Architectures.Arm.value
+    assert Registers.Arm.sp in arm.expanded_reserved_regs
+    assert Registers.Arm.r13 in arm.expanded_reserved_regs
+    assert Registers.Arm.pc in arm.expanded_reserved_regs
+    assert Registers.Arm.r15 in arm.expanded_reserved_regs
+
+    aarch64 = Architectures.Aarch64.value
+    assert Registers.Aarch64.sp in aarch64.expanded_reserved_regs
+    assert Registers.Aarch64.xzr in aarch64.expanded_reserved_regs
+    assert Registers.Aarch64.wzr in aarch64.expanded_reserved_regs

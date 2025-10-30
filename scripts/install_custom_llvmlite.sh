@@ -4,6 +4,7 @@ set -eo pipefail
 
 scripts_dir=$(realpath $(dirname "$0"))
 int3_root_dir=$(dirname "$scripts_dir")
+llvm_config_wrapper_script="$int3_root_dir/scripts/llvm_config_wrapper.sh"
 llvmlite_patch_file="$int3_root_dir/patches/llvmlite_0.44.0_enable_all_asm_parsers.patch"
 strip_binary=false
 
@@ -74,7 +75,7 @@ conda create --name "$build_name" python="$python_version" --yes
 source ~/miniconda3/bin/activate "$build_name"
 
 # Install llvmdev so we don't have to build it from source.
-conda install -c numba llvmdev --yes
+conda install -c numba llvmdev=15.0.7 --yes
 
 # Clone llvmlite source repo and checkout our known-good version.
 git clone https://github.com/numba/llvmlite.git
@@ -84,8 +85,30 @@ git checkout v0.44.0
 # Apply our llvmlite patch.
 git apply "$llvmlite_patch_file"
 
+# Use the wrapper script to force static linking
+export LLVM_CONFIG="$llvm_config_wrapper_script"
+echo "Using LLVM_CONFIG wrapper: $LLVM_CONFIG"
+
 # Run the llvmlite build
 python3 setup.py build
+
+# Verify that the built library doesn't have dynamic LLVM dependencies
+echo "Verifying static linking..."
+built_llvmlite_so=$(find "$work_dir/llvmlite/build" -name "libllvmlite.so" | head -1)
+if [[ -n "$built_llvmlite_so" && -f "$built_llvmlite_so" ]]; then
+    echo "Checking dependencies of: $built_llvmlite_so"
+    llvm_deps=$(ldd "$built_llvmlite_so" | grep -i llvm || true)
+    if [[ -n "$llvm_deps" ]]; then
+        echo "Error: Built library still has LLVM dynamic dependencies:"
+        echo "$llvm_deps"
+        exit 1
+    else
+        echo "Success: No LLVM dynamic dependencies found"
+    fi
+else
+    echo "Error: Could not find built libllvmlite.so for verification"
+    exit 1
+fi
 
 # Test the newly-built llvmlite
 python3 -m llvmlite.tests
