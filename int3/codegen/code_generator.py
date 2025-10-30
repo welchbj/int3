@@ -13,6 +13,8 @@ from int3.factor import (
     FactorContext,
     FactorOperation,
     FactorResult,
+    ImmediateDirectPutContext,
+    ImmediateMutationContext,
     compute_factor,
 )
 
@@ -214,27 +216,24 @@ class CodeGenerator:
 
     def hl_put(
         self,
-        dest: RegType,
-        value: ImmType,
-        scratch: RegisterDef,
-        bad_bytes: bytes = b"",
+        ctx: ImmediateDirectPutContext | ImmediateMutationContext,
+        selected_scratch: RegisterDef,
     ) -> tuple[AsmGadget, ...]:
-        if isinstance(dest, str):
-            dest = self.arch.reg(dest)
+        """High-level immediate put into register."""
 
-        factor_result = self._factor_imm(
-            value, width=dest.bit_size, bad_bytes=bad_bytes
-        )
+        factor_result = self._factor_imm(ctx)
 
         gadget_sequence: list[AsmGadget] = []
         for clause in factor_result.clauses:
-            asm_candidates = list(self._factor_clause_to_asm(clause, dest, scratch))
+            asm_candidates = list(
+                self._factor_clause_to_asm(clause, ctx.dest, selected_scratch)
+            )
             if not asm_candidates:
                 raise Int3CodeGenerationError("Unable to generate any factor clauses")
 
             for asm_candidate in asm_candidates:
                 asm_candidate_raw = b"".join(gadget.bytes for gadget in asm_candidate)
-                if not any(b in asm_candidate_raw for b in bad_bytes):
+                if not any(b in asm_candidate_raw for b in ctx.bad_bytes):
                     gadget_sequence.extend(asm_candidate)
                     break
             else:
@@ -260,6 +259,15 @@ class CodeGenerator:
     def _factor_clause_to_asm(
         self, clause: FactorClause, dest: RegisterDef, scratch: RegisterDef
     ) -> Iterator[tuple[AsmGadget, ...]]:
+        """Convert a factor result clause into matching streams of assembly sequences.
+
+        This method is a primitive used by higher level functionality.
+
+        Because this method is used in high-level operations, it can only
+        depend on low-level utility methods (i.e., don't use hl_ prefixed
+        methods within this method).
+
+        """
         imm = clause.operand
 
         match clause.operation:
@@ -292,13 +300,18 @@ class CodeGenerator:
             case FactorOperation.Neg:
                 raise NotImplementedError("Negation support not yet implemented")
 
-    def _factor_imm(self, imm: int, width: int, bad_bytes: bytes) -> FactorResult:
+    def _factor_imm(
+        self,
+        ctx: ImmediateDirectPutContext | ImmediateMutationContext,
+    ) -> FactorResult:
+        width = ctx.dest.bit_size
         allow_overflow = width == self.arch.bit_size
         factor_ctx = FactorContext(
             arch=self.arch,
-            target=imm,
-            bad_bytes=bad_bytes,
+            target=ctx.imm,
+            bad_bytes=ctx.bad_bytes,
             allow_overflow=allow_overflow,
             width=width,
+            insn_ctx=ctx,
         )
         return compute_factor(factor_ctx)
