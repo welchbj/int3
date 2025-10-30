@@ -6,7 +6,7 @@ from z3 import BitVecNumRef, BitVecRef, BitVecVal, Concat, Extract, Solver
 
 from int3.architecture import Architectures
 
-from .context import FactorContext
+from .context import FactorContext, ImmediateMutationContext
 from .factor_operation import FactorOperation
 
 type BitVecType = BitVecRef | BitVecNumRef
@@ -24,6 +24,16 @@ class ArchConstraintProvider(ABC):
     ) -> None:
         """Add architecture-aware z3 constraints to avoid bad bytes."""
 
+    def add_passthrough_constraints(
+        self, solver: Solver, op: FactorOperation, bv: BitVecType
+    ) -> None:
+        """Add constraints based on direct bad byte values."""
+        width = cast(int, self.ctx.width)
+
+        for bad_byte in self.ctx.bad_bytes:
+            for i in range(0, width, self.ctx.byte_width):
+                solver.add(Extract(i + self.ctx.byte_width - 1, i, bv) != bad_byte)
+
     def constrain_byte(self, solver: Solver, bv: BitVecType) -> None:
         """Utility to add constraints that a byte expression != any bad byte."""
         for bad_byte in self.ctx.bad_bytes:
@@ -37,11 +47,7 @@ class PassThroughConstraintProvider(ArchConstraintProvider):
     def add_constraints(
         self, solver: Solver, op: FactorOperation, bv: BitVecType
     ) -> None:
-        width = cast(int, self.ctx.width)
-
-        for bad_byte in self.ctx.bad_bytes:
-            for i in range(0, width, self.ctx.byte_width):
-                solver.add(Extract(i + self.ctx.byte_width - 1, i, bv) != bad_byte)
+        self.add_passthrough_constraints(solver, op, bv)
 
 
 @dataclass(frozen=True)
@@ -76,6 +82,7 @@ class ArmConstraintProvider(ArchConstraintProvider):
         Byte 3: fixed (0xE3)
 
         We only constrain the bytes containing immediate bits.
+
         """
         if self.ctx.width > 32:
             # TODO: Raise error?
