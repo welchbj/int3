@@ -324,11 +324,20 @@ class Instruction:
     def is_and(self) -> bool:
         return self.mnemonic.startswith("and")
 
+    def is_xor(self) -> bool:
+        return self.mnemonic.startswith("xor") or self.mnemonic.startswith("eor")
+
     def is_pop(self) -> bool:
         return self.mnemonic.startswith("pop")
 
     def is_push(self) -> bool:
         return self.mnemonic.startswith("push")
+
+    def has_only_register_operands(self) -> bool:
+        if len(self.operands) == 0:
+            return False
+
+        return all(self.operands.is_reg(i) for i in range(len(self.operands)))
 
     @staticmethod
     def summary(*insns: Instruction, indent: int = 0) -> list[str]:

@@ -189,3 +189,16 @@ def test_memory_operand_str():
     assert str(MemoryOperand(rax, 0)) == "[rax]"
     assert str(MemoryOperand(rax, -200)) == "[rax - 200]"
     assert str(MemoryOperand(rax, 1, "byte ptr")) == "byte ptr [rax + 1]"
+
+
+def test_only_register_operand_detection():
+    Aarch64 = Architectures.Aarch64.value
+    aarch64_triple = Triple(Aarch64, Platform.Linux)
+
+    for case in ["sub x0, x1, x2", "br x9"]:
+        insn = aarch64_triple.one_insn_or_raise(case)
+        assert insn.has_only_register_operands()
+
+    for case in ["ret", "mov x0, #0"]:
+        insn = aarch64_triple.one_insn_or_raise(case)
+        assert not insn.has_only_register_operands()
