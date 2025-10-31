@@ -9,17 +9,17 @@ from int3.instructions import Instruction
 
 from .factor_operation import FactorOperation
 
-# TODO: docstring for the context classes
-# TODO: collapse context classes?
-
 
 @dataclass(frozen=True)
-class ImmediateDirectPutContext:
+class ImmediateMutationContext:
+    """Context for a mutation of an immediate value."""
+
     arch: Architecture
     bad_bytes: bytes
     imm: int
     dest: RegisterDef
     scratch_regs: tuple[RegisterDef, ...]
+    insn: Instruction
 
     scratch_regs_set: frozenset[RegisterDef] = field(init=False)
     byte_width: int = field(init=False, default=8)
@@ -27,7 +27,7 @@ class ImmediateDirectPutContext:
     def __post_init__(self) -> None:
         object.__setattr__(self, "scratch_regs_set", frozenset(self.scratch_regs))
 
-    def with_locked_reg(self, reg: RegisterDef) -> ImmediateDirectPutContext:
+    def with_locked_reg(self, reg: RegisterDef) -> ImmediateMutationContext:
         if reg not in self.scratch_regs_set:
             raise Int3MissingEntityError(
                 f"Cannot lock reg {reg} that is not in this context's scratch regs"
@@ -40,13 +40,8 @@ class ImmediateDirectPutContext:
 
 
 @dataclass(frozen=True)
-class ImmediateMutationContext(ImmediateDirectPutContext):
-    insn: Instruction
-
-
-@dataclass(frozen=True)
 class FactorContext:
-    """The context for a factoring solve."""
+    """Context for a factoring solve."""
 
     arch: Architecture
 
@@ -82,4 +77,4 @@ class FactorContext:
     # this factor requirement. This is mainly useful for understanding the
     # instruction being mutated, as this informs what instruction-specific
     # immediate encoding constraints should be applied.
-    insn_ctx: ImmediateDirectPutContext | ImmediateMutationContext | None = None
+    insn_ctx: ImmediateMutationContext | None = None

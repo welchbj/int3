@@ -13,7 +13,6 @@ from int3.factor import (
     FactorContext,
     FactorOperation,
     FactorResult,
-    ImmediateDirectPutContext,
     ImmediateMutationContext,
     compute_factor,
 )
@@ -216,7 +215,7 @@ class CodeGenerator:
 
     def hl_put(
         self,
-        ctx: ImmediateDirectPutContext | ImmediateMutationContext,
+        ctx: ImmediateMutationContext,
         selected_scratch: RegisterDef,
     ) -> tuple[AsmGadget, ...]:
         """High-level immediate put into register."""
@@ -302,7 +301,7 @@ class CodeGenerator:
 
     def _factor_imm(
         self,
-        ctx: ImmediateDirectPutContext | ImmediateMutationContext,
+        ctx: ImmediateMutationContext,
     ) -> FactorResult:
         width = ctx.dest.bit_size
         allow_overflow = width == self.arch.bit_size
