@@ -11,6 +11,7 @@ from .passes import (
     FactorImmediateInstructionPass,
     InstructionMutationPass,
     MoveSmallImmediateInstructionPass,
+    PureRegisterInstructionPass,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,7 @@ class MutationEngine:
             AddSyscallOperandInstructionPass,
             MoveSmallImmediateInstructionPass,
             FactorImmediateInstructionPass,
+            PureRegisterInstructionPass,
         ]
         return [cls(segment, self.bad_bytes) for cls in pass_classes]  # type: ignore
 

@@ -1,68 +1,10 @@
 from dataclasses import replace
 
-from int3.errors import Int3CodeGenerationError, Int3UnsuitableCodeMutation
+from int3.errors import Int3CodeGenerationError
 from int3.factor import ImmediateMutationContext
 from int3.instructions import Instruction
 
 from .abc import InstructionMutationPass
-
-
-class MoveSmallImmediateInstructionPass(InstructionMutationPass):
-    """Mutate small immediates into a series of increments."""
-
-    def should_mutate(self, insn: Instruction) -> bool:
-        """Mutate instructions with small immediate values."""
-        return (
-            insn.is_mov()
-            and len(insn.operands) >= 2
-            and insn.operands.is_reg(0)
-            and insn.operands.is_imm(-1)
-        )
-
-    def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
-        """Convert immediate values into a series of increments."""
-        reg = insn.operands.reg(0)
-        imm = insn.operands.imm(1)
-
-        if imm <= 0x10:
-            # XXX: We should be able to test different gadgets for the presence
-            #      of bad bytes. For example, we could have other ways of
-            #      clearing the register other than an XOR.
-            code = self.codegen.xor(reg, reg).bytes
-            code += self.codegen.inc(reg).bytes * imm
-            return self.to_instructions(code)
-
-        raise Int3UnsuitableCodeMutation(f"Immediate {imm:#x} is too large")
-
-
-class AddSyscallOperandInstructionPass(InstructionMutationPass):
-    """Add an operand to a syscall instruction.
-
-    For example, the naked syscall instruction on Mips assembles to
-    0000000c, containing null bytes. The addition of an immediate operand
-    encodes the immediate in place of these null bytes.
-
-    """
-
-    def should_mutate(self, insn: Instruction) -> bool:
-        """Mutate syscall instructions."""
-        return insn.is_syscall()
-
-    def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
-        """Replace the syscall immediate operand."""
-        syscall_bit_size = self.segment.arch.syscall_imm_bit_size
-
-        # Round up to the nearest power-of-2 width (8, 16, 32, 64)
-        width = next(w for w in (8, 16, 32, 64) if syscall_bit_size <= w)
-
-        imm = self.segment.make_clean_imm(bit_size=width)
-
-        # Mask to the actual syscall width to ensure we don't exceed it
-        mask = (1 << syscall_bit_size) - 1
-        imm = imm & mask
-
-        raw_asm = self.codegen.syscall(imm).bytes
-        return self.to_instructions(raw_asm)
 
 
 class FactorImmediateInstructionPass(InstructionMutationPass):
