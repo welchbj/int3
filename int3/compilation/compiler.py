@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import operator
 import platform
+import sys
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -926,3 +927,13 @@ class Compiler:
             bad_bytes=bad_bytes,
             load_addr=load_addr,
         )
+
+    @staticmethod
+    def to_stdout(data: bytes) -> None:
+        """Write raw bytes to stdout."""
+        sys.stdout.buffer.write(data)
+
+    @staticmethod
+    def to_stderr(data: bytes) -> None:
+        """Write raw bytes to stderr."""
+        sys.stderr.buffer.write(data)
