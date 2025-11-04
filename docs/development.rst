@@ -69,6 +69,18 @@ Then publish with:
 Testing and Code Quality
 ------------------------
 
+The test suite can be run with:
+
+.. code-block:: bash
+
+    ./scripts/test.sh
+
+Similarly, tests can be run with INFO logging enabled with:
+
+.. code-block:: bash
+
+    ./scripts/test_with_info_logging.sh
+
 Linting and testing checks is performed with:
 
 .. code-block:: bash
