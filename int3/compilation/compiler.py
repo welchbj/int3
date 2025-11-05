@@ -342,7 +342,6 @@ class Compiler:
             >>> from int3 import Compiler
             >>> cc = Compiler.from_str("linux/x86_64")
 
-
         """
 
         return IntConstant(
