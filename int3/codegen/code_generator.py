@@ -244,14 +244,16 @@ class CodeGenerator:
         # TODO
         raise NotImplementedError("hl_clear not yet implemented")
 
-    def ll_put(self, dest: RegisterDef, imm: int) -> Iterator[tuple[AsmGadget, ...]]:
+    def ll_put(
+        self, dest: RegisterDef, src: RegType | ImmType
+    ) -> Iterator[tuple[AsmGadget, ...]]:
         try:
-            yield (self.mov(dest, imm),)
+            yield (self.mov(dest, src),)
         except Int3WrappedKeystoneError:
             pass
 
         try:
-            yield self.xor(dest, dest), self.add(dest, imm)
+            yield self.xor(dest, dest), self.add(dest, src)
         except Int3WrappedKeystoneError:
             pass
 
