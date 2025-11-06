@@ -113,7 +113,7 @@ class x86_64Registers:
 
 
 class x86Registers:
-    eip = RegisterDef(name="rip", bit_size=32)
+    eip = RegisterDef(name="eip", bit_size=32)
 
     esp = RegisterDef(name="esp", bit_size=32)
     sp = RegisterDef(name="sp", bit_size=16)
@@ -207,6 +207,7 @@ class ArmRegisters:
     r14 = RegisterDef(name="r14", bit_size=32)
     r15 = RegisterDef(name="r15", bit_size=32)
 
+    fp = RegisterDef(name="fp", bit_size=32)  # Frame pointer (r11)
     sp = RegisterDef(name="sp", bit_size=32)  # Stack pointer (r13)
     lr = RegisterDef(name="lr", bit_size=32)  # Link register (r14)
     pc = RegisterDef(name="pc", bit_size=32)  # Program counter (r15)
@@ -278,6 +279,7 @@ class Aarch64Registers:
     w29 = RegisterDef(name="w29", bit_size=32)
     w30 = RegisterDef(name="w30", bit_size=32)
 
+    fp = RegisterDef(name="fp", bit_size=64)  # Frame pointer (x29)
     sp = RegisterDef(name="sp", bit_size=64)  # Stack pointer
     lr = RegisterDef(name="lr", bit_size=64)  # Link register (x30)
     xzr = RegisterDef(name="xzr", bit_size=64)  # Zero register (64-bit)

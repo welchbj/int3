@@ -504,6 +504,7 @@ class Architectures(Enum):
         capstone_mode=CS_MODE_ARM + CS_MODE_LITTLE_ENDIAN,
         reg_cls=Registers.Arm,
         reg_clobber_groups=(
+            {Registers.Arm.r11, Registers.Arm.fp},
             {Registers.Arm.r13, Registers.Arm.sp},
             {Registers.Arm.r14, Registers.Arm.lr},
             {Registers.Arm.r15, Registers.Arm.pc},
@@ -564,7 +565,7 @@ class Architectures(Enum):
             {Registers.Aarch64.x26, Registers.Aarch64.w26},
             {Registers.Aarch64.x27, Registers.Aarch64.w27},
             {Registers.Aarch64.x28, Registers.Aarch64.w28},
-            {Registers.Aarch64.x29, Registers.Aarch64.w29},
+            {Registers.Aarch64.x29, Registers.Aarch64.w29, Registers.Aarch64.fp},
             {Registers.Aarch64.x30, Registers.Aarch64.w30, Registers.Aarch64.lr},
             {Registers.Aarch64.xzr, Registers.Aarch64.wzr},
         ),
