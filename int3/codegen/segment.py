@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from int3.architecture import Architecture, RegisterDef
-from int3.assembly import assemble, disassemble
+from int3.assembly import assemble
 
 from .instruction import Instruction
 
@@ -14,34 +14,32 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Segment:
-    """A segment of instructions aware of potential side effects.
-
-    TODO: doctest
-
-    """
+    """A segment of instructions, aware of potential side effects."""
 
     triple: "Triple"
-    raw_asm: bytes
+    insns: tuple[Instruction, ...]
 
-    insns: tuple[Instruction, ...] = field(init=False)
     tainted_regs: set[RegisterDef] = field(init=False)
     scratch_regs: set[RegisterDef] = field(init=False)
 
     def __post_init__(self):
-        all_insns = tuple(
-            Instruction(cs_insn=cs_insn, triple=self.triple)
-            for cs_insn in disassemble(self.arch, self.raw_asm)
-        )
-
-        object.__setattr__(self, "insns", all_insns)
         object.__setattr__(self, "tainted_regs", self._init_tainted_regs())
         object.__setattr__(self, "scratch_regs", self._init_scratch_regs())
+
+    @staticmethod
+    def from_insns(triple: "Triple", *insns: Instruction) -> Segment:
+        return Segment(triple=triple, insns=insns)
+
+    @staticmethod
+    def from_bytes(triple: "Triple", raw_asm: bytes) -> Segment:
+        insns = triple.insns(raw_asm)
+        return Segment.from_insns(triple, *insns)
 
     @staticmethod
     def from_asm(triple: "Triple", asm: str) -> Segment:
         """Factory method to create an instance from raw machine code."""
         assembled_asm = assemble(arch=triple.arch, assembly=asm)
-        return Segment(triple=triple, raw_asm=assembled_asm)
+        return Segment.from_bytes(triple=triple, raw_asm=assembled_asm)
 
     @property
     def arch(self) -> Architecture:
