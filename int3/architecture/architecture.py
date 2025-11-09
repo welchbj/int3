@@ -100,6 +100,9 @@ class Architecture:
     reg_clobber_groups: tuple[set[RegisterDef], ...]
     reserved_regs: set[RegisterDef]
 
+    # Alternative names/aliases for this architecture.
+    aliases: tuple[str, ...] = field(default_factory=tuple)
+
     byte_size: int = field(init=False)
     regs: tuple[RegisterDef, ...] = field(init=False)
     expanded_reserved_regs: set[RegisterDef] = field(init=False)
@@ -350,6 +353,7 @@ class Architectures(Enum):
         clang_name="i386",
         llvm_reg_prefix="%",
         keystone_reg_prefix="",
+        aliases=("i386", "i686"),
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
@@ -381,6 +385,7 @@ class Architectures(Enum):
         clang_name="x86_64",
         llvm_reg_prefix="%",
         keystone_reg_prefix="",
+        aliases=("amd64", "x64"),
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
@@ -522,6 +527,7 @@ class Architectures(Enum):
         clang_name="armv7",
         llvm_reg_prefix="",
         keystone_reg_prefix="",
+        aliases=("armv6l", "armv7l", "armv7", "armhf"),
         keystone_arch=KS_ARCH_ARM,
         keystone_mode=KS_MODE_ARM + KS_MODE_LITTLE_ENDIAN,
         capstone_arch=CS_ARCH_ARM,
@@ -554,6 +560,7 @@ class Architectures(Enum):
         clang_name="aarch64",
         llvm_reg_prefix="",
         keystone_reg_prefix="",
+        aliases=("arm64",),
         keystone_arch=KS_ARCH_ARM64,
         keystone_mode=KS_MODE_LITTLE_ENDIAN,
         capstone_arch=CS_ARCH_ARM64,
@@ -653,3 +660,13 @@ _ARCHITECTURE_MAP: dict[str, Architecture] = {
     architecture_enum.value.name: architecture_enum.value
     for architecture_enum in Architectures
 }
+
+# Build a map that includes both canonical names and aliases
+_ARCHITECTURE_ALIAS_MAP: dict[str, Architecture] = {}
+for architecture_enum in Architectures:
+    arch = architecture_enum.value
+    # Add canonical name
+    _ARCHITECTURE_ALIAS_MAP[arch.name] = arch
+    # Add all aliases
+    for alias in arch.aliases:
+        _ARCHITECTURE_ALIAS_MAP[alias] = arch
