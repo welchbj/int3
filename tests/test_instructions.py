@@ -13,16 +13,12 @@ def test_triple_insn_factory():
     # x86_64 tests
     # ~~~~~~~~~~~~
     insns = linux_x86_64.insns(
-        "\n".join(
-            [
-                "pop rdx",
-                "syscall",
-                "add rax, r15",
-                "lea rdi, [rip+0x100]",
-                "mov byte ptr [rax], 0x1",
-                "call qword ptr [rsp-0x10]",
-            ]
-        )
+        "pop rdx",
+        "syscall",
+        "add rax, r15",
+        "lea rdi, [rip+0x100]",
+        "mov byte ptr [rax], 0x1",
+        "call qword ptr [rsp-0x10]",
     )
     assert len(insns) == 6
 
@@ -88,14 +84,10 @@ def test_triple_insn_factory():
     # Mips tests
     # ~~~~~~~~~~
     insns = linux_mips.insns(
-        "\n".join(
-            [
-                "lui $v0, 0xcafe",
-                "ori $v0, $v0, 0xbeef",
-                "add $a0, $zero, $v1",
-                "syscall",
-            ]
-        )
+        "lui $v0, 0xcafe",
+        "ori $v0, $v0, 0xbeef",
+        "add $a0, $zero, $v1",
+        "syscall",
     )
     assert len(insns) == 4
 

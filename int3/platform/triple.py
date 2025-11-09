@@ -237,12 +237,18 @@ class Triple:
                 "Non-Linux Syscall convention resolution not yet implemented"
             )
 
-    def insns(self, raw: str | bytes) -> tuple[Instruction, ...]:
+    def insns(self, *raw_insns: str | bytes) -> tuple[Instruction, ...]:
         """Transform assembly or machine code into a sequence of instructions."""
-        if isinstance(raw, str):
-            return Instruction.from_str(raw, triple=self)
-        else:
-            return Instruction.from_bytes(raw, triple=self)
+        parsed_insns: list[Instruction] = []
+        for raw_insn in raw_insns:
+            if isinstance(raw_insn, str):
+                new_insns = Instruction.from_str(raw_insn, triple=self)
+            else:
+                new_insns = Instruction.from_bytes(raw_insn, triple=self)
+
+            parsed_insns.extend(new_insns)
+
+        return tuple(parsed_insns)
 
     def one_insn_or_raise(self, raw: str | bytes) -> Instruction:
         """Transform assembly or machine code into exactly one instruction."""
