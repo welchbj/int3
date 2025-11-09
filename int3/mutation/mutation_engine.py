@@ -1,11 +1,10 @@
 import logging
 from dataclasses import dataclass
 
+from int3.codegen import Instruction, Segment
 from int3.errors import Int3CodeGenerationError
-from int3.instructions import Instruction
 from int3.platform import Triple
 
-from .code_segment import CodeSegment
 from .passes import (
     AddSyscallOperandInstructionPass,
     FactorImmediateInstructionPass,
@@ -25,7 +24,7 @@ class MutationEngine:
     bad_bytes: bytes
 
     def _create_instruction_passes(
-        self, segment: CodeSegment
+        self, segment: Segment
     ) -> list[InstructionMutationPass]:
         pass_classes = [
             AddSyscallOperandInstructionPass,
@@ -34,21 +33,17 @@ class MutationEngine:
         ]
         return [cls(segment, self.bad_bytes) for cls in pass_classes]  # type: ignore
 
-    def clean(self) -> CodeSegment:
+    def clean(self) -> Segment:
         """Attempt to clean bad bytes from the machine code wrapped by this engine."""
-        mutated_segment = CodeSegment(
-            triple=self.triple,
-            raw_asm=self.raw_asm,
-            bad_bytes=self.bad_bytes,
-        )
-        if mutated_segment.is_clean:
+        mutated_segment = Segment(triple=self.triple, raw_asm=self.raw_asm)
+        if mutated_segment.is_clean(self.bad_bytes):
             return mutated_segment
 
         # Apply instruction-level passes.
         insn_passes = self._create_instruction_passes(mutated_segment)
         did_change_segment_len = False
         new_insn_list: list[Instruction] = []
-        for original_insn in mutated_segment.instructions:
+        for original_insn in mutated_segment.insns:
             # Simply record the instruction if it doesn't contain bad bytes.
             if not original_insn.is_dirty(self.bad_bytes):
                 new_insn_list.append(original_insn)
@@ -110,17 +105,14 @@ class MutationEngine:
             )
 
         new_program = b"".join(bytes(insn) for insn in new_insn_list)
-        mutated_segment = CodeSegment(
-            triple=self.triple, raw_asm=new_program, bad_bytes=self.bad_bytes
-        )
-
-        if mutated_segment.is_clean:
+        mutated_segment = Segment(triple=self.triple, raw_asm=new_program)
+        if mutated_segment.is_clean(self.bad_bytes):
             return mutated_segment
 
         dirty_insn_lines = Instruction.summary(
-            *mutated_segment.dirty_instructions, indent=4
+            *mutated_segment.dirty_instructions(self.bad_bytes), indent=4
         )
-        all_insn_lines = Instruction.summary(*mutated_segment.instructions, indent=4)
+        all_insn_lines = Instruction.summary(*mutated_segment.insns, indent=4)
         raise Int3CodeGenerationError(
             "\n\nUnable to clean bad bytes from the following instructions:\n"
             + "\n".join(dirty_insn_lines)

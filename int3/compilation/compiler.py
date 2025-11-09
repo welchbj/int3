@@ -13,13 +13,14 @@ from typing import TYPE_CHECKING, ContextManager, Iterator, Literal, cast, overl
 from int3._vendored.llvmlite import binding as llvm
 from int3._vendored.llvmlite import ir as llvmir
 from int3.architecture import Architecture, Architectures, RegisterDef
-from int3.codegen import CodeGenerator, MutationEngine
+from int3.codegen import CodeGenerator
 from int3.errors import (
     Int3ArgumentError,
     Int3CompilationError,
     Int3ContextError,
     Int3ProgramDefinitionError,
 )
+from int3.mutation import MutationEngine
 from int3.platform import Platform, SyscallConvention, Triple
 
 from .call_proxy import CallFactory, CallProxy

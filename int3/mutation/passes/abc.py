@@ -1,19 +1,14 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Iterable
+from typing import Iterable
 
 from int3.architecture import Architecture
-from int3.instructions import Instruction
-
-from ..code_generator import CodeGenerator
-
-if TYPE_CHECKING:
-    from ..code_segment import CodeSegment
+from int3.codegen import CodeGenerator, Instruction, Segment
 
 
 @dataclass(frozen=True)
 class InstructionMutationPass(ABC):
-    segment: "CodeSegment"
+    segment: Segment
     bad_bytes: bytes
     codegen: CodeGenerator = field(init=False)
 

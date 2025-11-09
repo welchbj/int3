@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Sequence
+from typing import Sequence, TYPE_CHECKING
 
 from int3.architecture import Architecture, RegisterDef
 from int3.errors import Int3MissingEntityError
-from int3.instructions import Instruction
 
 from .factor_operation import FactorOperation
+
+if TYPE_CHECKING:
+    from int3.codegen import Instruction
 
 
 @dataclass(frozen=True)
@@ -19,7 +21,7 @@ class ImmediateMutationContext:
     imm: int
     dest: RegisterDef
     scratch_regs: tuple[RegisterDef, ...]
-    insn: Instruction
+    insn: "Instruction"
 
     scratch_regs_set: frozenset[RegisterDef] = field(init=False)
     byte_width: int = field(init=False, default=8)

@@ -33,6 +33,7 @@ from keystone import (
 
 from int3.errors import (
     Int3ArgumentError,
+    Int3CodeGenerationError,
     Int3InsufficientWidthError,
     Int3MissingEntityError,
 )
@@ -299,6 +300,29 @@ class Architecture:
             raise Int3InsufficientWidthError(
                 f"Unable to unpack {len(data)} bytes using fmt string {format_str}"
             ) from e
+
+    def make_clean_imm(self, bad_bytes: bytes, bit_size: int | None = None) -> int:
+        """Create an immediate value that won't contain bad bytes when assembled."""
+        # XXX: This will need to account for arch-specific immediate encoding (.e.g., for ARM).
+        if bit_size is None:
+            bit_size = self.bit_size
+
+        if bit_size % self.BITS_IN_A_BYTE:
+            raise Int3CodeGenerationError(
+                f"bit_size must be aligned to {self.BITS_IN_A_BYTE}"
+            )
+
+        num_bytes = bit_size // self.BITS_IN_A_BYTE
+        clean_bytes = bytes([i for i in range(0x100) if i not in bad_bytes])
+        if not clean_bytes:
+            raise Int3CodeGenerationError(
+                "Unable to find any byte values that would be clean"
+            )
+
+        clean_byte = clean_bytes[-1]
+        return self.unpack(
+            bytes([clean_byte for _ in range(num_bytes)]), width=bit_size
+        )
 
 
 class Architectures(Enum):

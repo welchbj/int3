@@ -1,5 +1,5 @@
 from int3.architecture import Architecture, Architectures, Registers
-from int3.codegen import CodeGenerator, CodeSegment
+from int3.codegen import CodeGenerator, Segment
 from int3.platform import Platform, Triple
 
 from .qemu import parametrize_qemu_arch
@@ -26,7 +26,7 @@ def test_register_expansion():
 def test_arithmetic_tainted_register_resolution():
     x86_64 = Architectures.x86_64.value
     linux_x86_64 = Triple(x86_64, Platform.Linux)
-    segment = CodeSegment.from_asm(
+    segment = Segment.from_asm(
         triple=linux_x86_64,
         asm="""
         mov rax, 0xdead
@@ -36,20 +36,20 @@ def test_arithmetic_tainted_register_resolution():
     label:
     """,
     )
-    assert len(segment.instructions) == 4
+    assert len(segment.insns) == 4
     all_tainted_regs = set()
-    assert segment.instructions[0].tainted_regs == set(x86_64.expand_regs("rax"))
+    assert segment.insns[0].tainted_regs == set(x86_64.expand_regs("rax"))
     all_tainted_regs |= set(x86_64.expand_regs("rax"))
-    assert segment.instructions[1].tainted_regs == set(x86_64.expand_regs("bx"))
+    assert segment.insns[1].tainted_regs == set(x86_64.expand_regs("bx"))
     all_tainted_regs |= set(x86_64.expand_regs("bx"))
-    assert segment.instructions[2].tainted_regs == set(x86_64.expand_regs("r15"))
+    assert segment.insns[2].tainted_regs == set(x86_64.expand_regs("r15"))
     all_tainted_regs |= set(x86_64.expand_regs("r15"))
-    assert segment.instructions[3].tainted_regs == set()
+    assert segment.insns[3].tainted_regs == set()
     assert segment.tainted_regs == all_tainted_regs
 
     mips = Architectures.Mips.value
     linux_mips = Triple(mips, Platform.Linux)
-    segment = CodeSegment.from_asm(
+    segment = Segment.from_asm(
         triple=linux_mips,
         asm="""
         ori $at, $zero, 0xbeef
@@ -60,15 +60,15 @@ def test_arithmetic_tainted_register_resolution():
     )
     # There is an extra instruction for the implicit NOP that Keystone adds
     # after the jr instruction.
-    assert len(segment.instructions) == 5
+    assert len(segment.insns) == 5
     all_tainted_regs = set()
-    assert segment.instructions[0].tainted_regs == {mips.reg("at")}
+    assert segment.insns[0].tainted_regs == {mips.reg("at")}
     all_tainted_regs.add(mips.reg("at"))
-    assert segment.instructions[1].tainted_regs == {mips.reg("a0")}
+    assert segment.insns[1].tainted_regs == {mips.reg("a0")}
     all_tainted_regs.add(mips.reg("a0"))
-    assert segment.instructions[2].tainted_regs == {mips.reg("v0")}
+    assert segment.insns[2].tainted_regs == {mips.reg("v0")}
     all_tainted_regs.add(mips.reg("v0"))
-    assert segment.instructions[3].tainted_regs == set()
+    assert segment.insns[3].tainted_regs == set()
     assert segment.tainted_regs == all_tainted_regs
 
 
@@ -76,7 +76,7 @@ def test_arithmetic_tainted_register_resolution():
 def test_linux_syscall_tainted_register_resolution(arch: Architecture):
     triple = Triple(arch, Platform.Linux)
     codegen = CodeGenerator(arch)
-    segment = CodeSegment(triple=triple, raw_asm=codegen.syscall().bytes, bad_bytes=b"")
+    segment = Segment(triple=triple, raw_asm=codegen.syscall().bytes)
 
     # The syscall result register should always be tainted.
     expected_result_regs = set(arch.expand_regs(triple.syscall_convention.result))

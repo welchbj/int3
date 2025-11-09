@@ -1,8 +1,8 @@
 from dataclasses import replace
 
+from int3.codegen import Instruction
 from int3.errors import Int3CodeGenerationError
 from int3.factor import ImmediateMutationContext
-from int3.instructions import Instruction
 
 from .abc import InstructionMutationPass
 

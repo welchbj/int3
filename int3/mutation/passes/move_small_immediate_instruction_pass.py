@@ -1,5 +1,5 @@
+from int3.codegen import Instruction
 from int3.errors import Int3UnsuitableCodeMutation
-from int3.instructions import Instruction
 
 from .abc import InstructionMutationPass
 

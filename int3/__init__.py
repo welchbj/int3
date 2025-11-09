@@ -29,7 +29,7 @@ from .errors import *
 from .execution import *
 from .factor import *
 from .format import *
-from .instructions import *
 from .meta import *
+from .mutation import *
 from .platform import *
 from .version import *

@@ -3,8 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from int3.architecture import Architecture, Architectures, RegisterDef, Registers
+from int3.codegen import Instruction
 from int3.errors import Int3CodeGenerationError
-from int3.instructions import Instruction
 
 from .platform import Platform
 from .syscall_convention import SyscallConvention
