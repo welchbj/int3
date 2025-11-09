@@ -2,4 +2,3 @@ from .abc import InstructionMutationPass
 from .add_syscall_operand_instruction_pass import AddSyscallOperandInstructionPass
 from .factor_immediate_instruction_pass import FactorImmediateInstructionPass
 from .move_small_immediate_instruction_pass import MoveSmallImmediateInstructionPass
-from .pure_register_instruction_pass import PureRegisterInstructionPass
