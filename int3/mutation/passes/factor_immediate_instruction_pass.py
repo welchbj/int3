@@ -1,6 +1,6 @@
 from dataclasses import replace
 
-from int3.codegen import Instruction
+from int3.codegen import Choice, FluidSegment, Instruction
 from int3.errors import Int3CodeGenerationError
 from int3.factor import ImmediateMutationContext
 
@@ -18,7 +18,7 @@ class FactorImmediateInstructionPass(InstructionMutationPass):
             and insn.operands.is_imm(-1)
         )
 
-    def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
+    def mutate(self, insn: Instruction) -> Choice:
         """Factor immediate values into multiple instructions."""
         reg = insn.operands.reg(0)
         imm = insn.operands.imm(-1)
@@ -41,7 +41,7 @@ class FactorImmediateInstructionPass(InstructionMutationPass):
         # Otherwise, we need to put a value into an intermediary scratch register,
         # and then replace the immediate in the original instruction with the scratch
         # register.
-        candidate_insn_sequences = []
+        options = []
         for scratch_reg in scratch_regs:
             modified_scratch_regs = set(scratch_regs) - {scratch_reg}
 
@@ -52,33 +52,31 @@ class FactorImmediateInstructionPass(InstructionMutationPass):
             mutated_imm_ctx = replace(
                 imm_ctx, dest=scratch_reg, scratch_regs=tuple(modified_scratch_regs)
             )
-            put_insns = self._put_insns(mutated_imm_ctx)
-            new_insns = *put_insns, insn.operands.replace(-1, scratch_reg)
-            candidate_insn_sequences.append(new_insns)
+            options.append(
+                self.codegen.segment(
+                    self._put_insns(mutated_imm_ctx),
+                    insn.operands.replace(-1, scratch_reg),
+                )
+            )
 
-        def _insn_tuple_len(insns: tuple[Instruction, ...]) -> int:
-            return sum(len(insn.raw) for insn in insns)
+        return self.codegen.choice(*options)
 
-        return min(candidate_insn_sequences, key=_insn_tuple_len)
-
-    def _put_insns(self, ctx: ImmediateMutationContext) -> tuple[Instruction, ...]:
-        raw_candidates: list[bytes] = []
+    def _put_insns(self, ctx: ImmediateMutationContext) -> Choice:
+        segments: list[FluidSegment] = []
 
         for scratch_reg in ctx.scratch_regs:
             try:
-                gadgets = self.codegen.hl_put(
-                    ctx.with_locked_reg(scratch_reg), scratch_reg
+                segments.append(
+                    self.codegen.hl_put(ctx.with_locked_reg(scratch_reg), scratch_reg)
                 )
-                raw_candidate = b"".join(gadget.bytes for gadget in gadgets)
-                raw_candidates.append(raw_candidate)
             except Int3CodeGenerationError:
                 # This scratch register didn't work; try the next one.
                 continue
 
-        if not raw_candidates:
+        if not segments:
             raise Int3CodeGenerationError(
                 f"Unable to generate clean code to load {ctx.imm:#x} into {ctx.dest} "
                 f"with any available scratch register"
             )
 
-        return self.choose(raw_candidates)
+        return self.codegen.choice(*segments)

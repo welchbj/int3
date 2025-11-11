@@ -150,7 +150,7 @@ class Compiler:
         self.def_func = FunctionFactory(store=self.func)
         self.call = CallFactory(compiler=self)
         self.types = TypeManager(compiler=self)
-        self.codegen = CodeGenerator(arch=self.arch)
+        self.codegen = CodeGenerator(triple=self.triple)
 
         # We create a fresh llvmlite context for our module. Otherwise, multiple
         # compiler instances will reference the same llvmlite library-level global
@@ -748,9 +748,11 @@ class Compiler:
     ) -> bytes:
         if self.load_addr is None:
             # We have to determine the current PC at runtime.
-            get_pc_stub = self.codegen.compute_pc(result=pc_transfer_reg).bytes
+            get_pc_choice = self.codegen.compute_pc(result=pc_transfer_reg)
         else:
-            get_pc_stub = self.codegen.mov(pc_transfer_reg, self.load_addr).bytes
+            get_pc_choice = self.codegen.mov(pc_transfer_reg, self.load_addr)
+
+        get_pc_stub = get_pc_choice.choose(bad_bytes=self.bad_bytes).raw
 
         # Attempt to remove bad bytes from the PC derivation stub.
         get_pc_stub = self._clean_asm(get_pc_stub)

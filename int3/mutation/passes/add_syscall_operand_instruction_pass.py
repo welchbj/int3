@@ -1,4 +1,4 @@
-from int3.codegen import Instruction
+from int3.codegen import Choice, Instruction
 
 from .abc import InstructionMutationPass
 
@@ -16,7 +16,7 @@ class AddSyscallOperandInstructionPass(InstructionMutationPass):
         """Mutate syscall instructions."""
         return insn.is_syscall()
 
-    def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
+    def mutate(self, insn: Instruction) -> Choice:
         """Replace the syscall immediate operand."""
         arch = self.segment.arch
         syscall_bit_size = arch.syscall_imm_bit_size
@@ -29,5 +29,4 @@ class AddSyscallOperandInstructionPass(InstructionMutationPass):
         mask = (1 << syscall_bit_size) - 1
         imm = imm & mask
 
-        raw_asm = self.codegen.syscall(imm).bytes
-        return self.to_instructions(raw_asm)
+        return self.codegen.syscall(imm)

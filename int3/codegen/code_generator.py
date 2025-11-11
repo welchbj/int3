@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import logging
-import textwrap
-from dataclasses import dataclass, field
-from typing import Iterator
+from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from int3.architecture import Architecture, Architectures, RegisterDef
-from int3.assembly import assemble
-from int3.errors import Int3CodeGenerationError, Int3WrappedKeystoneError
+from int3.errors import Int3CodeGenerationError
 from int3.factor import (
     FactorClause,
     FactorContext,
@@ -17,6 +15,11 @@ from int3.factor import (
     compute_factor,
 )
 
+from .choice import Choice, FluidSegment, Option
+
+if TYPE_CHECKING:
+    from int3.platform import Triple
+
 type RegType = RegisterDef | str
 type ImmType = int
 
@@ -25,41 +28,26 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
-class AsmGadget:
-    """An assembly gadget."""
-
-    text: str
-    bytes: bytes
-    len: int = field(init=False)
-
-    def __post_init__(self):
-        unindented_text = "\n".join(
-            line.strip()
-            for line in textwrap.dedent(self.text).splitlines()
-            if line.strip()
-        )
-        logger.debug("Created gadget for the following assembly:")
-        for line in textwrap.indent(unindented_text, prefix="    ").splitlines():
-            logger.debug(line)
-
-        object.__setattr__(self, "text", unindented_text)
-        object.__setattr__(self, "len", len(self.bytes))
-
-    def __str__(self) -> str:
-        return self.text
-
-
-@dataclass(frozen=True)
 class CodeGenerator:
     """Common interface for emitting architecture-specific assembly."""
 
-    arch: "Architecture"
+    triple: "Triple"
 
-    def gadget(self, asm: str) -> AsmGadget:
-        return AsmGadget(text=asm, bytes=self.assemble(asm))
+    @property
+    def arch(self) -> Architecture:
+        return self.triple.arch
 
-    def assemble(self, asm: str) -> bytes:
-        return assemble(self.arch, asm)
+    def choice(self, *options: str | bytes | Option) -> Choice:
+        # TODO
+        raise NotImplementedError
+
+    def repeat(self, option: Option, num: int) -> FluidSegment:
+        # TODO
+        raise NotImplementedError
+
+    def segment(self, *components: str | bytes | Option) -> FluidSegment:
+        # TODO
+        raise NotImplementedError
 
     def f(self, value: RegType | ImmType) -> str:
         """Format a register or immediate into a Keystone-consumable form."""
@@ -72,7 +60,7 @@ class CodeGenerator:
             return f"{value:#x}"
 
     def nop_pad(self, pad_len: int) -> bytes:
-        nop_bytes = self.gadget("nop").bytes
+        nop_bytes = self.triple.one_insn_or_raise("nop").raw
         if pad_len % len(nop_bytes):
             raise Int3CodeGenerationError(
                 f"Attempted to pad to misaligned length {pad_len:#x}"
@@ -81,7 +69,7 @@ class CodeGenerator:
         num_repeats = pad_len // len(nop_bytes)
         return nop_bytes * num_repeats
 
-    def syscall(self, value: ImmType | None = None) -> AsmGadget:
+    def syscall(self, value: ImmType | None = None) -> Choice:
         match self.arch:
             case (
                 Architectures.x86_64.value
@@ -89,127 +77,127 @@ class CodeGenerator:
                 | Architectures.Mips.value
             ):
                 if value is None:
-                    return self.gadget("syscall")
+                    return self.choice("syscall")
                 else:
-                    return self.gadget(f"syscall {self.f(value)}")
+                    return self.choice(f"syscall {self.f(value)}")
             case Architectures.Arm.value | Architectures.Aarch64.value:
                 if value is None:
-                    return self.gadget("svc #0")
+                    return self.choice("svc #0")
                 else:
-                    return self.gadget(f"svc {self.f(value)}")
+                    return self.choice(f"svc {self.f(value)}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
-    def breakpoint(self) -> AsmGadget:
+    def breakpoint(self) -> Choice:
         match self.arch:
             case Architectures.x86_64.value | Architectures.x86.value:
-                return self.gadget("int3")
+                return self.choice("int3")
             case Architectures.Mips.value:
-                return self.gadget("break")
+                return self.choice("break")
             case Architectures.Arm.value | Architectures.Aarch64.value:
-                return self.gadget("brk #0")
+                return self.choice("brk #0")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
-    def inc(self, reg: RegType) -> AsmGadget:
+    def inc(self, reg: RegType) -> Choice:
         match self.arch:
             case Architectures.x86_64.value | Architectures.x86.value:
-                return self.gadget(f"inc {self.f(reg)}")
+                return self.choice(f"inc {self.f(reg)}")
             case Architectures.Mips.value:
-                return self.gadget(f"addi {self.f(reg)}, 0x1")
+                return self.choice(f"addi {self.f(reg)}, 0x1")
             case Architectures.Arm.value | Architectures.Aarch64.value:
-                return self.gadget(f"add {self.f(reg)}, {self.f(reg)}, #1")
+                return self.choice(f"add {self.f(reg)}, {self.f(reg)}, #1")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
-    def xor(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
+    def xor(self, one: RegType, two: ImmType | RegType) -> Choice:
         match self.arch:
             case (
                 Architectures.x86_64.value
                 | Architectures.x86.value
                 | Architectures.Mips.value
             ):
-                return self.gadget(f"xor {self.f(one)}, {self.f(two)}")
+                return self.choice(f"xor {self.f(one)}, {self.f(two)}")
             case Architectures.Arm.value | Architectures.Aarch64.value:
-                return self.gadget(f"eor {self.f(one)}, {self.f(one)}, {self.f(two)}")
+                return self.choice(f"eor {self.f(one)}, {self.f(one)}, {self.f(two)}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
-    def add(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
+    def add(self, one: RegType, two: ImmType | RegType) -> Choice:
         match self.arch:
             case (
                 Architectures.x86_64.value
                 | Architectures.x86.value
                 | Architectures.Mips.value
             ):
-                return self.gadget(f"add {self.f(one)}, {self.f(two)}")
+                return self.choice(f"add {self.f(one)}, {self.f(two)}")
             case Architectures.Arm.value | Architectures.Aarch64.value:
-                return self.gadget(f"add {self.f(one)}, {self.f(one)}, {self.f(two)}")
+                return self.choice(f"add {self.f(one)}, {self.f(one)}, {self.f(two)}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
-    def sub(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
+    def sub(self, one: RegType, two: ImmType | RegType) -> Choice:
         match self.arch:
             case (
                 Architectures.x86_64.value
                 | Architectures.x86.value
                 | Architectures.Mips.value
             ):
-                return self.gadget(f"sub {self.f(one)}, {self.f(two)}")
+                return self.choice(f"sub {self.f(one)}, {self.f(two)}")
             case Architectures.Arm.value | Architectures.Aarch64.value:
-                return self.gadget(f"sub {self.f(one)}, {self.f(one)}, {self.f(two)}")
+                return self.choice(f"sub {self.f(one)}, {self.f(one)}, {self.f(two)}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
-    def mov(self, one: RegType, two: ImmType | RegType) -> AsmGadget:
+    def mov(self, one: RegType, two: ImmType | RegType) -> Choice:
         match self.arch:
             case Architectures.x86_64.value | Architectures.x86.value:
-                return self.gadget(f"mov {self.f(one)}, {self.f(two)}")
+                return self.choice(f"mov {self.f(one)}, {self.f(two)}")
             case Architectures.Mips.value:
                 if isinstance(two, int):
-                    return self.gadget(f"li {self.f(one)}, {self.f(two)}")
+                    return self.choice(f"li {self.f(one)}, {self.f(two)}")
                 else:
-                    return self.gadget(f"move {self.f(one)}, {self.f(two)}")
+                    return self.choice(f"move {self.f(one)}, {self.f(two)}")
             case Architectures.Arm.value | Architectures.Aarch64.value:
-                return self.gadget(f"mov {self.f(one)}, {self.f(two)}")
+                return self.choice(f"mov {self.f(one)}, {self.f(two)}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
-    def compute_pc(self, result: RegType) -> AsmGadget:
+    def compute_pc(self, result: RegType) -> Choice:
         """Compute the program counter for the instruction following this gadget."""
         match self.arch:
             case Architectures.x86_64.value:
-                return self.gadget(f"lea {self.f(result)}, [rip]")
+                return self.choice(f"lea {self.f(result)}, [rip]")
             case Architectures.Mips.value:
                 raise Int3CodeGenerationError(
                     "Mips does not support fine-grained PC-relative addressing"
                 )
             case Architectures.Arm.value:
-                return self.gadget(f"mov {self.f(result)}, pc")
+                return self.choice(f"mov {self.f(result)}, pc")
             case Architectures.Aarch64.value:
-                return self.gadget(f"adr {self.f(result)}, .")
+                return self.choice(f"adr {self.f(result)}, .")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
-    def jump(self, value: ImmType | RegType) -> AsmGadget:
+    def jump(self, value: ImmType | RegType) -> Choice:
         match self.arch:
             case Architectures.x86.value | Architectures.x86_64.value:
-                return self.gadget(f"jmp {self.f(value)}")
+                return self.choice(f"jmp {self.f(value)}")
             case Architectures.Mips.value:
                 if isinstance(value, int):
-                    return self.gadget(f"j {self.f(value)}")
+                    return self.choice(f"j {self.f(value)}")
                 else:
-                    return self.gadget(f"jr {self.f(value)}")
+                    return self.choice(f"jr {self.f(value)}")
             case Architectures.Arm.value:
                 if isinstance(value, int):
-                    return self.gadget(f"b {self.f(value)}")
+                    return self.choice(f"b {self.f(value)}")
                 else:
-                    return self.gadget(f"bx {self.f(value)}")
+                    return self.choice(f"bx {self.f(value)}")
             case Architectures.Aarch64.value:
                 if isinstance(value, int):
-                    return self.gadget(f"b {self.f(value)}")
+                    return self.choice(f"b {self.f(value)}")
                 else:
-                    return self.gadget(f"br {self.f(value)}")
+                    return self.choice(f"br {self.f(value)}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
@@ -217,87 +205,59 @@ class CodeGenerator:
         self,
         ctx: ImmediateMutationContext,
         selected_scratch: RegisterDef,
-    ) -> tuple[AsmGadget, ...]:
+    ) -> FluidSegment:
         """High-level immediate put into register."""
-
         factor_result = self._factor_imm(ctx)
+        factor_op_choices = tuple(
+            self._factor_clause_to_choice(clause, ctx.dest, selected_scratch)
+            for clause in factor_result.clauses
+        )
+        return self.segment(*factor_op_choices)
 
-        gadget_sequence: list[AsmGadget] = []
-        for clause in factor_result.clauses:
-            asm_candidates = list(
-                self._factor_clause_to_asm(clause, ctx.dest, selected_scratch)
-            )
-            if not asm_candidates:
-                raise Int3CodeGenerationError("Unable to generate any factor clauses")
+    def ll_put(self, dest: RegisterDef, src: RegType | ImmType) -> Choice:
+        return self.choice(
+            self.mov(dest, src), self.segment(self.xor(dest, dest), self.add(dest, src))
+        )
 
-            for asm_candidate in asm_candidates:
-                asm_candidate_raw = b"".join(gadget.bytes for gadget in asm_candidate)
-                if not any(b in asm_candidate_raw for b in ctx.bad_bytes):
-                    gadget_sequence.extend(asm_candidate)
-                    break
-            else:
-                raise Int3CodeGenerationError("Unable to generate clean factor clauses")
-
-        return tuple(gadget_sequence)
-
-    def hl_clear(self, dest: RegType) -> AsmGadget:
-        # TODO
-        raise NotImplementedError("hl_clear not yet implemented")
-
-    def ll_put(
-        self, dest: RegisterDef, src: RegType | ImmType
-    ) -> Iterator[tuple[AsmGadget, ...]]:
-        try:
-            yield (self.mov(dest, src),)
-        except Int3WrappedKeystoneError:
-            pass
-
-        try:
-            yield self.xor(dest, dest), self.add(dest, src)
-        except Int3WrappedKeystoneError:
-            pass
-
-    def _factor_clause_to_asm(
+    def _factor_clause_to_choice(
         self, clause: FactorClause, dest: RegisterDef, scratch: RegisterDef
-    ) -> Iterator[tuple[AsmGadget, ...]]:
-        """Convert a factor result clause into matching streams of assembly sequences.
-
-        This method is a primitive used by higher level functionality.
-
-        Because this method is used in high-level operations, it can only
-        depend on low-level utility methods (i.e., don't use hl_ prefixed
-        methods within this method).
-
-        """
+    ) -> Choice:
+        """Convert a factor clause to corresponding instructions."""
         imm = clause.operand
 
         match clause.operation:
             case FactorOperation.Init:
-                yield from self.ll_put(dest, imm)
+                return self.ll_put(dest, imm)
             case FactorOperation.Sub:
-                try:
-                    yield (self.sub(dest, imm),)
-                except Int3WrappedKeystoneError:
-                    pass
-
-                for gadgets in self.ll_put(scratch, imm):
-                    yield *gadgets, self.sub(dest, scratch)
+                return self.choice(
+                    self.sub(dest, imm),
+                    self.segment(
+                        self.ll_put(scratch, imm),
+                        self.sub(dest, scratch),
+                    ),
+                )
             case FactorOperation.Add:
-                try:
-                    yield (self.add(dest, imm),)
-                except Int3WrappedKeystoneError:
-                    pass
-
-                for gadgets in self.ll_put(scratch, imm):
-                    yield *gadgets, self.add(dest, scratch)
+                return self.choice(
+                    self.add(dest, imm),
+                    self.segment(
+                        self.ll_put(scratch, imm),
+                        self.add(
+                            dest,
+                            scratch,
+                        ),
+                    ),
+                )
             case FactorOperation.Xor:
-                try:
-                    yield (self.xor(dest, imm),)
-                except Int3WrappedKeystoneError:
-                    pass
-
-                for gadgets in self.ll_put(scratch, imm):
-                    yield *gadgets, self.xor(dest, scratch)
+                return self.choice(
+                    self.xor(dest, imm),
+                    self.segment(
+                        self.ll_put(scratch, imm),
+                        self.xor(
+                            dest,
+                            scratch,
+                        ),
+                    ),
+                )
             case FactorOperation.Neg:
                 raise NotImplementedError("Negation support not yet implemented")
 

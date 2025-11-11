@@ -115,7 +115,7 @@ class FunctionProxy:
         return f"{hint}{idx}"
 
     def __str__(self) -> str:
-        # TODO: Show full signature
+        # XXX: Show full signature.
         return f"func {self.name}"
 
     def __enter__(self) -> FunctionProxy:

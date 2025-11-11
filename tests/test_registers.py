@@ -75,8 +75,8 @@ def test_arithmetic_tainted_register_resolution():
 @parametrize_qemu_arch
 def test_linux_syscall_tainted_register_resolution(arch: Architecture):
     triple = Triple(arch, Platform.Linux)
-    codegen = CodeGenerator(arch)
-    segment = Segment.from_bytes(triple=triple, raw_asm=codegen.syscall().bytes)
+    codegen = CodeGenerator(triple)
+    segment = codegen.syscall().choose()
 
     # The syscall result register should always be tainted.
     expected_result_regs = set(arch.expand_regs(triple.syscall_convention.result))

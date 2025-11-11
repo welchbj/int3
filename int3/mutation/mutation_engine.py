@@ -49,6 +49,7 @@ class MutationEngine:
                 new_insn_list.append(original_insn)
                 continue
 
+            # Otherwise, we try to apply instruction passes to remove bad bytes.
             for insn_pass in insn_passes:
                 if not insn_pass.should_mutate(original_insn):
                     logger.debug(
@@ -60,17 +61,23 @@ class MutationEngine:
                     logger.info(
                         f"Invoking {insn_pass.__class__.__name__} for {original_insn}"
                     )
-                    mutated_insns = insn_pass.mutate(original_insn)
+                    mutated_segment = insn_pass.mutate(original_insn).choose(
+                        bad_bytes=self.bad_bytes
+                    )
                 except Int3CodeGenerationError as e:
                     logger.info(f"{insn_pass.__class__.__name__} failed: {e}")
                     continue
 
-                if not any(insn.is_dirty(self.bad_bytes) for insn in mutated_insns):
+                if not any(
+                    insn.is_dirty(self.bad_bytes) for insn in mutated_segment.insns
+                ):
                     # This set of instructions is a bad byte compliant mutation of the input
                     # instruction.
-                    new_insn_list.extend(mutated_insns)
+                    new_insn_list.extend(mutated_segment.insns)
 
-                    mutated_len = sum(len(bytes(insn)) for insn in mutated_insns)
+                    mutated_len = sum(
+                        len(bytes(insn)) for insn in mutated_segment.insns
+                    )
                     original_len = len(bytes(original_insn))
                     if mutated_len != original_len:
                         logger.info(
@@ -82,7 +89,7 @@ class MutationEngine:
                     logger.info(f"{insn_pass.__class__.__name__} transformed:")
                     logger.info(f"{Instruction.summary(original_insn, indent=4)[0]}")
                     logger.info("into:")
-                    for line in Instruction.summary(*mutated_insns, indent=4):
+                    for line in Instruction.summary(*mutated_segment.insns, indent=4):
                         logger.info(line)
                     break
             else:
@@ -97,7 +104,7 @@ class MutationEngine:
         relative_insns = [
             insn for insn in new_insn_list if insn.is_branch() or insn.is_jump()
         ]
-        if did_change_segment_len and relative_insns:
+        if did_change_segment_len and len(relative_insns) > 0:
             relative_insn_lines = Instruction.summary(*relative_insns, indent=4)
             raise Int3CodeGenerationError(
                 "\n\nCode mutations modified segment length, which may break the following instructions:\n"

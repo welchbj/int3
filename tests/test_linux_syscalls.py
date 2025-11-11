@@ -55,4 +55,4 @@ def test_sys_write_with_ambiguous_count():
             cc.sys_write(fd=1, buf=literal_addr)
 
 
-# TODO: Test no known load address
+# XXX: Test no known load address.

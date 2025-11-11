@@ -1,4 +1,4 @@
-from int3.codegen import Instruction
+from int3.codegen import Choice, Instruction
 from int3.errors import Int3UnsuitableCodeMutation
 
 from .abc import InstructionMutationPass
@@ -16,7 +16,7 @@ class MoveSmallImmediateInstructionPass(InstructionMutationPass):
             and insn.operands.is_imm(-1)
         )
 
-    def mutate(self, insn: Instruction) -> tuple[Instruction, ...]:
+    def mutate(self, insn: Instruction) -> Choice:
         """Convert immediate values into a series of increments."""
         reg = insn.operands.reg(0)
         imm = insn.operands.imm(1)
@@ -25,8 +25,14 @@ class MoveSmallImmediateInstructionPass(InstructionMutationPass):
             # XXX: We should be able to test different gadgets for the presence
             #      of bad bytes. For example, we could have other ways of
             #      clearing the register other than an XOR.
-            code = self.codegen.xor(reg, reg).bytes
-            code += self.codegen.inc(reg).bytes * imm
-            return self.to_instructions(code)
+            return self.codegen.choice(
+                self.codegen.segment(
+                    self.codegen.xor(reg, reg),
+                    self.codegen.repeat(
+                        self.codegen.inc(reg),
+                        imm,
+                    ),
+                )
+            )
         else:
             raise Int3UnsuitableCodeMutation(f"Immediate {imm:#x} is too large")

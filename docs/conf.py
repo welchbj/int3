@@ -49,7 +49,7 @@ html_theme_options = {"logo_only": True}
 html_baseurl = "https://int3.brianwel.ch"
 html_title = f"int3 ({int3_version})"
 html_static_path = ["_static"]
-# TODO: Make logo
+# XXX: Make logo
 # html_logo = "_static/logo-white.png"
-# TODO: Add favicon (html_favicon)
+# XXX: Add favicon (html_favicon)
 # html_favicon = "_static/favicon.ico"
