@@ -19,8 +19,8 @@ class Segment:
     triple: "Triple"
     insns: tuple[Instruction, ...]
 
-    tainted_regs: set[RegisterDef] = field(init=False)
-    scratch_regs: set[RegisterDef] = field(init=False)
+    tainted_regs: set[RegisterDef] = field(init=False, compare=False)
+    scratch_regs: set[RegisterDef] = field(init=False, compare=False)
 
     def __post_init__(self):
         object.__setattr__(self, "tainted_regs", self._init_tainted_regs())
@@ -71,9 +71,9 @@ class Segment:
         """The violating instructions within this segment for a set of bad bytes."""
         return tuple(insn for insn in self.insns if insn.is_dirty(bad_bytes))
 
-    def is_clean(self, bad_bytes: bytes) -> bool:
-        """Whether this segment doesn't contain bad bytes."""
-        return len(self.dirty_instructions(bad_bytes)) == 0
+    def is_dirty(self, bad_bytes: bytes) -> bool:
+        """Whether this segment has any instructions that contain bad bytes."""
+        return len(self.dirty_instructions(bad_bytes)) > 0
 
     def scratch_regs_for_size(self, bit_size: int) -> tuple[RegisterDef, ...]:
         """Find candidate scratch registers for a given bit width."""

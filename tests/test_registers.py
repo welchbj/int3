@@ -23,6 +23,12 @@ def test_register_expansion():
     assert mips.expand_regs(a0) == (a0,)
 
 
+def test_register_equivalence():
+    x86_64 = Architectures.x86_64.value
+    assert x86_64.reg("rax") == x86_64.reg("rax")
+    assert x86_64.reg("rax") == Registers.x86_64.rax
+
+
 def test_arithmetic_tainted_register_resolution():
     x86_64 = Architectures.x86_64.value
     linux_x86_64 = Triple(x86_64, Platform.Linux)

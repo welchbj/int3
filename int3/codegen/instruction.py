@@ -52,7 +52,7 @@ class OperandView:
 
     insn: Instruction
 
-    tokens: tuple[str, ...] = field(init=False)
+    tokens: tuple[str, ...] = field(init=False, compare=False)
 
     def __post_init__(self):
         object.__setattr__(
@@ -198,16 +198,16 @@ class OperandView:
 class Instruction:
     """Wrapper around a machine code instruction."""
 
-    cs_insn: CsInsn
-    triple: "Triple"
+    cs_insn: CsInsn = field(compare=False)
+    triple: "Triple" = field(compare=True)
 
-    raw: bytes = field(init=False)
-    mnemonic: str = field(init=False)
-    op_str: str = field(init=False)
-    operands: OperandView = field(init=False)
-    tainted_regs: set[RegisterDef] = field(init=False)
+    raw: bytes = field(init=False, compare=True)
+    mnemonic: str = field(init=False, compare=False)
+    op_str: str = field(init=False, compare=False)
+    operands: OperandView = field(init=False, compare=False)
+    tainted_regs: set[RegisterDef] = field(init=False, compare=False)
 
-    _cs_group_names: set[str] = field(init=False)
+    _cs_group_names: set[str] = field(init=False, compare=False)
 
     def __post_init__(self):
         object.__setattr__(self, "raw", self.cs_insn.bytes)

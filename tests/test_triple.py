@@ -18,6 +18,11 @@ def test_triple_instantiation():
     assert str(triple) == "x86_64-pc-linux-unknown"
 
 
+def test_triple_equivalence():
+    linux_x86_64 = Triple(Architectures.x86_64.value, Platform.Linux)
+    assert Triple.from_str("x86_64-linux") == linux_x86_64
+
+
 def test_triple_from_str_two_components():
     """Test parsing triples with 2 components (arch-sys)."""
     triple = Triple.from_str("x86_64-linux")

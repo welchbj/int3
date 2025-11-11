@@ -36,7 +36,7 @@ class MutationEngine:
     def clean(self) -> Segment:
         """Attempt to clean bad bytes from the machine code wrapped by this engine."""
         mutated_segment = Segment.from_bytes(triple=self.triple, raw_asm=self.raw_asm)
-        if mutated_segment.is_clean(self.bad_bytes):
+        if not mutated_segment.is_dirty(self.bad_bytes):
             return mutated_segment
 
         # Apply instruction-level passes.
@@ -113,7 +113,7 @@ class MutationEngine:
 
         new_program = b"".join(bytes(insn) for insn in new_insn_list)
         mutated_segment = Segment.from_bytes(triple=self.triple, raw_asm=new_program)
-        if mutated_segment.is_clean(self.bad_bytes):
+        if not mutated_segment.is_dirty(self.bad_bytes):
             return mutated_segment
 
         dirty_insn_lines = Instruction.summary(

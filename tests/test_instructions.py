@@ -121,8 +121,16 @@ def test_triple_insn_factory():
     assert len(insns[3].operands) == 0
 
 
+def test_instruction_equivalence():
+    """Test equivalent generated instructions are Pythonically equal, too."""
+    linux_x86_64 = Triple.from_str("x86_64-linux")
+    push_rax_one = linux_x86_64.one_insn_or_raise("push rax")
+    push_rax_two = linux_x86_64.one_insn_or_raise("push rax")
+    assert push_rax_one == push_rax_two
+
+
 def test_access_operand_out_of_bounds():
-    linux_x86_64 = Triple(Architectures.x86_64.value, Platform.Linux)
+    linux_x86_64 = Triple.from_str("x86_64-linux")
 
     insn = linux_x86_64.one_insn_or_raise("mov eax, 123")
     with pytest.raises(Int3CodeGenerationError):
@@ -138,6 +146,7 @@ def test_access_operand_out_of_bounds():
 def test_access_operand_via_negative_index():
     x86_64 = Architectures.x86_64.value
     linux_x86_64 = Triple(x86_64, Platform.Linux)
+    linux_x86_64 = Triple.from_str("x86_64-linux")
 
     insn = linux_x86_64.one_insn_or_raise("xor rax, rbx")
     assert insn.operands.reg(-1) == x86_64.reg("rbx")
