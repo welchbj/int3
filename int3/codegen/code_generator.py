@@ -16,6 +16,7 @@ from int3.factor import (
 )
 
 from .choice import Choice, FluidSegment, Option
+from .segment import Segment
 
 if TYPE_CHECKING:
     from int3.platform import Triple
@@ -38,16 +39,34 @@ class CodeGenerator:
         return self.triple.arch
 
     def choice(self, *options: str | bytes | Option) -> Choice:
-        # TODO
-        raise NotImplementedError
+        """Assemble a series of instructions into a Choice instance."""
+        parsed_options: list[Option] = []
+        for option in options:
+            if isinstance(option, str):
+                parsed_option = Segment.from_asm(self.triple, option)
+            elif isinstance(option, bytes):
+                parsed_option = Segment.from_bytes(self.triple, option)
+            else:
+                parsed_option = option
+            parsed_options.append(parsed_option)
+
+        return Choice(tuple(parsed_options))
 
     def repeat(self, option: Option, num: int) -> FluidSegment:
-        # TODO
-        raise NotImplementedError
+        """Repeat an option a specified number of times"""
+        choice = self.choice(option)
+        return FluidSegment(tuple(choice for _ in range(num)))
 
-    def segment(self, *components: str | bytes | Option) -> FluidSegment:
-        # TODO
-        raise NotImplementedError
+    def segment(self, *steps: str | bytes | Option) -> FluidSegment:
+        parsed_steps: list[Choice | FluidSegment] = []
+        for step in steps:
+            if isinstance(step, (Choice, FluidSegment)):
+                choice = step
+            else:
+                choice = self.choice(step)
+            parsed_steps.append(choice)
+
+        return FluidSegment(tuple(parsed_steps))
 
     def f(self, value: RegType | ImmType) -> str:
         """Format a register or immediate into a Keystone-consumable form."""
