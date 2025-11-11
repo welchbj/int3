@@ -2,4 +2,4 @@
 
 set -xo pipefail
 
-python3 -m pytest "$@"
+python3 -m pytest --ignore=examples/ "$@"

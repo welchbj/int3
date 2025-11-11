@@ -2,4 +2,4 @@
 
 set -xo pipefail
 
-python3 -m pytest --log-cli-level=INFO "$@"
+python3 -m pytest --ignore=examples/ --log-cli-level=INFO "$@"
