@@ -29,6 +29,12 @@ def test_register_equivalence():
     assert x86_64.reg("rax") == Registers.x86_64.rax
 
 
+def test_register_def_str_methods():
+    mips = Architectures.Mips.value
+    assert str(mips.reg("v0")) == "v0"
+    assert repr(mips.reg("v0")) == "<RegisterDef [v0:32]>"
+
+
 def test_arithmetic_tainted_register_resolution():
     x86_64 = Architectures.x86_64.value
     linux_x86_64 = Triple(x86_64, Platform.Linux)
@@ -120,3 +126,4 @@ def test_expanded_reserved_regs():
     assert Registers.Aarch64.sp in aarch64.expanded_reserved_regs
     assert Registers.Aarch64.xzr in aarch64.expanded_reserved_regs
     assert Registers.Aarch64.wzr in aarch64.expanded_reserved_regs
+

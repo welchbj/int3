@@ -20,6 +20,9 @@ class RegisterDef:
     def __str__(self) -> str:
         return self.name
 
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self.name}:{self.bit_size}]>"
+
     @property
     def llvm_name(self) -> str:
         if self.llvm_alt_name is None:
