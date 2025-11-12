@@ -19,6 +19,12 @@ type Option = Instruction | Segment | Choice | FluidSegment
 class Choice:
     options: tuple[Option, ...]
 
+    def __post_init__(self) -> None:
+        if len(self.options) == 0:
+            raise Int3NoValidChoiceError(
+                f"{self.__class__.__name__} must have at least one option"
+            )
+
     def choose(
         self, strategy: Strategy = Strategy.CompilationSpeed, bad_bytes: bytes = b""
     ) -> Segment:
@@ -53,6 +59,12 @@ class Choice:
 @dataclass(frozen=True)
 class FluidSegment:
     steps: tuple[Option, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.steps) == 0:
+            raise Int3NoValidChoiceError(
+                f"{self.__class__.__name__} must have at least one step"
+            )
 
     def choose(
         self, strategy: Strategy = Strategy.CompilationSpeed, bad_bytes: bytes = b""

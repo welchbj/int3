@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from int3.architecture import Architecture, RegisterDef
 from int3.assembly import assemble
+from int3.errors import Int3ArgumentError
 
 from .instruction import Instruction
 
@@ -22,7 +23,12 @@ class Segment:
     tainted_regs: set[RegisterDef] = field(init=False, compare=False)
     scratch_regs: set[RegisterDef] = field(init=False, compare=False)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        if len(self.insns) == 0:
+            raise Int3ArgumentError(
+                f"{self.__class__.__name__} must have at least one instruction"
+            )
+
         object.__setattr__(self, "tainted_regs", self._init_tainted_regs())
         object.__setattr__(self, "scratch_regs", self._init_scratch_regs())
 

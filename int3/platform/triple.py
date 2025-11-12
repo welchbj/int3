@@ -9,7 +9,7 @@ from int3.architecture import (
     Registers,
 )
 from int3.architecture.architecture import _ARCHITECTURE_ALIAS_MAP
-from int3.codegen import Instruction
+from int3.codegen import Instruction, Segment
 from int3.errors import Int3ArgumentError, Int3CodeGenerationError
 
 from .platform import Platform
@@ -249,6 +249,10 @@ class Triple:
             parsed_insns.extend(new_insns)
 
         return tuple(parsed_insns)
+
+    def segment(self, *raw_insns: str | bytes) -> Segment:
+        """Transform assembly or machine code into a segment."""
+        return Segment.from_insns(self, *self.insns(*raw_insns))
 
     def one_insn_or_raise(self, raw: str | bytes) -> Instruction:
         """Transform assembly or machine code into exactly one instruction."""

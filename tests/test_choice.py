@@ -1,6 +1,6 @@
 import pytest
 
-from int3 import CodeGenerator, Int3NoValidChoiceError, Segment, Triple
+from int3 import CodeGenerator, Int3NoValidChoiceError, Segment, Triple, Choice, FluidSegment
 
 
 def test_choice_with_single_option():
@@ -11,6 +11,16 @@ def test_choice_with_single_option():
     selection = codegen.choice(insn).choose()
     assert len(selection.insns) == 1
     assert selection.insns[0] == insn
+
+
+def test_choice_with_no_options():
+    with pytest.raises(Int3NoValidChoiceError):
+        Choice(tuple())
+
+
+def test_fluid_segment_with_no_steps():
+    with pytest.raises(Int3NoValidChoiceError):
+        FluidSegment(tuple())
 
 
 def test_choice_with_no_valid_options():
