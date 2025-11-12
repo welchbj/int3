@@ -1,6 +1,13 @@
 import pytest
 
-from int3 import CodeGenerator, Int3NoValidChoiceError, Segment, Triple, Choice, FluidSegment
+from int3 import (
+    Choice,
+    CodeGenerator,
+    FluidSegment,
+    Int3NoValidChoiceError,
+    Segment,
+    Triple,
+)
 
 
 def test_choice_with_single_option():

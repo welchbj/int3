@@ -126,4 +126,3 @@ def test_expanded_reserved_regs():
     assert Registers.Aarch64.sp in aarch64.expanded_reserved_regs
     assert Registers.Aarch64.xzr in aarch64.expanded_reserved_regs
     assert Registers.Aarch64.wzr in aarch64.expanded_reserved_regs
-
