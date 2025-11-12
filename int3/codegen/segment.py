@@ -84,3 +84,16 @@ class Segment:
     def scratch_regs_for_size(self, bit_size: int) -> tuple[RegisterDef, ...]:
         """Find candidate scratch registers for a given bit width."""
         return tuple(reg for reg in self.scratch_regs if reg.bit_size == bit_size)
+
+    def to_str(self, indent: int = 0) -> str:
+        lines = Instruction.summary(*self.insns, indent=indent)
+        return "\n".join(lines)
+
+    def __str__(self) -> str:
+        return self.to_str()
+
+    def __repr__(self) -> str:
+        s = f"<{self.__class__.__name__} [\n"
+        s += self.to_str(indent=4)
+        s += "\n]>"
+        return s

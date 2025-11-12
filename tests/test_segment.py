@@ -1,6 +1,8 @@
+import textwrap
+
 import pytest
 
-from int3 import Segment, Triple, Int3ArgumentError
+from int3 import Int3ArgumentError, Segment, Triple
 
 
 def test_segment_from_asm():
@@ -29,5 +31,10 @@ def test_segment_str_methods():
         "pop rax",
     )
 
-    # TODO
-    assert repr(segment) == "<Segment []>"
+    assert repr(segment) == textwrap.dedent("""\
+        <Segment [
+            push rax       (50)
+            sub rax, 0x64  (4883e864)
+            call rax       (ffd0)
+            pop rax        (58)
+        ]>""")
