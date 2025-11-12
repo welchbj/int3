@@ -41,6 +41,7 @@ class CodeGenerator:
     def choice(self, *options: str | bytes | Option) -> Choice:
         """Assemble a series of instructions into a Choice instance."""
         parsed_options: list[Option] = []
+        parsed_option: Option
         for option in options:
             if isinstance(option, str):
                 parsed_option = Segment.from_asm(self.triple, option)
