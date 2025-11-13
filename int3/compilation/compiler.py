@@ -422,7 +422,7 @@ class Compiler:
 
     def _choice_to_asm(self, choice: Choice) -> str:
         """Convert a Choice from codegen into an assembly string."""
-        segment = choice.choose(bad_bytes=self.bad_bytes)
+        segment = choice.choose()
         return "\n".join(insn.asm_str for insn in segment.insns)
 
     def breakpoint(self):
