@@ -18,6 +18,7 @@ from int3.errors import (
     Int3ArgumentError,
     Int3CompilationError,
     Int3ContextError,
+    Int3NoValidChoiceError,
     Int3ProgramDefinitionError,
 )
 from int3.mutation import MutationEngine
@@ -757,12 +758,22 @@ class Compiler:
             # We have to determine the current PC at runtime.
             get_pc_choice = self.codegen.compute_pc(result=pc_transfer_reg)
         else:
-            get_pc_choice = self.codegen.mov(pc_transfer_reg, self.load_addr)
+            # We can rely on using a static, known address.
+            get_pc_choice = self.codegen.ll_put(pc_transfer_reg, self.load_addr)
 
-        get_pc_stub = get_pc_choice.choose(bad_bytes=self.bad_bytes).raw
-
-        # Attempt to remove bad bytes from the PC derivation stub.
-        get_pc_stub = self._clean_asm(get_pc_stub)
+        try:
+            # We first try choosing a "raw" PC-derivation stub that is aware
+            # of our bad byte constraints, so that we can look at all of the
+            # "vanilla" options and pick one right away if any are valid.
+            get_pc_stub = get_pc_choice.choose(bad_bytes=self.bad_bytes).raw
+        except Int3NoValidChoiceError:
+            # If we have no already-clean PC-derivation stubs, we try cleaning
+            # one of the choices via our mutation pipeline.
+            get_pc_stub = get_pc_choice.choose().raw
+            get_pc_stub = self._clean_asm(get_pc_stub)
+            # XXX: We are only mutating the first choice. We could be iterating
+            #      over ever concrete option available and attempting to clean
+            #      each one manually.
 
         sub_cc = self.clean_slate()
         with sub_cc.def_func.entry_stub():

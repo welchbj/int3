@@ -112,7 +112,7 @@ class Choice:
 
                 return selected
 
-        raise Int3NoValidChoiceError(f"No valid options presented in {self}")
+        raise Int3NoValidChoiceError(f"No valid options presented in:\n\n{self}")
 
     def to_str(self, indent: int = 0) -> str:
         """Format all options with nesting represented via indentation."""
