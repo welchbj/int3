@@ -273,6 +273,10 @@ class Instruction:
     def arch(self) -> Architecture:
         return self.triple.arch
 
+    @property
+    def asm_str(self) -> str:
+        return f"{self.mnemonic} {self.op_str}"
+
     def __bytes__(self) -> bytes:
         return bytes(self.raw)
 
@@ -285,7 +289,7 @@ class Instruction:
     def to_str(self, alignment: int = 0, with_hex: bool = True) -> str:
         """Pretty print this instructions mnemonic and operands."""
         asm_hex = binascii.hexlify(self.raw).decode()
-        line = f"{self.mnemonic} {self.op_str}"
+        line = self.asm_str
         if with_hex:
             alignment += 1
         line = line.ljust(alignment, " ")

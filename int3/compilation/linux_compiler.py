@@ -64,10 +64,12 @@ class LinuxCompiler(Compiler, HighLevelCompilerInterface):
         )
 
         # Emit the actual LLVM IR inline assembly.
+        syscall_asm = self._choice_to_asm(self.codegen.syscall())
+
         self.builder.comment(f"SYS_{hint}")
         res = self.builder.asm(
             ftype=llvm_func_type,
-            asm=self.codegen.syscall(),
+            asm=syscall_asm,
             constraint=self.syscall_conv.llvm_constraint_str(num_args=len(args)),
             args=[arg.wrapped_llvm_node for arg in combined_args],
             side_effect=True,

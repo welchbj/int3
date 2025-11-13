@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, ContextManager, Iterator, Literal, cast, overl
 from int3._vendored.llvmlite import binding as llvm
 from int3._vendored.llvmlite import ir as llvmir
 from int3.architecture import Architecture, Architectures, RegisterDef
-from int3.codegen import CodeGenerator
+from int3.codegen import Choice, CodeGenerator
 from int3.errors import (
     Int3ArgumentError,
     Int3CompilationError,
@@ -419,6 +419,11 @@ class Compiler:
         """Create a 64-bit unsigned integer constant."""
         return self.make_int(value, type=self.types.u64)
 
+    def _choice_to_asm(self, choice: Choice) -> str:
+        """Convert a Choice from codegen into an assembly string."""
+        segment = choice.choose(bad_bytes=self.bad_bytes)
+        return "\n".join(insn.asm_str for insn in segment.insns)
+
     def breakpoint(self):
         """Emit an architecture-aware assembly breakpoint."""
         llvm_func_type = llvmir.FunctionType(
@@ -426,10 +431,12 @@ class Compiler:
             args=[],
         )
 
+        breakpoint_asm = self._choice_to_asm(self.codegen.breakpoint())
+
         self.builder.comment("breakpoint")
         self.builder.asm(
             ftype=llvm_func_type,
-            asm=self.codegen.breakpoint(),
+            asm=breakpoint_asm,
             constraint="",
             args=[],
             side_effect=True,
