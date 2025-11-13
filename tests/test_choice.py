@@ -1,3 +1,5 @@
+import textwrap
+
 import pytest
 
 from int3 import (
@@ -18,6 +20,82 @@ def test_choice_with_single_option():
     selection = codegen.choice(insn).choose()
     assert len(selection.insns) == 1
     assert selection.insns[0] == insn
+
+
+def test_choice_str_methods():
+    triple = Triple.from_str("x86_64-linux")
+    codegen = CodeGenerator(triple)
+
+    choice = codegen.choice(
+        codegen.xor("rax", "rax"),
+        codegen.choice(
+            codegen.add("rax", "rbx"),
+            codegen.add("rax", "rcx"),
+        ),
+        "mov rbx, rax",
+    )
+    assert repr(choice) == textwrap.dedent("""\
+        <Choice[
+            <Choice[
+                <Segment [
+                    xor rax, rax  (4831c0)
+                ]>
+            ]>,
+            <Choice[
+                <Choice[
+                    <Segment [
+                        add rax, rbx  (4801d8)
+                    ]>
+                ]>,
+                <Choice[
+                    <Segment [
+                        add rax, rcx  (4801c8)
+                    ]>
+                ]>
+            ]>,
+            <Segment [
+                mov rbx, rax  (4889c3)
+            ]>
+        ]>""")
+
+
+def test_fluid_segment_str_methods():
+    triple = Triple.from_str("x86_64-linux")
+    codegen = CodeGenerator(triple)
+
+    fluid_segment = codegen.segment(
+        codegen.xor("rax", "rax"),
+        codegen.choice(
+            codegen.add("rax", "rbx"),
+            codegen.sub("rax", "rcx"),
+        ),
+        "mov rbx, rax",
+    )
+    assert repr(fluid_segment) == textwrap.dedent("""\
+        <FluidSegment[
+            <Choice[
+                <Segment [
+                    xor rax, rax  (4831c0)
+                ]>
+            ]>,
+            <Choice[
+                <Choice[
+                    <Segment [
+                        add rax, rbx  (4801d8)
+                    ]>
+                ]>,
+                <Choice[
+                    <Segment [
+                        sub rax, rcx  (4829c8)
+                    ]>
+                ]>
+            ]>,
+            <Choice[
+                <Segment [
+                    mov rbx, rax  (4889c3)
+                ]>
+            ]>
+        ]>""")
 
 
 def test_choice_with_no_options():

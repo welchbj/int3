@@ -15,6 +15,40 @@ if TYPE_CHECKING:
 type Option = Instruction | Segment | Choice | FluidSegment
 
 
+def _format_items(
+    class_name: str,
+    items: tuple[Option, ...],
+    indent: int = 0,
+) -> str:
+    """Format a collection of options/steps with proper indentation."""
+    base_indent = " " * indent
+    item_indent = " " * (indent + 4)
+
+    lines = [f"{base_indent}<{class_name}["]
+
+    for i, item in enumerate(items):
+        is_last = i == len(items) - 1
+        comma = "" if is_last else ","
+
+        if isinstance(item, Instruction):
+            # Single instruction: show inline with hex.
+            insn_line = f"{item_indent}{item.to_str()}{comma}"
+            lines.append(insn_line)
+        elif isinstance(item, (Segment, Choice, FluidSegment)):
+            # Nested structure: get its repr and indent it.
+            nested_repr = repr(item)
+            nested_lines = nested_repr.splitlines()
+
+            lines.append(f"{item_indent}{nested_lines[0]}")
+            for nested_line in nested_lines[1:]:
+                lines.append(f"{item_indent}{nested_line}")
+            if not is_last:
+                lines[-1] += comma
+
+    lines.append(f"{base_indent}]>")
+    return "\n".join(lines)
+
+
 @dataclass(frozen=True)
 class Choice:
     options: tuple[Option, ...]
@@ -53,7 +87,15 @@ class Choice:
 
         raise Int3NoValidChoiceError(f"No valid options presented in {self}")
 
-    # TODO: A good __str__ / __repr__
+    def to_str(self, indent: int = 0) -> str:
+        """Format all options with nesting represented via indentation."""
+        return _format_items(self.__class__.__name__, self.options, indent)
+
+    def __str__(self) -> str:
+        return self.to_str()
+
+    def __repr__(self) -> str:
+        return self.to_str(indent=0)
 
 
 @dataclass(frozen=True)
@@ -98,9 +140,18 @@ class FluidSegment:
                 built_insns.extend(step.insns)
 
         if inferred_triple is None:
-            # In theory, this should be unreachable as long as we have some options to pick from.
+            # In theory, this should be unreachable as long as we have some
+            # options to pick from.
             raise Int3NoValidChoiceError(f"No choices presented within {self}")
 
         return Segment.from_insns(inferred_triple, *built_insns)
 
-    # TODO: A good __str__ / __repr__
+    def to_str(self, indent: int = 0) -> str:
+        """Format all steps with nesting represented via indentation."""
+        return _format_items(self.__class__.__name__, self.steps, indent)
+
+    def __str__(self) -> str:
+        return self.to_str()
+
+    def __repr__(self) -> str:
+        return self.to_str(indent=0)
