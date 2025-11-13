@@ -15,6 +15,18 @@ if TYPE_CHECKING:
 type Option = Instruction | Segment | Choice | FluidSegment
 
 
+def _unwrap_single_option_choices(options: tuple[Option, ...]) -> tuple[Option, ...]:
+    """Unwrap any nested single-option Choices to simplify structure."""
+    unwrapped: list[Option] = []
+    for option in options:
+        if isinstance(option, Choice) and len(option.options) == 1:
+            # Unwrap single-option Choice instances.
+            unwrapped.append(option.options[0])
+        else:
+            unwrapped.append(option)
+    return tuple(unwrapped)
+
+
 def _format_items(
     class_name: str,
     items: tuple[Option, ...],
@@ -58,6 +70,9 @@ class Choice:
             raise Int3NoValidChoiceError(
                 f"{self.__class__.__name__} must have at least one option"
             )
+
+        unwrapped = _unwrap_single_option_choices(self.options)
+        object.__setattr__(self, "options", unwrapped)
 
     def choose(
         self, strategy: Strategy = Strategy.CompilationSpeed, bad_bytes: bytes = b""
@@ -107,6 +122,9 @@ class FluidSegment:
             raise Int3NoValidChoiceError(
                 f"{self.__class__.__name__} must have at least one step"
             )
+
+        unwrapped = _unwrap_single_option_choices(self.steps)
+        object.__setattr__(self, "steps", unwrapped)
 
     def choose(
         self, strategy: Strategy = Strategy.CompilationSpeed, bad_bytes: bytes = b""

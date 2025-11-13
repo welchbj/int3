@@ -36,21 +36,15 @@ def test_choice_str_methods():
     )
     assert repr(choice) == textwrap.dedent("""\
         <Choice[
-            <Choice[
-                <Segment [
-                    xor rax, rax  (4831c0)
-                ]>
+            <Segment [
+                xor rax, rax  (4831c0)
             ]>,
             <Choice[
-                <Choice[
-                    <Segment [
-                        add rax, rbx  (4801d8)
-                    ]>
+                <Segment [
+                    add rax, rbx  (4801d8)
                 ]>,
-                <Choice[
-                    <Segment [
-                        add rax, rcx  (4801c8)
-                    ]>
+                <Segment [
+                    add rax, rcx  (4801c8)
                 ]>
             ]>,
             <Segment [
@@ -73,27 +67,19 @@ def test_fluid_segment_str_methods():
     )
     assert repr(fluid_segment) == textwrap.dedent("""\
         <FluidSegment[
-            <Choice[
-                <Segment [
-                    xor rax, rax  (4831c0)
-                ]>
+            <Segment [
+                xor rax, rax  (4831c0)
             ]>,
             <Choice[
-                <Choice[
-                    <Segment [
-                        add rax, rbx  (4801d8)
-                    ]>
+                <Segment [
+                    add rax, rbx  (4801d8)
                 ]>,
-                <Choice[
-                    <Segment [
-                        sub rax, rcx  (4829c8)
-                    ]>
+                <Segment [
+                    sub rax, rcx  (4829c8)
                 ]>
             ]>,
-            <Choice[
-                <Segment [
-                    mov rbx, rax  (4889c3)
-                ]>
+            <Segment [
+                mov rbx, rax  (4889c3)
             ]>
         ]>""")
 
