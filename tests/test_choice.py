@@ -165,3 +165,18 @@ def test_build_choice_with_repeat():
 
     repeated_segmented = codegen.repeat(codegen.inc("rbp"), 3).choose()
     assert repeated_segmented == triple.segment("inc rbp", "inc rbp", "inc rbp")
+
+
+def test_nested_choice_collapses_into_one_option():
+    triple = Triple.from_str("x86_64-linux")
+
+    insn = triple.one_insn_or_raise("nop")
+
+    nested = Choice((insn,))
+    for _ in range(10):
+        nested = Choice((nested,))
+
+    # Our final choice should be fully unwrapped to just the one
+    # original instruction.
+    assert len(nested.options) == 1
+    assert nested.options[0] == insn
