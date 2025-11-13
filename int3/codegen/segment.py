@@ -20,8 +20,8 @@ class Segment:
     triple: "Triple"
     insns: tuple[Instruction, ...]
 
-    tainted_regs: set[RegisterDef] = field(init=False, compare=False)
-    scratch_regs: set[RegisterDef] = field(init=False, compare=False)
+    tainted_regs: frozenset[RegisterDef] = field(init=False, compare=False)
+    scratch_regs: frozenset[RegisterDef] = field(init=False, compare=False)
 
     def __post_init__(self) -> None:
         if len(self.insns) == 0:
@@ -59,14 +59,14 @@ class Segment:
     def __bytes__(self) -> bytes:
         return self.raw
 
-    def _init_tainted_regs(self) -> set[RegisterDef]:
+    def _init_tainted_regs(self) -> frozenset[RegisterDef]:
         tainted_regs = set()
         for insn in self.insns:
             tainted_regs |= insn.tainted_regs
-        return tainted_regs
+        return frozenset(tainted_regs)
 
-    def _init_scratch_regs(self) -> set[RegisterDef]:
-        return set(
+    def _init_scratch_regs(self) -> frozenset[RegisterDef]:
+        return frozenset(
             reg
             for reg in self.triple.call_preserved_regs
             if reg not in self.tainted_regs
