@@ -206,7 +206,7 @@ class Architecture:
             >>> from int3 import Architectures
             >>> x86_64 = Architectures.x86_64.value
             >>> x86_64.reg("rax")
-            RegisterDef(name='rax', bit_size=64, llvm_alt_name=None)
+            <RegisterDef [rax:64]>
 
         """
         try:

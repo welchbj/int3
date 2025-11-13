@@ -9,7 +9,7 @@ class RegisterDef:
 
         >>> from int3 import Registers
         >>> Registers.Mips.zero
-        RegisterDef(name='zero', bit_size=32, llvm_alt_name='0')
+        <RegisterDef [zero:32]>
 
     """
 
@@ -296,9 +296,9 @@ class Registers:
 
         >>> from int3 import Registers
         >>> Registers.x86.eax
-        RegisterDef(name='eax', bit_size=32, llvm_alt_name=None)
+        <RegisterDef [eax:32]>
         >>> Registers.Mips.a0
-        RegisterDef(name='a0', bit_size=32, llvm_alt_name='4')
+        <RegisterDef [a0:32]>
 
     """
 
