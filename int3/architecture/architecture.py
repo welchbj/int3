@@ -145,6 +145,12 @@ class Architecture:
             expanded_reserved_regs |= reg_clobber_map[reg]
         object.__setattr__(self, "expanded_reserved_regs", expanded_reserved_regs)
 
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
+
     def is_okay_value(self, imm: int) -> bool:
         """Tests whether a value can be represented on this architecture."""
         return imm.bit_length() <= self.bit_size
