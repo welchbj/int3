@@ -6,6 +6,7 @@ from int3 import (
     Choice,
     CodeGenerator,
     FluidSegment,
+    Int3MismatchedTripleError,
     Int3NoValidChoiceError,
     Segment,
     Triple,
@@ -149,9 +150,14 @@ def test_fluid_segment_with_options_of_different_triples():
     x86_64_triple = Triple.from_str("x86_64-linux")
     mips_triple = Triple.from_str("mips-linux")
 
-    # TODO
+    codegen = CodeGenerator(x86_64_triple)
+    fluid_segment = codegen.segment(
+        x86_64_triple.one_insn_or_raise("inc rax"),
+        mips_triple.one_insn_or_raise("li $v0, 4"),
+    )
 
-    assert False
+    with pytest.raises(Int3MismatchedTripleError):
+        fluid_segment.choose()
 
 
 def test_build_choice_with_repeat():
