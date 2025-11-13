@@ -155,5 +155,8 @@ def test_fluid_segment_with_options_of_different_triples():
 
 
 def test_build_choice_with_repeat():
-    # TODO
-    assert False
+    triple = Triple.from_str("x86_64-linux")
+    codegen = CodeGenerator(triple)
+
+    repeated_segmented = codegen.repeat(codegen.inc("rbp"), 3).choose()
+    assert repeated_segmented == triple.segment("inc rbp", "inc rbp", "inc rbp")
