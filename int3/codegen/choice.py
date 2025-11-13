@@ -80,7 +80,8 @@ class FluidSegment:
                 inferred_triple = step.triple
             elif inferred_triple != step.triple:
                 raise Int3MismatchedTripleError(
-                    f"Received options of differing triples: {inferred_triple} and {step.triple}"
+                    f"Received options of differing triples: {inferred_triple} "
+                    f"and {step.triple}"
                 )
 
             # We are now dealing with either a concrete Instruction or Segment.
