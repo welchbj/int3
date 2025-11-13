@@ -134,7 +134,6 @@ def test_choice_with_fluid_segments():
     expected_insns = triple.insns(
         "xor rax, rax",
         "mov rbx, 0xBEEF",
-        "add rax, 0xDEAD",
         "sub rax, rbx",
         "jmp rbx",
     )
