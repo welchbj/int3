@@ -337,6 +337,9 @@ class Instruction:
     def is_push(self) -> bool:
         return self.mnemonic.startswith("push")
 
+    def is_nop(self) -> bool:
+        return self.mnemonic == "nop"
+
     def has_only_register_operands(self) -> bool:
         if len(self.operands) == 0:
             return False

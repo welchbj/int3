@@ -10,6 +10,7 @@ from .passes import (
     FactorImmediateInstructionPass,
     InstructionMutationPass,
     MoveSmallImmediateInstructionPass,
+    NopRewriterInstructionPass,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ class MutationEngine:
     ) -> list[InstructionMutationPass]:
         pass_classes = [
             AddSyscallOperandInstructionPass,
+            NopRewriterInstructionPass,
             MoveSmallImmediateInstructionPass,
             FactorImmediateInstructionPass,
         ]
