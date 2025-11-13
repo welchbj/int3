@@ -5,7 +5,11 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from int3.architecture import Architecture, Architectures, RegisterDef
-from int3.errors import Int3CodeGenerationError
+from int3.errors import (
+    Int3CodeGenerationError,
+    Int3WrappedCapstoneError,
+    Int3WrappedKeystoneError,
+)
 from int3.factor import (
     FactorClause,
     FactorContext,
@@ -44,9 +48,17 @@ class CodeGenerator:
         parsed_option: Option
         for option in options:
             if isinstance(option, str):
-                parsed_option = Segment.from_asm(self.triple, option)
+                try:
+                    parsed_option = Segment.from_asm(self.triple, option)
+                except Int3WrappedKeystoneError as e:
+                    logger.debug(f"from_asm failed for {option}: {e}")
+                    continue
             elif isinstance(option, bytes):
-                parsed_option = Segment.from_bytes(self.triple, option)
+                try:
+                    parsed_option = Segment.from_bytes(self.triple, option)
+                except Int3WrappedCapstoneError as e:
+                    logger.debug(f"from_bytes failed for {option!r}: {e}")
+                    continue
             else:
                 parsed_option = option
             parsed_options.append(parsed_option)
@@ -236,7 +248,11 @@ class CodeGenerator:
 
     def ll_put(self, dest: RegisterDef, src: RegType | ImmType) -> Choice:
         return self.choice(
-            self.mov(dest, src), self.segment(self.xor(dest, dest), self.add(dest, src))
+            self.mov(dest, src),
+            self.segment(
+                self.xor(dest, dest),
+                self.add(dest, src),
+            ),
         )
 
     def _factor_clause_to_choice(

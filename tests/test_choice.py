@@ -86,8 +86,11 @@ def test_fluid_segment_str_methods():
 
 
 def test_choice_with_no_options():
+    empty_choice = Choice(tuple())
+    assert empty_choice.is_empty
+
     with pytest.raises(Int3NoValidChoiceError):
-        Choice(tuple())
+        empty_choice.choose()
 
 
 def test_fluid_segment_with_no_steps():

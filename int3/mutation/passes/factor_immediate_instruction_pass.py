@@ -1,3 +1,4 @@
+import logging
 from dataclasses import replace
 
 from int3.codegen import Choice, FluidSegment, Instruction
@@ -5,6 +6,8 @@ from int3.errors import Int3CodeGenerationError
 from int3.factor import ImmediateMutationContext
 
 from .abc import InstructionMutationPass
+
+logger = logging.getLogger(__name__)
 
 
 class FactorImmediateInstructionPass(InstructionMutationPass):
@@ -71,6 +74,10 @@ class FactorImmediateInstructionPass(InstructionMutationPass):
                 )
             except Int3CodeGenerationError:
                 # This scratch register didn't work; try the next one.
+                logger.debug(
+                    f"{self.__class__.__name__} failed with scratch "
+                    f"register: {scratch_reg}"
+                )
                 continue
 
         if not segments:

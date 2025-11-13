@@ -66,22 +66,29 @@ class Choice:
     options: tuple[Option, ...]
 
     def __post_init__(self) -> None:
-        if len(self.options) == 0:
-            raise Int3NoValidChoiceError(
-                f"{self.__class__.__name__} must have at least one option"
-            )
-
         unwrapped = _unwrap_single_option_choices(self.options)
         object.__setattr__(self, "options", unwrapped)
+
+    @property
+    def is_empty(self) -> bool:
+        """Whether this choice has no options."""
+        return len(self.options) == 0
 
     def choose(
         self, strategy: Strategy = Strategy.CompilationSpeed, bad_bytes: bytes = b""
     ) -> Segment:
         if strategy != Strategy.CompilationSpeed:
             raise NotImplementedError("Only CompilationSpeed strategy is implemented")
+        elif self.is_empty:
+            raise Int3NoValidChoiceError(
+                f"No options available in {self.__class__.__name__}"
+            )
 
         for option in self.options:
-            if isinstance(option, (Instruction, Segment)):
+            # Skip over Choices with no options.
+            if isinstance(option, Choice) and option.is_empty:
+                continue
+            elif isinstance(option, (Instruction, Segment)):
                 if option.is_dirty(bad_bytes):
                     continue
 
@@ -94,7 +101,12 @@ class Choice:
                 return option
             else:
                 # Unwrap the inner Choice or FluidSegment into a concrete Segment.
-                selected = option.choose(strategy, bad_bytes)
+                try:
+                    selected = option.choose(strategy, bad_bytes)
+                except Int3NoValidChoiceError:
+                    # This option failed to produce a clean result; try the next option.
+                    continue
+
                 if selected.is_dirty(bad_bytes):
                     continue
 
