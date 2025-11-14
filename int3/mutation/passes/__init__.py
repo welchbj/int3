@@ -1,6 +1,7 @@
 from .abc import InstructionMutationPass
 from .add_syscall_operand_instruction_pass import AddSyscallOperandInstructionPass
 from .factor_immediate_instruction_pass import FactorImmediateInstructionPass
+from .load_upper_immediate_instruction_pass import LoadUpperImmediateInstructionPass
 from .mips_return_instruction_pass import MipsReturnInstructionPass
 from .move_small_immediate_instruction_pass import MoveSmallImmediateInstructionPass
 from .nop_rewriter_instruction_pass import NopRewriterInstructionPass

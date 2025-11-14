@@ -238,20 +238,8 @@ class CodeGenerator:
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
-    def hl_put(
-        self,
-        ctx: ImmediateMutationContext,
-        selected_scratch: RegisterDef,
-    ) -> FluidSegment:
-        """High-level immediate put into register."""
-        factor_result = self._factor_imm(ctx)
-        factor_op_choices = tuple(
-            self._factor_clause_to_choice(clause, ctx.dest, selected_scratch)
-            for clause in factor_result.clauses
-        )
-        return self.segment(*factor_op_choices)
-
     def ll_put(self, dest: RegisterDef, src: RegType | ImmType) -> Choice:
+        # TODO: Incorporate zero register options.
         return self.choice(
             self.mov(dest, src),
             self.segment(
@@ -259,6 +247,93 @@ class CodeGenerator:
                 self.add(dest, src),
             ),
         )
+
+    # TODO: Arm-specific approaches for stack-related register loading
+    #
+    #    add r2, r0, r1
+    #    push {r2, r8}
+    #    pop {r0, r8}
+    #
+    #    r8-r12 seem to work
+
+    def hl_put_imm(
+        self,
+        imm: int,
+        dest: RegisterDef,
+        scratch_regs: tuple[RegisterDef, ...],
+        bad_bytes: bytes,
+    ) -> Choice:
+        """High-level choices to put an immediate value into a register."""
+
+        options = []
+
+        # The simplest approach is to load the immediate value directly into the
+        # destination register, without using a transitory register.
+        direct_imm_ctx = ImmediateMutationContext(
+            arch=self.arch,
+            bad_bytes=bad_bytes,
+            imm=imm,
+            dest=dest,
+            scratch_regs=scratch_regs,
+        )
+        for scratch_reg in scratch_regs:
+            try:
+                options.append(self._hl_put_imm_direct(direct_imm_ctx, scratch_reg))
+            except Int3CodeGenerationError as e:
+                logger.debug(f"High-level put direct approach failed: {e}")
+                continue
+
+        # We also go one level deeper by attempting to load the desired immediate
+        # value into a transitory intermediate register, which we then move into
+        # the final destination register.
+        for intermediate_reg in scratch_regs:
+            remaining_scratch_regs = tuple(
+                r for r in scratch_regs if r != intermediate_reg
+            )
+            if not remaining_scratch_regs:
+                continue
+
+            indirect_imm_ctx = ImmediateMutationContext(
+                arch=self.arch,
+                bad_bytes=bad_bytes,
+                imm=imm,
+                dest=intermediate_reg,
+                scratch_regs=remaining_scratch_regs,
+            )
+            for scratch_reg in remaining_scratch_regs:
+                try:
+                    load_segment = self._hl_put_imm_direct(
+                        indirect_imm_ctx, scratch_reg
+                    )
+                    full_segment = self.segment(
+                        load_segment,
+                        self.ll_put(dest, intermediate_reg),
+                    )
+                    options.append(full_segment)
+                except Int3CodeGenerationError as e:
+                    logger.debug(
+                        f"High-level put indirect approach with intermediate "
+                        f"reg {intermediate_reg} failed: {e}"
+                    )
+                    continue
+
+        if not options:
+            raise Int3CodeGenerationError(
+                f"Unable to generate clean code to load {imm:#x} into {dest}"
+            )
+        return self.choice(*options)
+
+    def _hl_put_imm_direct(
+        self,
+        ctx: ImmediateMutationContext,
+        selected_scratch: RegisterDef,
+    ) -> FluidSegment:
+        factor_result = self._factor_imm(ctx)
+        factor_op_choices = tuple(
+            self._factor_clause_to_choice(clause, ctx.dest, selected_scratch)
+            for clause in factor_result.clauses
+        )
+        return self.segment(*factor_op_choices)
 
     def _factor_clause_to_choice(
         self, clause: FactorClause, dest: RegisterDef, scratch: RegisterDef
@@ -314,6 +389,6 @@ class CodeGenerator:
             bad_bytes=ctx.bad_bytes,
             allow_overflow=allow_overflow,
             width=width,
-            insn_ctx=ctx,
+            imm_mut_ctx=ctx,
         )
         return compute_factor(factor_ctx)

@@ -9,6 +9,7 @@ from .passes import (
     AddSyscallOperandInstructionPass,
     FactorImmediateInstructionPass,
     InstructionMutationPass,
+    LoadUpperImmediateInstructionPass,
     MipsReturnInstructionPass,
     MoveSmallImmediateInstructionPass,
     NopRewriterInstructionPass,
@@ -32,6 +33,7 @@ class MutationEngine:
             AddSyscallOperandInstructionPass,
             MipsReturnInstructionPass,
             NopRewriterInstructionPass,
+            LoadUpperImmediateInstructionPass,
             MoveSmallImmediateInstructionPass,
             FactorImmediateInstructionPass,
         ]

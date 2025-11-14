@@ -213,7 +213,7 @@ def constraint_provider_for(ctx: FactorContext) -> ArchConstraintProvider:
     """
     provider_cls: type[ArchConstraintProvider]
 
-    if ctx.insn_ctx is None:
+    if ctx.imm_mut_ctx is None:
         # If we have no passed arch/instruction-specific context, we use the default
         # passthrough behavior.
         provider_cls = PassThroughConstraintProvider

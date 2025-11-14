@@ -21,7 +21,6 @@ class ImmediateMutationContext:
     imm: int
     dest: RegisterDef
     scratch_regs: tuple[RegisterDef, ...]
-    insn: "Instruction"
 
     scratch_regs_set: frozenset[RegisterDef] = field(init=False)
     byte_width: int = field(init=False, default=8)
@@ -79,4 +78,4 @@ class FactorContext:
     # this factor requirement. This is mainly useful for understanding the
     # instruction being mutated, as this informs what instruction-specific
     # immediate encoding constraints should be applied.
-    insn_ctx: ImmediateMutationContext | None = None
+    imm_mut_ctx: ImmediateMutationContext | None = None

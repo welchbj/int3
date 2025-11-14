@@ -23,67 +23,43 @@ class FactorImmediateInstructionPass(InstructionMutationPass):
 
     def mutate(self, insn: Instruction) -> Choice:
         """Factor immediate values into multiple instructions."""
-        reg = insn.operands.reg(0)
+        dest_reg = insn.operands.reg(0)
         imm = insn.operands.imm(-1)
-        scratch_regs = tuple(self.segment.scratch_regs_for_size(reg.bit_size))
+        scratch_regs = self.segment.scratch_regs_for_size(dest_reg.bit_size)
 
-        imm_ctx = ImmediateMutationContext(
-            arch=self.arch,
-            bad_bytes=self.bad_bytes,
-            imm=imm,
-            dest=reg,
-            scratch_regs=scratch_regs,
-            insn=insn,
-        )
+        options = []
 
-        # If the goal is to "simply" load an immediate into a register, then we
-        # can lean directly on the codegen API.
+        # For mov instructions, we can use hl_put_imm fairly directly.
         if insn.is_mov():
-            return self._put_insns(imm_ctx)
+            return self.codegen.hl_put_imm(
+                imm=imm,
+                dest=dest_reg,
+                scratch_regs=scratch_regs,
+                bad_bytes=self.bad_bytes,
+            )
 
         # Otherwise, we need to put a value into an intermediary scratch register,
         # and then replace the immediate in the original instruction with the scratch
         # register.
-        options = []
         for scratch_reg in scratch_regs:
-            modified_scratch_regs = set(scratch_regs) - {scratch_reg}
+            remaining_scratch_regs = tuple(r for r in scratch_regs if r != scratch_reg)
+            if not remaining_scratch_regs:
+                continue
 
             # We "reserve" our intermediate register (selected from the available
             # scratch registers). We then move into the sub-problem of putting the
             # desired immediate value into this selected intermediate register,
             # which we'll then in turn move into our actual goal destination register.
-            mutated_imm_ctx = replace(
-                imm_ctx, dest=scratch_reg, scratch_regs=tuple(modified_scratch_regs)
-            )
             options.append(
                 self.codegen.segment(
-                    self._put_insns(mutated_imm_ctx),
+                    self.codegen.hl_put_imm(
+                        imm=imm,
+                        dest=scratch_reg,
+                        scratch_regs=remaining_scratch_regs,
+                        bad_bytes=self.bad_bytes,
+                    ),
                     insn.operands.replace(-1, scratch_reg),
                 )
             )
 
         return self.codegen.choice(*options)
-
-    def _put_insns(self, ctx: ImmediateMutationContext) -> Choice:
-        segments: list[FluidSegment] = []
-
-        for scratch_reg in ctx.scratch_regs:
-            try:
-                segments.append(
-                    self.codegen.hl_put(ctx.with_locked_reg(scratch_reg), scratch_reg)
-                )
-            except Int3CodeGenerationError:
-                # This scratch register didn't work; try the next one.
-                logger.debug(
-                    f"{self.__class__.__name__} failed with scratch "
-                    f"register: {scratch_reg}"
-                )
-                continue
-
-        if not segments:
-            raise Int3CodeGenerationError(
-                f"Unable to generate clean code to load {ctx.imm:#x} into {ctx.dest} "
-                f"with any available scratch register"
-            )
-
-        return self.codegen.choice(*segments)
