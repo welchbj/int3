@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Literal, cast
 
 from capstone import CS_OP_IMM, CS_OP_MEM, CS_OP_REG, CsError, CsInsn
 
-from int3.architecture import Architecture, RegisterDef
+from int3.architecture import Architecture, Architectures, RegisterDef
 from int3.assembly import assemble, disassemble
 from int3.errors import Int3CodeGenerationError, Int3MissingEntityError
 
@@ -168,9 +168,8 @@ class OperandView:
         ]
         operands[index] = operand
 
-        new_insn_str = self.insn.mnemonic
-        new_insn_str += " "
-        new_insn_str += ", ".join(str(o) for o in operands)
+        mnemonic = self._normalize_mnemonic(index, operand)
+        new_insn_str = f"{mnemonic} {', '.join(str(o) for o in operands)}"
 
         new_machine_code = assemble(arch=self.arch, assembly=new_insn_str)
         new_cs_insns = disassemble(arch=self.arch, machine_code=new_machine_code)
@@ -189,6 +188,35 @@ class OperandView:
         logger.debug(f"    {new_insn}")
 
         return new_insn
+
+    def _normalize_mnemonic(
+        self,
+        replaced_index: int,
+        operand: int | str | RegisterDef | MemoryOperand,
+    ) -> str:
+        """Normalize mnemonic when operand type changes between immediate and register."""
+        mnemonic = self.insn.mnemonic
+        was_imm = self.is_imm(replaced_index)
+        was_reg = self.is_reg(replaced_index)
+        is_now_reg = isinstance(operand, (str, RegisterDef, MemoryOperand))
+        is_now_imm = isinstance(operand, int)
+
+        match self.arch:
+            case Architectures.Mips.value:
+                if was_imm and is_now_reg:
+                    # Immediate to Register: strip 'i'/'iu' suffix.
+                    if mnemonic.endswith("iu"):
+                        return mnemonic[:-2] + "u"
+                    if mnemonic.endswith("i") and mnemonic not in ("li", "lui"):
+                        return mnemonic[:-1]
+                elif was_reg and is_now_imm:
+                    # Register to Immediate: add 'i'/'u' suffix.
+                    if mnemonic.endswith("u") and not mnemonic.endswith("iu"):
+                        return mnemonic[:-1] + "iu"
+                    if mnemonic in ("add", "and", "or", "xor"):
+                        return mnemonic + "i"
+
+        return mnemonic
 
     def __len__(self) -> int:
         return len(self.cs_insn.operands)

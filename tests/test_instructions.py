@@ -203,3 +203,61 @@ def test_only_register_operand_detection():
     for case in ["ret", "mov x0, #0"]:
         insn = aarch64_triple.one_insn_or_raise(case)
         assert not insn.has_only_register_operands()
+
+
+def test_mips_mnemonic_normalization_imm_to_reg():
+    Mips = Architectures.Mips.value
+    linux_mips = Triple(Mips, Platform.Linux)
+
+    # addiu to addu
+    insn = linux_mips.one_insn_or_raise("addiu $at, $at, 100")
+    insn = insn.operands.replace(-1, "s6")
+    assert insn.mnemonic == "addu"
+    assert insn.operands.reg(-1) == Mips.reg("s6")
+
+    # ori to or
+    insn = linux_mips.one_insn_or_raise("ori $t0, $t1, 0xff")
+    insn = insn.operands.replace(-1, "t2")
+    assert insn.mnemonic == "or"
+    assert insn.operands.reg(-1) == Mips.reg("t2")
+
+    # andi to and
+    insn = linux_mips.one_insn_or_raise("andi $v0, $v1, 0x10")
+    insn = insn.operands.replace(-1, "a0")
+    assert insn.mnemonic == "and"
+    assert insn.operands.reg(-1) == Mips.reg("a0")
+
+    # xori to xor
+    insn = linux_mips.one_insn_or_raise("xori $s0, $s1, 42")
+    insn = insn.operands.replace(-1, "s2")
+    assert insn.mnemonic == "xor"
+    assert insn.operands.reg(-1) == Mips.reg("s2")
+
+
+def test_mips_mnemonic_normalization_reg_to_imm():
+    Mips = Architectures.Mips.value
+    linux_mips = Triple(Mips, Platform.Linux)
+
+    # addu to addiu
+    insn = linux_mips.one_insn_or_raise("addu $t0, $t1, $t2")
+    insn = insn.operands.replace(-1, 100)
+    assert insn.mnemonic == "addiu"
+    assert insn.operands.imm(-1) == 100
+
+    # or to ori
+    insn = linux_mips.one_insn_or_raise("or $v0, $v1, $a0")
+    insn = insn.operands.replace(-1, 0xFF)
+    assert insn.mnemonic == "ori"
+    assert insn.operands.imm(-1) == 0xFF
+
+    # and to andi
+    insn = linux_mips.one_insn_or_raise("and $s0, $s1, $s2")
+    insn = insn.operands.replace(-1, 0x10)
+    assert insn.mnemonic == "andi"
+    assert insn.operands.imm(-1) == 0x10
+
+    # xor to xori
+    insn = linux_mips.one_insn_or_raise("xor $a0, $a1, $a2")
+    insn = insn.operands.replace(-1, 42)
+    assert insn.mnemonic == "xori"
+    assert insn.operands.imm(-1) == 42

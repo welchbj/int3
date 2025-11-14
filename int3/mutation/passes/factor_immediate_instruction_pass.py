@@ -1,9 +1,6 @@
 import logging
-from dataclasses import replace
 
-from int3.codegen import Choice, FluidSegment, Instruction
-from int3.errors import Int3CodeGenerationError
-from int3.factor import ImmediateMutationContext
+from int3.codegen import Choice, Instruction
 
 from .abc import InstructionMutationPass
 
