@@ -15,6 +15,8 @@ def assemble(arch: Architecture, assembly: str, vma: int = 0) -> bytes:
         raise Int3WrappedKeystoneError(f"Error assemble `{assembly}`: {e}") from e
 
     if encoding is None:
-        raise Int3WrappedKeystoneError("No assembly result returned from keystone")
+        raise Int3WrappedKeystoneError(
+            f"No assembly result returned from keystone for:\n\n{assembly}"
+        )
 
     return cast(bytes, encoding)
