@@ -9,6 +9,7 @@ from .passes import (
     AddSyscallOperandInstructionPass,
     FactorImmediateInstructionPass,
     InstructionMutationPass,
+    MipsReturnInstructionPass,
     MoveSmallImmediateInstructionPass,
     NopRewriterInstructionPass,
 )
@@ -29,6 +30,7 @@ class MutationEngine:
     ) -> list[InstructionMutationPass]:
         pass_classes = [
             AddSyscallOperandInstructionPass,
+            MipsReturnInstructionPass,
             NopRewriterInstructionPass,
             MoveSmallImmediateInstructionPass,
             FactorImmediateInstructionPass,

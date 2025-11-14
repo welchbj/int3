@@ -101,6 +101,11 @@ class CodeGenerator:
         num_repeats = pad_len // len(nop_bytes)
         return nop_bytes * num_repeats
 
+    def inline(self, mnemonic: str, *operands: RegType | ImmType) -> Choice:
+        """Emit a choice for an inline, raw assembly instruction"""
+        operands_str = ", ".join(self.f(operand) for operand in operands)
+        return self.choice(f"{mnemonic} {operands_str}")
+
     def syscall(self, value: ImmType | None = None) -> Choice:
         match self.arch:
             case (
