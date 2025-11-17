@@ -1,15 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Sequence
+from typing import Sequence
 
 from int3.architecture import Architecture, RegisterDef
 from int3.errors import Int3MissingEntityError
 
 from .factor_operation import FactorOperation
-
-if TYPE_CHECKING:
-    from int3.codegen import Instruction
 
 
 @dataclass(frozen=True)
