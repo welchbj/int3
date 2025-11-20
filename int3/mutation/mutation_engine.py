@@ -7,7 +7,8 @@ from int3.platform import Triple
 
 from .passes import (
     AddSyscallOperandInstructionPass,
-    FactorImmediateInstructionPass,
+    FactorImmediateViaTransitoryRegisterInstructionPass,
+    FactorInplaceImmediateInstructionPass,
     InstructionMutationPass,
     MipsReturnInstructionPass,
     MoveSmallImmediateInstructionPass,
@@ -32,8 +33,9 @@ class MutationEngine:
             AddSyscallOperandInstructionPass,
             MipsReturnInstructionPass,
             NopRewriterInstructionPass,
+            FactorInplaceImmediateInstructionPass,
             MoveSmallImmediateInstructionPass,
-            FactorImmediateInstructionPass,
+            FactorImmediateViaTransitoryRegisterInstructionPass,
         ]
         return [cls(segment, self.bad_bytes) for cls in pass_classes]  # type: ignore
 

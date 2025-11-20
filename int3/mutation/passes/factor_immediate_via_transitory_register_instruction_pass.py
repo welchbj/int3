@@ -7,7 +7,7 @@ from .abc import InstructionMutationPass
 logger = logging.getLogger(__name__)
 
 
-class FactorImmediateInstructionPass(InstructionMutationPass):
+class FactorImmediateViaTransitoryRegisterInstructionPass(InstructionMutationPass):
     """Reconstruct an immediate operand across factored operations."""
 
     def should_mutate(self, insn: Instruction) -> bool:
@@ -26,8 +26,8 @@ class FactorImmediateInstructionPass(InstructionMutationPass):
 
         options = []
 
-        # For mov instructions, we can use hl_put_imm fairly directly.
         if insn.is_mov():
+            # For mov instructions, we can use hl_put_imm fairly directly.
             return self.codegen.hl_put_imm(
                 imm=imm,
                 dest=dest_reg,
