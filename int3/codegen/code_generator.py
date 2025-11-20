@@ -186,6 +186,52 @@ class CodeGenerator:
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
+    def push(self, *regs: RegType) -> Choice:
+        if not regs:
+            raise Int3CodeGenerationError("Need at least one register for push")
+
+        match self.arch:
+            case Architectures.x86_64.value | Architectures.x86.value:
+                if len(regs) != 1:
+                    raise Int3CodeGenerationError("push on x86 families only suppots one register")
+
+                # TODO: Support immediates?
+
+                return self.choice(f"push {self.f(regs[0])}")
+            case Architectures.Mips.value:
+                # Emulate with sw?
+                raise Int3CodeGenerationError("push not supported on Mips")
+            case Architectures.Arm.value:
+                regs_str = "{" + ", ".join(self.f(reg) for reg in regs) + "}"
+                return self.choice(f"push {regs_str}")
+            case Architectures.Aarch64.value:
+                # TODO: Emulate with stp?
+                raise Int3CodeGenerationError("push not supported on Aarch64")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
+
+    def pop(self, *regs: RegType) -> Choice:
+        if not regs:
+            raise Int3CodeGenerationError("Need at least one register for pop")
+
+        match self.arch:
+            case Architectures.x86_64.value | Architectures.x86.value:
+                if len(regs) != 1:
+                    raise Int3CodeGenerationError("pop on x86 families only suppots one register")
+
+                return self.choice(f"pop {self.f(regs[0])}")
+            case Architectures.Mips.value:
+                # Emulate similar to push?
+                raise Int3CodeGenerationError("pop not supported on Mips")
+            case Architectures.Arm.value:
+                regs_str = "{" + ", ".join(self.f(reg) for reg in regs) + "}"
+                return self.choice(f"pop {regs_str}")
+            case Architectures.Aarch64.value:
+                # TODO: Emulate similar to push?
+                raise Int3CodeGenerationError("pop not supported on Aarch64")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
+
     def mov(self, one: RegType, two: ImmType | RegType) -> Choice:
         match self.arch:
             case Architectures.x86_64.value | Architectures.x86.value:
@@ -238,14 +284,29 @@ class CodeGenerator:
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
+    def ll_clear(self, dest: RegisterDef) -> Choice:
+        """Clear a register."""
+        return self.choice(
+            self.xor(dest, dest),
+            self.sub(dest, dest),
+            self.mov(dest, 0),
+        )
+
     def ll_put(self, dest: RegisterDef, src: RegType | ImmType) -> Choice:
         # TODO: Incorporate zero register options.
         return self.choice(
             self.mov(dest, src),
             self.segment(
-                self.xor(dest, dest),
-                self.add(dest, src),
+                self.ll_clear(dest),
+                self.choice(
+                    self.add(dest, src),
+                    self.xor(dest, src),
+                )
             ),
+            self.segment(
+                self.push(src),
+                self.pop(dest),
+            )
         )
 
     # TODO: Arm-specific approaches for stack-related register loading
