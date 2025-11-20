@@ -97,18 +97,26 @@ def test_start_value_has_bad_bytes():
         )
 
 
-def test_invalid_max_depth():
-    with pytest.raises(Int3ArgumentError):
-        compute_factor(
-            FactorContext(
-                arch=Architectures.from_host(), target=0x12345678, max_depth=-1
+def test_invalid_min_depth_less_than_one():
+    for invalid_min_depth in (-10, -1, 0):
+        with pytest.raises(Int3ArgumentError):
+            compute_factor(
+                FactorContext(
+                    arch=Architectures.from_host(),
+                    target=0x12345678,
+                    min_depth=invalid_min_depth,
+                )
             )
-        )
 
+
+def test_invalid_min_depth_exceeds_max_depth():
     with pytest.raises(Int3ArgumentError):
         compute_factor(
             FactorContext(
-                arch=Architectures.from_host(), target=0x12345678, max_depth=0
+                arch=Architectures.from_host(),
+                target=0x12345678,
+                min_depth=4,
+                max_depth=3,
             )
         )
 

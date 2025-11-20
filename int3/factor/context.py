@@ -49,6 +49,9 @@ class FactorContext:
     # The bytes that should be avoided in generated factor operands.
     bad_bytes: bytes = b""
 
+    # The minimum amount of nested operations to enforce.
+    min_depth: int = 1
+
     # The maximum amount of nested operations to permit.
     max_depth: int = 3
 
@@ -70,6 +73,9 @@ class FactorContext:
     # The initial value to work from. When omitted, the engine will select
     # one based on the existing constraints.
     start: int | None = None
+
+    # Whether to skip bad byte checking for the specified start value.
+    allow_bad_bytes_in_start: bool = False
 
     # Additional context related to the assembly instruction that originated
     # this factor requirement. This is mainly useful for understanding the

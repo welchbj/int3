@@ -1,6 +1,6 @@
 import itertools
 from dataclasses import replace
-from typing import Any, cast
+from typing import cast
 
 from z3 import (
     BitVec,
@@ -9,7 +9,6 @@ from z3 import (
     BVSNegNoOverflow,
     BVSubNoOverflow,
     BVSubNoUnderflow,
-    Extract,
     Solver,
     sat,
 )
@@ -30,13 +29,16 @@ def compute_factor(factor_ctx: FactorContext) -> FactorResult:
     will be selected by the SAT engine.
 
     """
-    if factor_ctx.max_depth < 1:
+    if factor_ctx.min_depth < 1:
         raise Int3ArgumentError(
-            f"max_depth must be a positive int ({factor_ctx.max_depth} is not)"
+            f"min_depth must be a positive int ({factor_ctx.min_depth} is not)"
         )
+    elif (factor_ctx.max_depth - factor_ctx.min_depth) < 0:
+        raise Int3ArgumentError("max_depth must be greater than or equal to min_depth")
 
     # Check if a bad byte was provided in the start value.
-    if factor_ctx.start is not None:
+    if factor_ctx.start is not None and not factor_ctx.allow_bad_bytes_in_start:
+        # XXX: Should this be using the arch-specific constraint provider instead?
         packed_start = factor_ctx.arch.pack(factor_ctx.start, width=factor_ctx.width)
         if any(b in packed_start for b in factor_ctx.bad_bytes):
             raise Int3ArgumentError(
@@ -85,7 +87,7 @@ def compute_factor(factor_ctx: FactorContext) -> FactorResult:
     allowed_ops = cast(tuple[FactorOperation, ...], factor_ctx.allowed_ops)
     constraint_provider = constraint_provider_for(factor_ctx)
 
-    for depth in range(1, factor_ctx.max_depth + 1):
+    for depth in range(factor_ctx.min_depth, factor_ctx.max_depth + 1):
         for op_product in itertools.product(allowed_ops, repeat=depth):
             solver = Solver()
 
