@@ -111,21 +111,30 @@ class MutationEngine:
             insn for insn in new_insn_list if insn.is_branch() or insn.is_jump()
         ]
         if did_change_segment_len and len(relative_insns) > 0:
+            all_insn_lines = Instruction.summary(*new_insn_list, indent=4)
             relative_insn_lines = Instruction.summary(*relative_insns, indent=4)
             raise Int3CodeGenerationError(
-                "\n\nCode mutations modified segment length, which may break the following instructions:\n"
+                "\n\nCode mutations modified segment length, which may break the following instructions:\n\n"
                 + "\n".join(relative_insn_lines)
+                + "\n\nOriginal segment:\n\n"
+                + "\n".join(all_insn_lines)
             )
 
         new_program = b"".join(bytes(insn) for insn in new_insn_list)
-        mutated_segment = Segment.from_bytes(triple=self.triple, raw_asm=new_program)
-        if not mutated_segment.is_dirty(self.bad_bytes):
-            return mutated_segment
+        completed_mutated_segment = Segment.from_bytes(
+            triple=self.triple, raw_asm=new_program
+        )
+
+        if not completed_mutated_segment.is_dirty(self.bad_bytes):
+            return completed_mutated_segment
+
+        # We couldn't overcome the bad bytes, so we raise an informative exception
+        # detailing which instructions we couldn't clean.
 
         dirty_insn_lines = Instruction.summary(
-            *mutated_segment.dirty_instructions(self.bad_bytes), indent=4
+            *completed_mutated_segment.dirty_instructions(self.bad_bytes), indent=4
         )
-        all_insn_lines = Instruction.summary(*mutated_segment.insns, indent=4)
+        all_insn_lines = Instruction.summary(*completed_mutated_segment.insns, indent=4)
         raise Int3CodeGenerationError(
             "\n\nUnable to clean bad bytes from the following instructions:\n"
             + "\n".join(dirty_insn_lines)
