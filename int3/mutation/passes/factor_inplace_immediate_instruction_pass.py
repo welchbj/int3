@@ -42,8 +42,6 @@ class FactorInplaceImmediateInstructionPass(InstructionMutationPass):
         """Factor immediate values into multiple instructions."""
         dest_reg = insn.operands.reg(0)
         imm = insn.operands.imm(-1)
-
-        # TODO
         width = min(dest_reg.bit_size, self.arch.bit_size // 2)
 
         # Instead of computing the full factor solve, we set our target to be the
