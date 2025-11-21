@@ -209,9 +209,11 @@ class CodeGenerator:
                     )
 
                 sp = self.arch.reg("sp")
-                return self.segment(
-                    f"addi {self.f(sp)}, {self.f(sp)}, -4",
-                    f"sw {self.f(regs[0])}, 0({self.f(sp)})",
+                return self.choice(
+                    self.segment(
+                        f"addi {self.f(sp)}, {self.f(sp)}, -4",
+                        f"sw {self.f(regs[0])}, 0({self.f(sp)})",
+                    ),
                 )
             case Architectures.Arm.value:
                 regs_str = "{" + ", ".join(self.f(reg) for reg in regs) + "}"
@@ -246,9 +248,11 @@ class CodeGenerator:
                     )
 
                 sp = self.arch.reg("sp")
-                return self.segment(
-                    f"lw {self.f(regs[0])}, 0({self.f(sp)})",
-                    f"addi {self.f(sp)}, {self.f(sp)}, 4",
+                return self.choice(
+                    self.segment(
+                        f"lw {self.f(regs[0])}, 0({self.f(sp)})",
+                        f"addi {self.f(sp)}, {self.f(sp)}, 4",
+                    ),
                 )
             case Architectures.Arm.value:
                 regs_str = "{" + ", ".join(self.f(reg) for reg in regs) + "}"
@@ -347,14 +351,6 @@ class CodeGenerator:
             )
 
         return self.choice(*options)
-
-    # TODO: Arm-specific approaches for stack-related register loading
-    #
-    #    add r2, r0, r1
-    #    push {r2, r8}
-    #    pop {r0, r8}
-    #
-    #    r8-r12 seem to work
 
     def hl_put_imm(
         self,

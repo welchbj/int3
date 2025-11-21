@@ -39,7 +39,7 @@ class MutationEngine:
             MoveSmallImmediateInstructionPass,
             FactorImmediateViaTransitoryRegisterInstructionPass,
         ]
-        return [cls(segment, self.bad_bytes) for cls in pass_classes]
+        return [cls(segment, self.bad_bytes) for cls in pass_classes]  # type: ignore
 
     def clean(self) -> Segment:
         """Attempt to clean bad bytes from the machine code wrapped by this engine."""
