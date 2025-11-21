@@ -65,6 +65,10 @@ class CodeGenerator:
 
         return Choice(tuple(parsed_options))
 
+    def empty(self) -> Choice:
+        """Alias for returning a path with no choices."""
+        return self.choice()
+
     def repeat(self, option: Option, num: int) -> FluidSegment:
         """Repeat an option a specified number of times"""
         choice = self.choice(option)
@@ -193,20 +197,20 @@ class CodeGenerator:
         match self.arch:
             case Architectures.x86_64.value | Architectures.x86.value:
                 if len(regs) != 1:
-                    raise Int3CodeGenerationError("push on x86 families only suppots one register")
-
-                # TODO: Support immediates?
+                    raise Int3CodeGenerationError(
+                        "push on x86 families only suppots one register"
+                    )
 
                 return self.choice(f"push {self.f(regs[0])}")
             case Architectures.Mips.value:
-                # Emulate with sw?
-                raise Int3CodeGenerationError("push not supported on Mips")
+                # TODO: Emulate with sw?
+                return self.empty()
             case Architectures.Arm.value:
                 regs_str = "{" + ", ".join(self.f(reg) for reg in regs) + "}"
                 return self.choice(f"push {regs_str}")
             case Architectures.Aarch64.value:
                 # TODO: Emulate with stp?
-                raise Int3CodeGenerationError("push not supported on Aarch64")
+                return self.empty()
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
@@ -217,18 +221,20 @@ class CodeGenerator:
         match self.arch:
             case Architectures.x86_64.value | Architectures.x86.value:
                 if len(regs) != 1:
-                    raise Int3CodeGenerationError("pop on x86 families only suppots one register")
+                    raise Int3CodeGenerationError(
+                        "pop on x86 families only suppots one register"
+                    )
 
                 return self.choice(f"pop {self.f(regs[0])}")
             case Architectures.Mips.value:
-                # Emulate similar to push?
-                raise Int3CodeGenerationError("pop not supported on Mips")
+                # TODO: Emulate similar to push?
+                return self.empty()
             case Architectures.Arm.value:
                 regs_str = "{" + ", ".join(self.f(reg) for reg in regs) + "}"
                 return self.choice(f"pop {regs_str}")
             case Architectures.Aarch64.value:
                 # TODO: Emulate similar to push?
-                raise Int3CodeGenerationError("pop not supported on Aarch64")
+                return self.empty()
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
@@ -252,9 +258,7 @@ class CodeGenerator:
             case Architectures.x86_64.value:
                 return self.choice(f"lea {self.f(result)}, [rip]")
             case Architectures.Mips.value:
-                raise Int3CodeGenerationError(
-                    "Mips does not support fine-grained PC-relative addressing"
-                )
+                return self.empty()
             case Architectures.Arm.value:
                 return self.choice(f"mov {self.f(result)}, pc")
             case Architectures.Aarch64.value:
@@ -286,6 +290,8 @@ class CodeGenerator:
 
     def ll_clear(self, dest: RegisterDef) -> Choice:
         """Clear a register."""
+        # TODO: Incorporate zero register options.
+
         return self.choice(
             self.xor(dest, dest),
             self.sub(dest, dest),
@@ -294,20 +300,27 @@ class CodeGenerator:
 
     def ll_put(self, dest: RegisterDef, src: RegType | ImmType) -> Choice:
         # TODO: Incorporate zero register options.
-        return self.choice(
+
+        options: list[Choice | FluidSegment] = [
             self.mov(dest, src),
             self.segment(
                 self.ll_clear(dest),
                 self.choice(
                     self.add(dest, src),
                     self.xor(dest, src),
-                )
+                ),
             ),
-            self.segment(
-                self.push(src),
-                self.pop(dest),
+        ]
+
+        if not isinstance(src, int):
+            options.append(
+                self.segment(
+                    self.push(src),
+                    self.pop(dest),
+                )
             )
-        )
+
+        return self.choice(*options)
 
     # TODO: Arm-specific approaches for stack-related register loading
     #

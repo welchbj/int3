@@ -13,6 +13,7 @@ from .passes import (
     MipsReturnInstructionPass,
     MoveSmallImmediateInstructionPass,
     NopRewriterInstructionPass,
+    PureRegisterMoveInstructionPass,
 )
 
 logger = logging.getLogger(__name__)
@@ -33,11 +34,12 @@ class MutationEngine:
             AddSyscallOperandInstructionPass,
             MipsReturnInstructionPass,
             NopRewriterInstructionPass,
+            PureRegisterMoveInstructionPass,
             FactorInplaceImmediateInstructionPass,
             MoveSmallImmediateInstructionPass,
             FactorImmediateViaTransitoryRegisterInstructionPass,
         ]
-        return [cls(segment, self.bad_bytes) for cls in pass_classes]  # type: ignore
+        return [cls(segment, self.bad_bytes) for cls in pass_classes]
 
     def clean(self) -> Segment:
         """Attempt to clean bad bytes from the machine code wrapped by this engine."""
