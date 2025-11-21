@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Sequence
 
 from int3.architecture import Architecture, RegisterDef
 from int3.errors import Int3MissingEntityError
@@ -65,10 +64,10 @@ class FactorContext:
     width: int | None = None
 
     # The operations (add, xor, etc.) that may be used by the engine.
-    allowed_ops: Sequence[FactorOperation] | None = None
+    allowed_ops: tuple[FactorOperation, ...] | None = None
 
     # The operations (add, xor, etc.) that cannot be used by the engine.
-    forbidden_ops: Sequence[FactorOperation] | None = None
+    forbidden_ops: tuple[FactorOperation, ...] | None = None
 
     # The initial value to work from. When omitted, the engine will select
     # one based on the existing constraints.

@@ -1,5 +1,6 @@
 import itertools
 from dataclasses import replace
+from functools import lru_cache
 from typing import cast
 
 from z3 import (
@@ -22,6 +23,7 @@ from .factor_operation import FactorOperation
 from .factor_result import FactorResult
 
 
+@lru_cache(maxsize=1024)
 def compute_factor(factor_ctx: FactorContext) -> FactorResult:
     """Emit sets of operations that achieve the target value.
 

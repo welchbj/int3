@@ -54,7 +54,7 @@ def test_allowed_and_forbidden_ops():
             target=0x41414141,
             bad_bytes=b"\x41",
             width=0x20,
-            allowed_ops=[FactorOperation.Sub],
+            allowed_ops=(FactorOperation.Sub,),
         )
     )
 
@@ -73,7 +73,7 @@ def test_specified_start_value():
             bad_bytes=b"\x41\x42",
             start=0x40404040,
             width=0x20,
-            allowed_ops=[FactorOperation.Xor],
+            allowed_ops=(FactorOperation.Xor,),
         )
     )
 
@@ -127,7 +127,7 @@ def test_invalid_forbidden_ops():
             FactorContext(
                 arch=Architectures.from_host(),
                 target=0x12345678,
-                forbidden_ops=[FactorOperation.Init],
+                forbidden_ops=(FactorOperation.Init,),
             )
         )
 
