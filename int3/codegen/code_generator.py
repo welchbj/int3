@@ -190,6 +190,51 @@ class CodeGenerator:
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
+    def lsl(self, one: RegType, two: ImmType | RegType) -> Choice:
+        """Logical shift left."""
+        match self.arch:
+            case Architectures.x86_64.value | Architectures.x86.value:
+                return self.choice(f"shl {self.f(one)}, {self.f(two)}")
+            case Architectures.Mips.value:
+                return self.choice(f"sll {self.f(one)}, {self.f(one)}, {self.f(two)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.choice(f"lsl {self.f(one)}, {self.f(one)}, {self.f(two)}")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
+
+    def lsr(self, one: RegType, two: ImmType | RegType) -> Choice:
+        """Logical shift right."""
+        match self.arch:
+            case Architectures.x86_64.value | Architectures.x86.value:
+                return self.choice(f"shr {self.f(one)}, {self.f(two)}")
+            case Architectures.Mips.value:
+                return self.choice(f"srl {self.f(one)}, {self.f(one)}, {self.f(two)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.choice(f"lsr {self.f(one)}, {self.f(one)}, {self.f(two)}")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
+
+    def mvn(self, dest: RegType, src: RegType) -> Choice:
+        """Bitwise NOT (move negated)."""
+        match self.arch:
+            case Architectures.x86_64.value | Architectures.x86.value:
+                # x86 'not' is single-operand, so we need mov + not if dest != src
+                if self.f(dest) == self.f(src):
+                    return self.choice(f"not {self.f(dest)}")
+                else:
+                    return self.choice(
+                        self.segment(
+                            f"mov {self.f(dest)}, {self.f(src)}",
+                            f"not {self.f(dest)}",
+                        )
+                    )
+            case Architectures.Mips.value:
+                return self.choice(f"not {self.f(dest)}, {self.f(src)}")
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.choice(f"mvn {self.f(dest)}, {self.f(src)}")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
+
     def push(self, *regs: RegType) -> Choice:
         if not regs:
             raise Int3CodeGenerationError("Need at least one register for push")
@@ -349,6 +394,21 @@ class CodeGenerator:
                     self.pop(dest),
                 )
             )
+
+        # For small (2^n - 1) immediates like 1, 3, 7, etc., use clear+not+lsr.
+        # This provides an alternative encoding that may avoid bad bytes.
+        if isinstance(src, int):
+            for n in range(1, 17):
+                if src == (1 << n) - 1:
+                    shift = dest.bit_size - n
+                    options.append(
+                        self.segment(
+                            self.ll_clear(dest),
+                            self.mvn(dest, dest),
+                            self.lsr(dest, shift),
+                        )
+                    )
+                    break
 
         return self.choice(*options)
 
