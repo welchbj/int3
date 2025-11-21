@@ -110,7 +110,10 @@ class MutationEngine:
         #
         # In the future, we'll patch these relative jumps to workaround these scenarios.
         relative_insns = [
-            insn for insn in new_insn_list if insn.is_branch() or insn.is_jump()
+            insn
+            for insn in new_insn_list
+            if (insn.is_branch() or insn.is_jump())
+            and not insn.has_only_register_operands()
         ]
         if did_change_segment_len and len(relative_insns) > 0:
             all_insn_lines = Instruction.summary(*new_insn_list, indent=4)
