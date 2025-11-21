@@ -1,3 +1,4 @@
+from .aarch64_movk_instruction_pass import Aarch64MovkInstructionPass
 from .abc import InstructionMutationPass
 from .add_syscall_operand_instruction_pass import AddSyscallOperandInstructionPass
 from .factor_immediate_via_transitory_register_instruction_pass import (

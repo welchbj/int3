@@ -6,6 +6,7 @@ from int3.errors import Int3CodeGenerationError
 from int3.platform import Triple
 
 from .passes import (
+    Aarch64MovkInstructionPass,
     AddSyscallOperandInstructionPass,
     FactorImmediateViaTransitoryRegisterInstructionPass,
     FactorInplaceImmediateInstructionPass,
@@ -36,6 +37,7 @@ class MutationEngine:
             NopRewriterInstructionPass,
             PureRegisterMoveInstructionPass,
             FactorInplaceImmediateInstructionPass,
+            Aarch64MovkInstructionPass,
             MoveSmallImmediateInstructionPass,
             FactorImmediateViaTransitoryRegisterInstructionPass,
         ]
