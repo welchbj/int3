@@ -203,14 +203,27 @@ class CodeGenerator:
 
                 return self.choice(f"push {self.f(regs[0])}")
             case Architectures.Mips.value:
-                # TODO: Emulate with sw?
-                return self.empty()
+                if len(regs) != 1:
+                    raise Int3CodeGenerationError(
+                        "push on Mips only supports one register"
+                    )
+
+                sp = self.arch.reg("sp")
+                return self.segment(
+                    f"addi {self.f(sp)}, {self.f(sp)}, -4",
+                    f"sw {self.f(regs[0])}, 0({self.f(sp)})",
+                )
             case Architectures.Arm.value:
                 regs_str = "{" + ", ".join(self.f(reg) for reg in regs) + "}"
                 return self.choice(f"push {regs_str}")
             case Architectures.Aarch64.value:
-                # TODO: Emulate with stp?
-                return self.empty()
+                if len(regs) != 1:
+                    raise Int3CodeGenerationError(
+                        "push on Aarch64 only supports one register"
+                    )
+
+                sp = self.arch.reg("sp")
+                return self.choice(f"str {self.f(regs[0])}, [{self.f(sp)}, #-16]!")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
@@ -227,14 +240,27 @@ class CodeGenerator:
 
                 return self.choice(f"pop {self.f(regs[0])}")
             case Architectures.Mips.value:
-                # TODO: Emulate similar to push?
-                return self.empty()
+                if len(regs) != 1:
+                    raise Int3CodeGenerationError(
+                        "pop on Mips only supports one register"
+                    )
+
+                sp = self.arch.reg("sp")
+                return self.segment(
+                    f"lw {self.f(regs[0])}, 0({self.f(sp)})",
+                    f"addi {self.f(sp)}, {self.f(sp)}, 4",
+                )
             case Architectures.Arm.value:
                 regs_str = "{" + ", ".join(self.f(reg) for reg in regs) + "}"
                 return self.choice(f"pop {regs_str}")
             case Architectures.Aarch64.value:
-                # TODO: Emulate similar to push?
-                return self.empty()
+                if len(regs) != 1:
+                    raise Int3CodeGenerationError(
+                        "pop on Aarch64 only supports one register"
+                    )
+
+                sp = self.arch.reg("sp")
+                return self.choice(f"ldr {self.f(regs[0])}, [{self.f(sp)}], #16")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
