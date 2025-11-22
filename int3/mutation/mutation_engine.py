@@ -15,6 +15,7 @@ from .passes import (
     MoveSmallImmediateInstructionPass,
     NopRewriterInstructionPass,
     PureRegisterMoveInstructionPass,
+    PureRegisterSourceSubstitutionInstructionPass,
 )
 
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ class MutationEngine:
             MipsReturnInstructionPass,
             NopRewriterInstructionPass,
             PureRegisterMoveInstructionPass,
+            PureRegisterSourceSubstitutionInstructionPass,
             FactorInplaceImmediateInstructionPass,
             Aarch64MovkInstructionPass,
             MoveSmallImmediateInstructionPass,
