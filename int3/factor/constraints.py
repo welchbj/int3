@@ -204,6 +204,144 @@ class ArmConstraintProvider(ArchConstraintProvider):
         solver.add(Or(*rotation_cases))
 
 
+@dataclass(frozen=True)
+class Aarch64ConstraintProvider(ArchConstraintProvider):
+    """AArch64-specific constraint provider.
+
+    AArch64 add/sub immediate instructions encode a 12-bit unsigned immediate
+    with an optional 12-bit left shift:
+
+    - imm12: 12-bit immediate value (0-4095)
+    - sh: shift bit (0=no shift, 1=LSL #12)
+
+    Instruction format (little-endian bytes for add/sub immediate):
+
+    - Byte 0: Rn[1:0] (bits 7-6) | Rd[4:0] (bits 4-0)
+    - Byte 1: imm12[5:0] (bits 7-2) | Rn[4:2] (bits 1-0)
+    - Byte 2: sh (bit 6) | imm12[11:6] (bits 5-0)
+    - Byte 3: opcode bits (sf, op, S, fixed)
+
+    The immediate bits that can contain bad bytes are:
+    - imm12[5:0] in byte 1 (upper 6 bits)
+    - imm12[11:6] + sh in byte 2 (lower 7 bits)
+
+    """
+
+    def add_constraints(
+        self, solver: Solver, op: FactorOperation, bv: BitVecType
+    ) -> None:
+        match op:
+            case FactorOperation.Add | FactorOperation.Sub:
+                self._add_addsub_immediate_constraints(solver, bv)
+            case _:
+                # For Init, Xor, and other operations, use passthrough behavior.
+                # (Xor uses logical immediate encoding which is much more complex)
+                self.add_passthrough_constraints(solver, op, bv)
+
+    def _add_addsub_immediate_constraints(self, solver: Solver, bv: BitVecType) -> None:
+        """Constrain immediates based on AArch64 add/sub immediate encoding.
+
+        We consider two encoding options:
+
+        - sh=0: imm12 used directly (values 0-4095)
+        - sh=1: imm12 << 12 (values 0x1000, 0x2000, ..., 0xFFF000)
+
+        For each option, we check if the resulting instruction bytes are clean.
+
+        Instruction byte layout:
+
+        - Byte 1 bits [7:2] = imm12[5:0]
+        - Byte 2 bits [5:0] = imm12[11:6], bit 6 = sh
+
+        Since Rn bits in byte 1 are typically low register numbers and byte 0
+        contains Rd/Rn bits (not immediate), we focus on the immediate-containing
+        portions of bytes 1 and 2.
+
+        """
+        width = cast(int, self.ctx.width)
+
+        # Strategy: Check both shift options and require at least one to work.
+        encoding_cases = []
+
+        # Case 1: sh=0, imm12 used directly
+        #
+        # The value must fit in 12 bits
+        # (upper bits must be zero)
+        if width > 12:
+            sh0_value_fits = Extract(width - 1, 12, bv) == BitVecVal(0, width - 12)
+        else:
+            # Constrain to an always-true expression.
+            sh0_value_fits = BitVecVal(1, 1) == BitVecVal(1, 1)
+
+        # Extract the 12-bit immediate for sh=0 case.
+        imm12_sh0 = Extract(11, 0, bv) if width >= 12 else bv
+
+        # Byte 1: bits [7:2] = imm12[5:0], bits [1:0] = Rn[4:2]
+        # We check the upper 6 bits combined with worst-case Rn bits
+        # Since Rn can be any register (0-31), bits [1:0] can be 0-3
+        # We need to ensure that for ANY valid Rn, the byte is clean.
+        #
+        # Conservative approach: check with Rn bits = 0 (most restrictive
+        # for null byte).
+        imm12_low = Extract(5, 0, imm12_sh0)
+        byte1_sh0 = Concat(imm12_low, BitVecVal(0, 2))
+
+        # Byte 2: bit 6 = sh (=0), bits [5:0] = imm12[11:6]
+        imm12_high = Extract(11, 6, imm12_sh0)
+        byte2_sh0 = Concat(BitVecVal(0, 2), imm12_high)  # sh=0, plus 1 unused bit
+
+        byte1_sh0_clean = And(
+            *[byte1_sh0 != bad_byte for bad_byte in self.ctx.bad_bytes]
+        )
+        byte2_sh0_clean = And(
+            *[byte2_sh0 != bad_byte for bad_byte in self.ctx.bad_bytes]
+        )
+
+        encoding_cases.append(And(sh0_value_fits, byte1_sh0_clean, byte2_sh0_clean))
+
+        # Case 2: sh=1, imm12 << 12
+        #
+        # The value must be a multiple of 0x1000 with imm12 in upper bits
+        # and lower 12 bits must be zero
+        lower_12_zero = Extract(11, 0, bv) == BitVecVal(0, 12)
+
+        # Extract imm12 from bits [23:12] for sh=1 case.
+        if width >= 24:
+            imm12_sh1 = Extract(23, 12, bv)
+            # Upper bits above 24 must be zero
+            sh1_upper_zero = Extract(width - 1, 24, bv) == BitVecVal(0, width - 24)
+            sh1_value_fits = And(lower_12_zero, sh1_upper_zero)
+        elif width > 12:
+            imm12_sh1 = Extract(width - 1, 12, bv)
+            # Pad to 12 bits
+            imm12_sh1 = Concat(BitVecVal(0, 24 - width), imm12_sh1)
+            sh1_value_fits = lower_12_zero
+        else:
+            # Width <= 12, sh=1 case not applicable (would need at least 13 bits)
+            imm12_sh1 = BitVecVal(0, 12)
+            sh1_value_fits = BitVecVal(0, 1) == BitVecVal(1, 1)  # Always false
+
+        # Byte 1 with sh=1: same structure, imm12[5:0] from shifted position
+        imm12_sh1_low = Extract(5, 0, imm12_sh1)
+        byte1_sh1 = Concat(imm12_sh1_low, BitVecVal(0, 2))
+
+        # Byte 2 with sh=1: bit 6 = sh (=1), bits [5:0] = imm12[11:6]
+        imm12_sh1_high = Extract(11, 6, imm12_sh1)
+        byte2_sh1 = Concat(BitVecVal(1, 2), imm12_sh1_high)  # sh=1
+
+        byte1_sh1_clean = And(
+            *[byte1_sh1 != bad_byte for bad_byte in self.ctx.bad_bytes]
+        )
+        byte2_sh1_clean = And(
+            *[byte2_sh1 != bad_byte for bad_byte in self.ctx.bad_bytes]
+        )
+
+        encoding_cases.append(And(sh1_value_fits, byte1_sh1_clean, byte2_sh1_clean))
+
+        # At least one encoding must produce valid (clean) bytes
+        solver.add(Or(*encoding_cases))
+
+
 def constraint_provider_for(ctx: FactorContext) -> ArchConstraintProvider:
     """Resolve the appropriate constraint provider for an architecture.
 
@@ -213,15 +351,12 @@ def constraint_provider_for(ctx: FactorContext) -> ArchConstraintProvider:
     """
     provider_cls: type[ArchConstraintProvider]
 
-    if ctx.imm_mut_ctx is None:
-        # If we have no passed arch/instruction-specific context, we use the default
-        # passthrough behavior.
-        provider_cls = PassThroughConstraintProvider
-    else:
-        match ctx.arch:
-            case Architectures.Arm.value:
-                provider_cls = ArmConstraintProvider
-            case _:
-                provider_cls = PassThroughConstraintProvider
+    match ctx.arch:
+        case Architectures.Arm.value:
+            provider_cls = ArmConstraintProvider
+        case Architectures.Aarch64.value:
+            provider_cls = Aarch64ConstraintProvider
+        case _:
+            provider_cls = PassThroughConstraintProvider
 
     return provider_cls(ctx)
