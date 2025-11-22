@@ -261,3 +261,37 @@ def test_mips_mnemonic_normalization_reg_to_imm():
     insn = insn.operands.replace(-1, 42)
     assert insn.mnemonic == "xori"
     assert insn.operands.imm(-1) == 42
+
+
+def test_regs_read_and_write():
+    """Test regs_read and regs_write properties."""
+    x86_64 = Architectures.x86_64.value
+    Aarch64 = Architectures.Aarch64.value
+
+    linux_x86_64 = Triple(x86_64, Platform.Linux)
+    linux_aarch64 = Triple(Aarch64, Platform.Linux)
+
+    insn = linux_x86_64.one_insn_or_raise("add rax, rbx")
+    assert x86_64.reg("rax") in insn.regs_read
+    assert x86_64.reg("rbx") in insn.regs_read
+    assert x86_64.reg("rax") in insn.regs_written
+
+    insn = linux_x86_64.one_insn_or_raise("mov rax, rbx")
+    assert x86_64.reg("rbx") in insn.regs_read
+    assert x86_64.reg("rax") in insn.regs_written
+    assert x86_64.reg("rax") not in insn.regs_read
+
+    insn = linux_aarch64.one_insn_or_raise("blr x8")
+    assert Aarch64.reg("x8") in insn.regs_read
+    assert Aarch64.reg("lr") in insn.regs_written
+    assert Aarch64.reg("x8") not in insn.regs_written
+
+    insn = linux_aarch64.one_insn_or_raise("br x9")
+    assert Aarch64.reg("x9") in insn.regs_read
+    assert len(insn.regs_written) == 0
+
+    insn = linux_aarch64.one_insn_or_raise("add x0, x1, x2")
+    assert Aarch64.reg("x1") in insn.regs_read
+    assert Aarch64.reg("x2") in insn.regs_read
+    assert Aarch64.reg("x0") in insn.regs_written
+    assert Aarch64.reg("x0") not in insn.regs_read

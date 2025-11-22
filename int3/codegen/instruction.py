@@ -234,6 +234,8 @@ class Instruction:
     op_str: str = field(init=False, compare=False)
     operands: OperandView = field(init=False, compare=False)
     tainted_regs: set[RegisterDef] = field(init=False, compare=False)
+    regs_read: frozenset[RegisterDef] = field(init=False, compare=False)
+    regs_written: frozenset[RegisterDef] = field(init=False, compare=False)
 
     _cs_group_names: set[str] = field(init=False, compare=False)
 
@@ -248,9 +250,11 @@ class Instruction:
         ]
         object.__setattr__(self, "_cs_group_names", cs_group_names)
 
-        # We initialize tainted_regs last, as it's the most involved field to
-        # initialize and relies on other members of this class already being
-        # available.
+        # We initialize these register sets last, as they are the most
+        # involved fields to initialize and rely on other members of
+        # this class already being available.
+        object.__setattr__(self, "regs_read", self._init_regs_read())
+        object.__setattr__(self, "regs_written", self._init_regs_written())
         object.__setattr__(self, "tainted_regs", self._init_tainted_regs())
 
     def _init_op_str(self) -> str:
@@ -373,6 +377,49 @@ class Instruction:
             return False
 
         return all(self.operands.is_reg(i) for i in range(len(self.operands)))
+
+    def _init_regs_read(self) -> frozenset[RegisterDef]:
+        """Registers read by this instruction."""
+        try:
+            regs_read_ids, _ = self.cs_insn.regs_access()
+            reg_names = {self.cs_insn.reg_name(r) for r in regs_read_ids}
+        except CsError:
+            # Fallback: assume all non-destination operands are read.
+            #
+            # XXX: Some special cases like jumps.
+            reg_names = set()
+            for i in range(1, len(self.operands)):
+                if self.operands.is_reg(i):
+                    reg_names.add(self.operands.reg(i).name)
+
+        result = set()
+        for name in reg_names:
+            try:
+                result.add(self.arch.reg(name))
+            except Int3MissingEntityError:
+                logger.debug(f"Skipping unknown read register: {name}")
+        return frozenset(result)
+
+    def _init_regs_written(self) -> frozenset[RegisterDef]:
+        """Registers written by this instruction."""
+        try:
+            _, regs_write_ids = self.cs_insn.regs_access()
+            reg_names = {self.cs_insn.reg_name(r) for r in regs_write_ids}
+        except CsError:
+            # Fallback: assume first operand is written if it's a register.
+            #
+            # XXX: Some special cases like jumps.
+            reg_names = set()
+            if len(self.operands) >= 1 and self.operands.is_reg(0):
+                reg_names.add(self.operands.reg(0).name)
+
+        result = set()
+        for name in reg_names:
+            try:
+                result.add(self.arch.reg(name))
+            except Int3MissingEntityError:
+                logger.debug(f"Skipping unknown write register: {name}")
+        return frozenset(result)
 
     @staticmethod
     def summary(*insns: Instruction, indent: int = 0) -> list[str]:
