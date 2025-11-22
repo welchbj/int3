@@ -1,4 +1,3 @@
-from int3.architecture import Architectures
 from int3.codegen import Choice, Instruction
 
 from .abc import InstructionMutationPass
