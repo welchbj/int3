@@ -1,6 +1,6 @@
 import logging
 
-from int3.codegen import Choice, Instruction, Segment
+from int3.codegen import Choice, Instruction
 
 from .abc import InstructionMutationPass
 
@@ -28,7 +28,6 @@ class PureRegisterSourceSubstitutionInstructionPass(InstructionMutationPass):
     """
 
     def should_mutate(self, insn: Instruction) -> bool:
-        # Act on any instruction that has register operands.
         return any(insn.operands.is_reg(i) for i in range(len(insn.operands)))
 
     def mutate(self, insn: Instruction) -> Choice:
@@ -43,8 +42,18 @@ class PureRegisterSourceSubstitutionInstructionPass(InstructionMutationPass):
             if orig_reg not in insn.regs_read:
                 continue
 
+            # If we are interacting with a register list, we make sure we don't include
+            # duplicate registers in a mutated register list.
+            if insn.operands.is_reg_list(i):
+                skip_regs = set(insn.operands.reg_list(i))
+            else:
+                skip_regs = set()
+
             for scratch_reg in self.segment.scratch_regs_for_size(orig_reg.bit_size):
                 if scratch_reg == orig_reg:
+                    continue
+                elif scratch_reg in skip_regs:
+                    # Avoid duplicate registers in register lists.
                     continue
 
                 new_insn = insn.operands.replace(i, scratch_reg)

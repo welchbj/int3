@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import binascii
 import logging
+import re
 import textwrap
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal, cast
@@ -10,12 +11,17 @@ from capstone import CS_OP_IMM, CS_OP_MEM, CS_OP_REG, CsError, CsInsn
 
 from int3.architecture import Architecture, Architectures, RegisterDef
 from int3.assembly import assemble, disassemble
-from int3.errors import Int3CodeGenerationError, Int3MissingEntityError
+from int3.errors import (
+    Int3ArgumentError,
+    Int3CodeGenerationError,
+    Int3MissingEntityError,
+)
 
 if TYPE_CHECKING:
     from int3.platform import Triple
 
 type PointerDesc = Literal["", "byte ptr", "dword ptr", "qword ptr"]
+type ParsedToken = str | RegisterListOperand
 
 logger = logging.getLogger(__name__)
 
@@ -47,19 +53,113 @@ class MemoryOperand:
 
 
 @dataclass(frozen=True)
+class RegisterListOperand:
+    """Specialized operand type for ARM register lists (push/pop/ldm/stm)."""
+
+    regs: tuple[RegisterDef, ...]
+
+    def __str__(self) -> str:
+        sorted_regs = sorted(self.regs, key=self._reg_sort_key)
+        return "{" + ", ".join(str(r) for r in sorted_regs) + "}"
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
+
+    def __contains__(self, reg: RegisterDef) -> bool:
+        return reg in self.regs
+
+    def __iter__(self):
+        return iter(self.regs)
+
+    def __len__(self) -> int:
+        return len(self.regs)
+
+    def with_replaced(self, index: int, new_reg: RegisterDef) -> RegisterListOperand:
+        """Return a new instance with the register at the specified index replaced."""
+        regs = list(self.regs)
+        regs[index] = new_reg
+        return RegisterListOperand(tuple(regs))
+
+    @staticmethod
+    def _reg_sort_key(reg: RegisterDef) -> tuple[str, int]:
+        """Sort key for natural register ordering (r0 < r1 < ... < r9 < r10)."""
+        match = re.match(r"^([a-zA-Z]+)(\d+)$", reg.name)
+        if match:
+            return (match.group(1), int(match.group(2)))
+        return (reg.name, 9999)
+
+    @classmethod
+    def from_token(cls, token: str, arch: Architecture) -> RegisterListOperand:
+        """Parse a register list token like '{r0, r1, r2}'."""
+        if not (token.startswith("{") and token.endswith("}")):
+            raise Int3CodeGenerationError(f"Invalid register list token: {token}")
+
+        inner = token[1:-1]
+        reg_strs = [r.strip() for r in inner.split(",") if r.strip()]
+        regs = tuple(arch.reg(r) for r in reg_strs)
+        return cls(regs)
+
+
+@dataclass(frozen=True)
 class OperandView:
     """A view into an instruction's operands."""
 
     insn: Instruction
 
-    tokens: tuple[str, ...] = field(init=False, compare=False)
+    _parsed_tokens: tuple[ParsedToken, ...] = field(init=False, compare=False)
+    _operand_mapping: tuple[tuple[int, int | None], ...] = field(
+        init=False, compare=False
+    )
 
     def __post_init__(self):
-        object.__setattr__(
-            self,
-            "tokens",
-            tuple(token.strip() for token in self.insn.op_str.split(",")),
-        )
+        parsed_tokens, mapping = self._parse_operands(self.insn.op_str, self.arch)
+        object.__setattr__(self, "_parsed_tokens", parsed_tokens)
+        object.__setattr__(self, "_operand_mapping", mapping)
+
+    @property
+    def tokens(self) -> tuple[str, ...]:
+        """Raw strings of the tokens contained within this operand string."""
+        return tuple(str(t) for t in self._parsed_tokens)
+
+    @staticmethod
+    def _parse_operands(
+        op_str: str,
+        arch: Architecture,
+    ) -> tuple[tuple[ParsedToken, ...], tuple[tuple[int, int | None], ...]]:
+        raw_tokens: list[str] = []
+        current = ""
+        in_braces = False
+
+        for char in op_str:
+            if char == "{":
+                in_braces = True
+                current += char
+            elif char == "}":
+                in_braces = False
+                current += char
+            elif char == "," and not in_braces:
+                raw_tokens.append(current.strip())
+                current = ""
+            else:
+                current += char
+
+        if current.strip():
+            raw_tokens.append(current.strip())
+
+        parsed_tokens: list[ParsedToken] = []
+        mapping: list[tuple[int, int | None]] = []
+
+        for tok_idx, token in enumerate(raw_tokens):
+            if token.startswith("{") and token.endswith("}"):
+                reg_list = RegisterListOperand.from_token(token, arch)
+                parsed_tokens.append(reg_list)
+                for pos in range(len(reg_list)):
+                    mapping.append((tok_idx, pos))
+            else:
+                parsed_tokens.append(token)
+                mapping.append((tok_idx, None))
+
+        return tuple(parsed_tokens), tuple(mapping)
 
     @property
     def cs_insn(self) -> CsInsn:
@@ -98,9 +198,33 @@ class OperandView:
         return index
 
     def token(self, index: int) -> str:
-        """Retrieve the raw operand token."""
+        """Retrieve the raw operand token for the given operand index.
+
+        For register list operands, this returns the full register list token
+        (e.g., ``{r0, r1, r2}``), not the individual register.
+
+        """
         index = self._fix_index(index)
-        return self.tokens[index]
+        tok_idx, _ = self._operand_mapping[index]
+        return str(self._parsed_tokens[tok_idx])
+
+    def is_reg_list(self, index: int) -> bool:
+        """Whether the operand at the specific position is part of a register list."""
+        index = self._fix_index(index)
+        _, list_pos = self._operand_mapping[index]
+        return list_pos is not None
+
+    def reg_list(self, index: int) -> RegisterListOperand:
+        """Get the register list containing the operand at the specific position."""
+        index = self._fix_index(index)
+        tok_idx, list_pos = self._operand_mapping[index]
+        if list_pos is None:
+            raise Int3ArgumentError(
+                f"Operand at index {index} is not part of a register list"
+            )
+
+        token = self._parsed_tokens[tok_idx]
+        return cast(RegisterListOperand, token)
 
     def is_reg(self, index: int) -> bool:
         """Whether the operand at the specific position is a register."""
@@ -157,19 +281,38 @@ class OperandView:
     def replace(
         self, index: int, operand: int | str | RegisterDef | MemoryOperand
     ) -> Instruction:
-        """Replace the operand at the specified index with an immediate or register."""
+        """Replace the operand at the specified index with an immediate or register.
+
+        This method handles both regular operands and registers within ARM-style
+        register lists (e.g., replacing r8 in ``pop {r4, r8}``).
+
+        """
         index = self._fix_index(index)
+        tok_idx, list_pos = self._operand_mapping[index]
+        new_tokens: list[ParsedToken] = list(self._parsed_tokens)
 
-        if isinstance(operand, (str, RegisterDef)):
-            operand = self.arch.keystone_reg_prefix + str(operand)
+        if list_pos is not None:
+            # Replace within a register list.
+            if isinstance(operand, str):
+                operand = self.arch.reg(operand)
 
-        operands: list[int | str | RegisterDef | MemoryOperand] = [
-            token.strip() for token in self.insn.op_str.split(",")
-        ]
-        operands[index] = operand
+            if not isinstance(operand, RegisterDef):
+                raise Int3ArgumentError(
+                    f"Cannot replace register in list with {type(operand).__name__}"
+                )
+
+            token = cast(RegisterListOperand, new_tokens[tok_idx])
+            new_tokens[tok_idx] = token.with_replaced(list_pos, operand)
+        else:
+            if isinstance(operand, (str, RegisterDef)):
+                new_tokens[tok_idx] = self.arch.keystone_reg_prefix + str(operand)
+            elif isinstance(operand, MemoryOperand):
+                new_tokens[tok_idx] = str(operand)
+            else:
+                new_tokens[tok_idx] = str(operand)
 
         mnemonic = self._normalize_mnemonic(index, operand)
-        new_insn_str = f"{mnemonic} {', '.join(str(o) for o in operands)}"
+        new_insn_str = f"{mnemonic} {', '.join(str(t) for t in new_tokens)}"
 
         new_machine_code = assemble(arch=self.arch, assembly=new_insn_str)
         new_cs_insns = disassemble(arch=self.arch, machine_code=new_machine_code)

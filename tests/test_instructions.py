@@ -1,6 +1,13 @@
 import pytest
 
-from int3 import Architectures, Int3CodeGenerationError, MemoryOperand, Platform, Triple
+from int3 import (
+    Architectures,
+    Int3ArgumentError,
+    Int3CodeGenerationError,
+    MemoryOperand,
+    Platform,
+    Triple,
+)
 
 
 def test_triple_insn_factory():
@@ -295,3 +302,128 @@ def test_regs_read_and_write():
     assert Aarch64.reg("x2") in insn.regs_read
     assert Aarch64.reg("x0") in insn.regs_written
     assert Aarch64.reg("x0") not in insn.regs_read
+
+
+def test_arm_register_list_operand_access_as_individual_registers():
+    Arm = Architectures.Arm.value
+    linux_arm = Triple(Arm, Platform.Linux)
+
+    # Push/Pop: all operands come from the register list.
+    insn = linux_arm.one_insn_or_raise("push {r0, r1, r2}")
+    assert len(insn.operands) == 3
+    assert all(insn.operands.is_reg(i) for i in range(3))
+    assert insn.operands.reg(0) == Arm.reg("r0")
+    assert insn.operands.reg(-1) == Arm.reg("r2")
+
+    insn = linux_arm.one_insn_or_raise("pop {r4, r8}")
+    assert len(insn.operands) == 2
+    assert insn.operands.reg(0) == Arm.reg("r4")
+    assert insn.operands.reg(1) == Arm.reg("r8")
+
+    # LDM: base register (index 0) followed by register list (indices 1+).
+    insn = linux_arm.one_insn_or_raise("ldm r0, {r1, r2, r3}")
+    assert len(insn.operands) == 4
+    assert insn.operands.reg(0) == Arm.reg("r0")
+    assert insn.operands.reg(1) == Arm.reg("r1")
+    assert insn.operands.reg(3) == Arm.reg("r3")
+
+    # Single-register lists.
+    insn = linux_arm.one_insn_or_raise("pop {r4}")
+    assert len(insn.operands) == 1
+    assert insn.operands.reg(0) == Arm.reg("r4")
+
+
+def test_arm_register_list_operand_access_as_register_list():
+    Arm = Architectures.Arm.value
+    linux_arm = Triple(Arm, Platform.Linux)
+
+    insn = linux_arm.one_insn_or_raise("push {r0, r1, r2}")
+    reg_list = insn.operands.reg_list(0)
+
+    # Collection protocol.
+    assert len(reg_list) == 3
+    assert Arm.reg("r1") in reg_list
+    assert Arm.reg("r8") not in reg_list
+    assert list(reg_list) == [Arm.reg("r0"), Arm.reg("r1"), Arm.reg("r2")]
+
+    # Underlying tuple access.
+    assert reg_list.regs == (Arm.reg("r0"), Arm.reg("r1"), Arm.reg("r2"))
+
+    # String representation sorts registers.
+    assert str(reg_list) == "{r0, r1, r2}"
+
+    # Immutable replacement returns a new instance.
+    new_list = reg_list.with_replaced(1, Arm.reg("r5"))
+    assert new_list.regs == (Arm.reg("r0"), Arm.reg("r5"), Arm.reg("r2"))
+    assert reg_list.regs == (Arm.reg("r0"), Arm.reg("r1"), Arm.reg("r2"))
+
+
+def test_arm_register_list_identification():
+    Arm = Architectures.Arm.value
+    linux_arm = Triple(Arm, Platform.Linux)
+
+    # Push: all operands are in the register list.
+    insn = linux_arm.one_insn_or_raise("push {r0, r1}")
+    assert insn.operands.is_reg_list(0)
+    assert insn.operands.is_reg_list(1)
+
+    # reg_list() returns the RegisterListOperand with its own API.
+    reg_list = insn.operands.reg_list(0)
+    assert len(reg_list) == 2
+    assert Arm.reg("r0") in reg_list
+    assert Arm.reg("r8") not in reg_list
+
+    # LDM: base register is NOT in list, rest are.
+    insn = linux_arm.one_insn_or_raise("ldm r0, {r1, r2}")
+    assert not insn.operands.is_reg_list(0)
+    assert insn.operands.is_reg_list(1)
+    assert insn.operands.is_reg_list(2)
+
+    # Regular instructions have no register lists.
+    insn = linux_arm.one_insn_or_raise("mov r0, r1")
+    assert not insn.operands.is_reg_list(0)
+    assert not insn.operands.is_reg_list(1)
+
+    with pytest.raises(Int3ArgumentError):
+        insn.operands.reg_list(0)
+
+
+def test_arm_register_list_replacement():
+    Arm = Architectures.Arm.value
+    linux_arm = Triple(Arm, Platform.Linux)
+
+    # Replace r1 with r5 in {r0, r1, r2} -> re-sorts to {r0, r2, r5}.
+    insn = linux_arm.one_insn_or_raise("push {r0, r1, r2}")
+    new_insn = insn.operands.replace(1, "r5")
+    assert new_insn.operands.reg(0) == Arm.reg("r0")
+    assert new_insn.operands.reg(1) == Arm.reg("r2")
+    assert new_insn.operands.reg(2) == Arm.reg("r5")
+
+    # Natural ordering: r2 < r10 (numeric, not lexicographic).
+    new_insn = insn.operands.replace(1, "r10")
+    assert new_insn.operands.reg(1) == Arm.reg("r2")
+    assert new_insn.operands.reg(2) == Arm.reg("sl")  # Capstone alias for r10
+
+    # Pop replacement.
+    insn = linux_arm.one_insn_or_raise("pop {r4, r8}")
+    new_insn = insn.operands.replace(1, "r5")
+    assert new_insn.operands.reg(0) == Arm.reg("r4")
+    assert new_insn.operands.reg(1) == Arm.reg("r5")
+
+    # LDM: replace base register (index 0, not in list).
+    insn = linux_arm.one_insn_or_raise("ldm r0, {r1, r2}")
+    new_insn = insn.operands.replace(0, "r3")
+    assert new_insn.operands.reg(0) == Arm.reg("r3")
+    assert new_insn.operands.reg(1) == Arm.reg("r1")
+
+    # LDM: replace within list (index 2) -> re-sorts to {r1, r3, r4}.
+    insn = linux_arm.one_insn_or_raise("ldm r0, {r1, r2, r3}")
+    new_insn = insn.operands.replace(2, "r4")
+    assert new_insn.operands.reg(1) == Arm.reg("r1")
+    assert new_insn.operands.reg(2) == Arm.reg("r3")
+    assert new_insn.operands.reg(3) == Arm.reg("r4")
+
+    # Single-register list replacement.
+    insn = linux_arm.one_insn_or_raise("pop {r0}")
+    new_insn = insn.operands.replace(0, "r4")
+    assert new_insn.operands.reg(0) == Arm.reg("r4")
