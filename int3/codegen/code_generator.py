@@ -501,20 +501,9 @@ class CodeGenerator:
         """ARM-specific stack transfer options using multi-register push/pop.
 
         ARM's multi-register push/pop instructions use a bitmap encoding that
-        can avoid null bytes in certain register combinations. This provides
-        two transfer patterns:
+        can avoid null bytes in certain register combinations, providing another
+        enticing option for moving values into registers through the stack.
 
-        1. High-to-low transfer (e.g., r8 -> r0):
-           str src, [sp, #-4]!   ; push src value
-           str src, [sp, #-4]!   ; push src value again (fills both pop slots)
-           pop {dest, src}       ; dest gets src's value, src restored
-
-        2. Low-to-high transfer (e.g., r0 -> r8):
-           push {src, dest}      ; save src to stack
-           ldr dest, [sp], #8    ; dest = src's value, restore sp
-
-        Both patterns are offered as alternatives; the Choice system selects
-        the one without bad bytes based on the specific register combination.
         """
         if isinstance(src, str):
             src = self.arch.reg(src)
