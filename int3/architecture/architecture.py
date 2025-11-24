@@ -580,7 +580,10 @@ class Architectures(Enum):
         capstone_mode=CS_MODE_ARM + CS_MODE_LITTLE_ENDIAN,
         reg_cls=Registers.Arm,
         reg_clobber_groups=(
+            frozenset({Registers.Arm.r9, Registers.Arm.sb}),
+            frozenset({Registers.Arm.r10, Registers.Arm.sl}),
             frozenset({Registers.Arm.r11, Registers.Arm.fp}),
+            frozenset({Registers.Arm.r12, Registers.Arm.ip}),
             frozenset({Registers.Arm.r13, Registers.Arm.sp}),
             frozenset({Registers.Arm.r14, Registers.Arm.lr}),
             frozenset({Registers.Arm.r15, Registers.Arm.pc}),

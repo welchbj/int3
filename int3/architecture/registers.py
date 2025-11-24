@@ -210,7 +210,11 @@ class ArmRegisters:
     r14 = RegisterDef(name="r14", bit_size=32)
     r15 = RegisterDef(name="r15", bit_size=32)
 
+    # AAPCS aliases
+    sb = RegisterDef(name="sb", bit_size=32)  # Static base (r9)
+    sl = RegisterDef(name="sl", bit_size=32)  # Stack limit (r10)
     fp = RegisterDef(name="fp", bit_size=32)  # Frame pointer (r11)
+    ip = RegisterDef(name="ip", bit_size=32)  # Intra-procedure scratch (r12)
     sp = RegisterDef(name="sp", bit_size=32)  # Stack pointer (r13)
     lr = RegisterDef(name="lr", bit_size=32)  # Link register (r14)
     pc = RegisterDef(name="pc", bit_size=32)  # Program counter (r15)
