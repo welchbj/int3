@@ -16,6 +16,7 @@ class RegisterDef:
     name: str
     bit_size: int
     llvm_alt_name: str | None = None
+    reg_num: int | None = None
 
     def __str__(self) -> str:
         return self.name
@@ -193,31 +194,31 @@ class MipsRegisters:
 
 
 class ArmRegisters:
-    r0 = RegisterDef(name="r0", bit_size=32)
-    r1 = RegisterDef(name="r1", bit_size=32)
-    r2 = RegisterDef(name="r2", bit_size=32)
-    r3 = RegisterDef(name="r3", bit_size=32)
-    r4 = RegisterDef(name="r4", bit_size=32)
-    r5 = RegisterDef(name="r5", bit_size=32)
-    r6 = RegisterDef(name="r6", bit_size=32)
-    r7 = RegisterDef(name="r7", bit_size=32)
-    r8 = RegisterDef(name="r8", bit_size=32)
-    r9 = RegisterDef(name="r9", bit_size=32)
-    r10 = RegisterDef(name="r10", bit_size=32)
-    r11 = RegisterDef(name="r11", bit_size=32)
-    r12 = RegisterDef(name="r12", bit_size=32)
-    r13 = RegisterDef(name="r13", bit_size=32)
-    r14 = RegisterDef(name="r14", bit_size=32)
-    r15 = RegisterDef(name="r15", bit_size=32)
+    r0 = RegisterDef(name="r0", bit_size=32, reg_num=0)
+    r1 = RegisterDef(name="r1", bit_size=32, reg_num=1)
+    r2 = RegisterDef(name="r2", bit_size=32, reg_num=2)
+    r3 = RegisterDef(name="r3", bit_size=32, reg_num=3)
+    r4 = RegisterDef(name="r4", bit_size=32, reg_num=4)
+    r5 = RegisterDef(name="r5", bit_size=32, reg_num=5)
+    r6 = RegisterDef(name="r6", bit_size=32, reg_num=6)
+    r7 = RegisterDef(name="r7", bit_size=32, reg_num=7)
+    r8 = RegisterDef(name="r8", bit_size=32, reg_num=8)
+    r9 = RegisterDef(name="r9", bit_size=32, reg_num=9)
+    r10 = RegisterDef(name="r10", bit_size=32, reg_num=10)
+    r11 = RegisterDef(name="r11", bit_size=32, reg_num=11)
+    r12 = RegisterDef(name="r12", bit_size=32, reg_num=12)
+    r13 = RegisterDef(name="r13", bit_size=32, reg_num=13)
+    r14 = RegisterDef(name="r14", bit_size=32, reg_num=14)
+    r15 = RegisterDef(name="r15", bit_size=32, reg_num=15)
 
     # AAPCS aliases
-    sb = RegisterDef(name="sb", bit_size=32)  # Static base (r9)
-    sl = RegisterDef(name="sl", bit_size=32)  # Stack limit (r10)
-    fp = RegisterDef(name="fp", bit_size=32)  # Frame pointer (r11)
-    ip = RegisterDef(name="ip", bit_size=32)  # Intra-procedure scratch (r12)
-    sp = RegisterDef(name="sp", bit_size=32)  # Stack pointer (r13)
-    lr = RegisterDef(name="lr", bit_size=32)  # Link register (r14)
-    pc = RegisterDef(name="pc", bit_size=32)  # Program counter (r15)
+    sb = RegisterDef(name="sb", bit_size=32, reg_num=9)
+    sl = RegisterDef(name="sl", bit_size=32, reg_num=10)
+    fp = RegisterDef(name="fp", bit_size=32, reg_num=11)
+    ip = RegisterDef(name="ip", bit_size=32, reg_num=12)
+    sp = RegisterDef(name="sp", bit_size=32, reg_num=13)
+    lr = RegisterDef(name="lr", bit_size=32, reg_num=14)
+    pc = RegisterDef(name="pc", bit_size=32, reg_num=15)
 
 
 class Aarch64Registers:

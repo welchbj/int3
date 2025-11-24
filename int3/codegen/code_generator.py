@@ -20,6 +20,7 @@ from int3.factor import (
 )
 
 from .choice import Choice, FluidSegment, Option
+from .instruction import RegisterListOperand
 from .segment import Segment
 
 if TYPE_CHECKING:
@@ -261,8 +262,8 @@ class CodeGenerator:
                     ),
                 )
             case Architectures.Arm.value:
-                regs_str = "{" + ", ".join(self.f(reg) for reg in regs) + "}"
-                return self.choice(f"push {regs_str}")
+                reg_list = RegisterListOperand.of(self.arch, *regs)
+                return self.choice(f"push {reg_list}")
             case Architectures.Aarch64.value:
                 if len(regs) != 1:
                     raise Int3CodeGenerationError(
@@ -300,8 +301,8 @@ class CodeGenerator:
                     ),
                 )
             case Architectures.Arm.value:
-                regs_str = "{" + ", ".join(self.f(reg) for reg in regs) + "}"
-                return self.choice(f"pop {regs_str}")
+                reg_list = RegisterListOperand.of(self.arch, *regs)
+                return self.choice(f"pop {reg_list}")
             case Architectures.Aarch64.value:
                 if len(regs) != 1:
                     raise Int3CodeGenerationError(
@@ -520,20 +521,16 @@ class CodeGenerator:
 
         sp = self.arch.reg("sp")
 
-        # ARM requires registers in ascending order for push/pop.
-        # Sort by register name to ensure correct order (r0 < r1 < ... < r8 < r9).
-        regs_sorted = sorted([dest, src], key=lambda r: r.name)
-
         return [
             # Pattern 1: High-to-low transfer via double store + multi-reg pop
             self.segment(
                 self.store(src, sp, offset=-4, writeback=True),
                 self.store(src, sp, offset=-4, writeback=True),
-                self.pop(*regs_sorted),
+                self.pop(dest, src),
             ),
             # Pattern 2: Low-to-high transfer via multi-reg push + load
             self.segment(
-                self.push(*regs_sorted),
+                self.push(dest, src),
                 self.load(dest, sp, offset=8, writeback=True),
             ),
         ]

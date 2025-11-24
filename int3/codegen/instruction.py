@@ -81,12 +81,26 @@ class RegisterListOperand:
         return RegisterListOperand(tuple(regs))
 
     @staticmethod
-    def _reg_sort_key(reg: RegisterDef) -> tuple[str, int]:
-        """Sort key for natural register ordering (r0 < r1 < ... < r9 < r10)."""
+    def _reg_sort_key(reg: RegisterDef) -> tuple[int, str, int]:
+        """Sort key for natural register ordering (r0 < r1 < ... < r9 < r10).
+
+        Uses reg_num when available for canonical ordering of aliased registers.
+
+        """
+        if reg.reg_num is not None:
+            return (0, "", reg.reg_num)
+
         match = re.match(r"^([a-zA-Z]+)(\d+)$", reg.name)
         if match:
-            return (match.group(1), int(match.group(2)))
-        return (reg.name, 9999)
+            return (1, match.group(1), int(match.group(2)))
+
+        return (2, reg.name, 0)
+
+    @classmethod
+    def of(cls, arch: Architecture, *regs: RegisterDef | str) -> RegisterListOperand:
+        """Create a register list from RegisterDef instances or string names."""
+        normalized = tuple(arch.reg(r) if isinstance(r, str) else r for r in regs)
+        return cls(normalized)
 
     @classmethod
     def from_token(cls, token: str, arch: Architecture) -> RegisterListOperand:
