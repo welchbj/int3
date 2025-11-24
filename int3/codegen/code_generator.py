@@ -363,6 +363,82 @@ class CodeGenerator:
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
+    def store(
+        self,
+        src: RegType,
+        base: RegType,
+        offset: int = 0,
+        writeback: bool = False,
+    ) -> Choice:
+        """Store register to memory at [base + offset].
+
+        With ``writeback=True``, uses pre-indexed addressing: stores at
+        ``base + offset``, then updates ``base = base + offset``. Only
+        supported on ARM/AArch64.
+
+        """
+        match self.arch:
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                if writeback:
+                    return self.choice(
+                        f"str {self.f(src)}, [{self.f(base)}, #{offset}]!"
+                    )
+                else:
+                    return self.choice(
+                        f"str {self.f(src)}, [{self.f(base)}, #{offset}]"
+                    )
+            case Architectures.x86.value | Architectures.x86_64.value:
+                if writeback:
+                    raise Int3CodeGenerationError("x86 does not support writeback")
+
+                return self.choice(f"mov [{self.f(base)} {offset:+}], {self.f(src)}")
+            case Architectures.Mips.value:
+                if writeback:
+                    raise Int3CodeGenerationError("MIPS does not support writeback")
+
+                return self.choice(f"sw {self.f(src)}, {offset}({self.f(base)})")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
+
+    def load(
+        self,
+        dest: RegType,
+        base: RegType,
+        offset: int = 0,
+        writeback: bool = False,
+    ) -> Choice:
+        """Load register from memory.
+
+        Without writeback, loads from ``[base + offset]``.
+
+        With ``writeback=True``, uses post-indexed addressing: loads from
+        ``base``, then updates ``base = base + offset``. Only supported on
+        ARM/AArch64.
+
+        """
+        match self.arch:
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                if writeback:
+                    return self.choice(
+                        f"ldr {self.f(dest)}, [{self.f(base)}], #{offset}"
+                    )
+                else:
+                    return self.choice(
+                        f"ldr {self.f(dest)}, [{self.f(base)}, #{offset}]"
+                    )
+            case Architectures.x86.value | Architectures.x86_64.value:
+                if writeback:
+                    raise Int3CodeGenerationError("x86 does not support writeback")
+
+                return self.choice(f"mov {self.f(dest)}, [{self.f(base)} {offset:+}]")
+            case Architectures.Mips.value:
+                if writeback:
+                    raise Int3CodeGenerationError("MIPS does not support writeback")
+
+                return self.choice(f"lw {self.f(dest)}, {offset}({self.f(base)})")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
+
     def ll_clear(self, dest: RegisterDef) -> Choice:
         """Clear a register."""
         # TODO: Incorporate zero register options.
@@ -395,6 +471,12 @@ class CodeGenerator:
                 )
             )
 
+            # ARM: multi-register push/pop stack transfer patterns.
+            # These provide alternative encodings that can avoid null bytes
+            # when transferring between low (r0-r7) and high (r8+) registers.
+            if self.arch == Architectures.Arm.value:
+                options.extend(self._arm_stack_transfer_options(dest, src))
+
         # For small (2^n - 1) immediates like 1, 3, 7, etc., use clear+not+lsr.
         # This provides an alternative encoding that may avoid bad bytes.
         if isinstance(src, int):
@@ -411,6 +493,50 @@ class CodeGenerator:
                     break
 
         return self.choice(*options)
+
+    def _arm_stack_transfer_options(
+        self, dest: RegisterDef, src: RegType
+    ) -> list[FluidSegment]:
+        """ARM-specific stack transfer options using multi-register push/pop.
+
+        ARM's multi-register push/pop instructions use a bitmap encoding that
+        can avoid null bytes in certain register combinations. This provides
+        two transfer patterns:
+
+        1. High-to-low transfer (e.g., r8 -> r0):
+           str src, [sp, #-4]!   ; push src value
+           str src, [sp, #-4]!   ; push src value again (fills both pop slots)
+           pop {dest, src}       ; dest gets src's value, src restored
+
+        2. Low-to-high transfer (e.g., r0 -> r8):
+           push {src, dest}      ; save src to stack
+           ldr dest, [sp], #8    ; dest = src's value, restore sp
+
+        Both patterns are offered as alternatives; the Choice system selects
+        the one without bad bytes based on the specific register combination.
+        """
+        if isinstance(src, str):
+            src = self.arch.reg(src)
+
+        sp = self.arch.reg("sp")
+
+        # ARM requires registers in ascending order for push/pop.
+        # Sort by register name to ensure correct order (r0 < r1 < ... < r8 < r9).
+        regs_sorted = sorted([dest, src], key=lambda r: r.name)
+
+        return [
+            # Pattern 1: High-to-low transfer via double store + multi-reg pop
+            self.segment(
+                self.store(src, sp, offset=-4, writeback=True),
+                self.store(src, sp, offset=-4, writeback=True),
+                self.pop(*regs_sorted),
+            ),
+            # Pattern 2: Low-to-high transfer via multi-reg push + load
+            self.segment(
+                self.push(*regs_sorted),
+                self.load(dest, sp, offset=8, writeback=True),
+            ),
+        ]
 
     def hl_put_imm(
         self,
