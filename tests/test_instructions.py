@@ -9,6 +9,10 @@ from int3 import (
     Triple,
 )
 
+# =============================================================================
+# Instruction Factory and Parsing
+# =============================================================================
+
 
 def test_triple_insn_factory():
     x86_64 = Architectures.x86_64.value
@@ -136,6 +140,11 @@ def test_instruction_equivalence():
     assert push_rax_one == push_rax_two
 
 
+# =============================================================================
+# Operand Access
+# =============================================================================
+
+
 def test_access_operand_out_of_bounds():
     linux_x86_64 = Triple.from_str("x86_64-linux")
 
@@ -161,6 +170,24 @@ def test_access_operand_via_negative_index():
 
     with pytest.raises(Int3CodeGenerationError):
         insn.operands.token(-3)
+
+
+def test_only_register_operand_detection():
+    Aarch64 = Architectures.Aarch64.value
+    aarch64_triple = Triple(Aarch64, Platform.Linux)
+
+    for case in ["sub x0, x1, x2", "br x9"]:
+        insn = aarch64_triple.one_insn_or_raise(case)
+        assert insn.has_only_register_operands()
+
+    for case in ["ret", "mov x0, #0"]:
+        insn = aarch64_triple.one_insn_or_raise(case)
+        assert not insn.has_only_register_operands()
+
+
+# =============================================================================
+# Operand Modification
+# =============================================================================
 
 
 def test_patch_immediates_and_registers():
@@ -189,6 +216,11 @@ def test_patch_memory_operand():
     assert str(insn).startswith("mov qword ptr [rax + 0x64], 0xdead")
 
 
+# =============================================================================
+# Memory Operands
+# =============================================================================
+
+
 def test_memory_operand_str():
     x86_64 = Architectures.x86_64.value
     rax = x86_64.reg("rax")
@@ -199,75 +231,102 @@ def test_memory_operand_str():
     assert str(MemoryOperand(rax, 1, "byte ptr")) == "byte ptr [rax + 1]"
 
 
-def test_only_register_operand_detection():
+def test_mips_memory_operand():
+    Mips = Architectures.Mips.value
+    linux_mips = Triple(Mips, Platform.Linux)
+
+    # Load instruction with MIPS-style offset(base) syntax.
+    insn = linux_mips.one_insn_or_raise("lw $t0, 0x10($sp)")
+    assert insn.is_load()
+    assert not insn.is_store()
+    assert insn.has_memory_operand()
+    assert insn.operands.is_mem(1)
+    mem = insn.memory_operand()
+    assert mem.reg == Mips.reg("sp")
+    assert mem.offset == 0x10
+    assert mem.ptr_desc == ""
+
+    # Store instruction with zero offset.
+    insn = linux_mips.one_insn_or_raise("sw $ra, 0($sp)")
+    assert insn.is_store()
+    assert not insn.is_load()
+    assert insn.has_memory_operand()
+    mem = insn.memory_operand()
+    assert mem.reg == Mips.reg("sp")
+    assert mem.offset == 0
+
+    # Store with larger offset.
+    insn = linux_mips.one_insn_or_raise("sw $a0, 0x100($t9)")
+    mem = insn.memory_operand()
+    assert mem.reg == Mips.reg("t9")
+    assert mem.offset == 0x100
+
+
+def test_arm_memory_operand():
+    Arm = Architectures.Arm.value
+    linux_arm = Triple(Arm, Platform.Linux)
+
+    # Load instruction with ARM-style [base, #offset] syntax.
+    insn = linux_arm.one_insn_or_raise("ldr r0, [sp, #0x10]")
+    assert insn.is_load()
+    assert not insn.is_store()
+    assert insn.has_memory_operand()
+    assert insn.operands.is_mem(1)
+    mem = insn.memory_operand()
+    assert mem.reg == Arm.reg("sp")
+    assert mem.offset == 0x10
+    assert mem.ptr_desc == ""
+
+    # Store instruction with zero offset.
+    insn = linux_arm.one_insn_or_raise("str lr, [sp]")
+    assert insn.is_store()
+    assert not insn.is_load()
+    assert insn.has_memory_operand()
+    mem = insn.memory_operand()
+    assert mem.reg == Arm.reg("sp")
+    assert mem.offset == 0
+
+    # Store with negative offset.
+    insn = linux_arm.one_insn_or_raise("str r0, [r1, #-4]")
+    mem = insn.memory_operand()
+    assert mem.reg == Arm.reg("r1")
+    assert mem.offset == -4
+
+
+def test_aarch64_memory_operand():
     Aarch64 = Architectures.Aarch64.value
-    aarch64_triple = Triple(Aarch64, Platform.Linux)
+    linux_aarch64 = Triple(Aarch64, Platform.Linux)
 
-    for case in ["sub x0, x1, x2", "br x9"]:
-        insn = aarch64_triple.one_insn_or_raise(case)
-        assert insn.has_only_register_operands()
+    # Load instruction with AArch64-style [base, #offset] syntax.
+    insn = linux_aarch64.one_insn_or_raise("ldr x0, [sp, #0x10]")
+    assert insn.is_load()
+    assert not insn.is_store()
+    assert insn.has_memory_operand()
+    assert insn.operands.is_mem(1)
+    mem = insn.memory_operand()
+    assert mem.reg == Aarch64.reg("sp")
+    assert mem.offset == 0x10
+    assert mem.ptr_desc == ""
 
-    for case in ["ret", "mov x0, #0"]:
-        insn = aarch64_triple.one_insn_or_raise(case)
-        assert not insn.has_only_register_operands()
+    # Store instruction with zero offset.
+    insn = linux_aarch64.one_insn_or_raise("str x30, [sp]")
+    assert insn.is_store()
+    assert not insn.is_load()
+    assert insn.has_memory_operand()
+    mem = insn.memory_operand()
+    assert mem.reg == Aarch64.reg("sp")
+    assert mem.offset == 0
 
-
-def test_mips_mnemonic_normalization_imm_to_reg():
-    Mips = Architectures.Mips.value
-    linux_mips = Triple(Mips, Platform.Linux)
-
-    # addiu to addu
-    insn = linux_mips.one_insn_or_raise("addiu $at, $at, 100")
-    insn = insn.operands.replace(-1, "s6")
-    assert insn.mnemonic == "addu"
-    assert insn.operands.reg(-1) == Mips.reg("s6")
-
-    # ori to or
-    insn = linux_mips.one_insn_or_raise("ori $t0, $t1, 0xff")
-    insn = insn.operands.replace(-1, "t2")
-    assert insn.mnemonic == "or"
-    assert insn.operands.reg(-1) == Mips.reg("t2")
-
-    # andi to and
-    insn = linux_mips.one_insn_or_raise("andi $v0, $v1, 0x10")
-    insn = insn.operands.replace(-1, "a0")
-    assert insn.mnemonic == "and"
-    assert insn.operands.reg(-1) == Mips.reg("a0")
-
-    # xori to xor
-    insn = linux_mips.one_insn_or_raise("xori $s0, $s1, 42")
-    insn = insn.operands.replace(-1, "s2")
-    assert insn.mnemonic == "xor"
-    assert insn.operands.reg(-1) == Mips.reg("s2")
+    # Store with larger offset.
+    insn = linux_aarch64.one_insn_or_raise("str x0, [x1, #0x100]")
+    mem = insn.memory_operand()
+    assert mem.reg == Aarch64.reg("x1")
+    assert mem.offset == 0x100
 
 
-def test_mips_mnemonic_normalization_reg_to_imm():
-    Mips = Architectures.Mips.value
-    linux_mips = Triple(Mips, Platform.Linux)
-
-    # addu to addiu
-    insn = linux_mips.one_insn_or_raise("addu $t0, $t1, $t2")
-    insn = insn.operands.replace(-1, 100)
-    assert insn.mnemonic == "addiu"
-    assert insn.operands.imm(-1) == 100
-
-    # or to ori
-    insn = linux_mips.one_insn_or_raise("or $v0, $v1, $a0")
-    insn = insn.operands.replace(-1, 0xFF)
-    assert insn.mnemonic == "ori"
-    assert insn.operands.imm(-1) == 0xFF
-
-    # and to andi
-    insn = linux_mips.one_insn_or_raise("and $s0, $s1, $s2")
-    insn = insn.operands.replace(-1, 0x10)
-    assert insn.mnemonic == "andi"
-    assert insn.operands.imm(-1) == 0x10
-
-    # xor to xori
-    insn = linux_mips.one_insn_or_raise("xor $a0, $a1, $a2")
-    insn = insn.operands.replace(-1, 42)
-    assert insn.mnemonic == "xori"
-    assert insn.operands.imm(-1) == 42
+# =============================================================================
+# Register Read/Write Tracking
+# =============================================================================
 
 
 def test_regs_read_and_write():
@@ -302,6 +361,11 @@ def test_regs_read_and_write():
     assert Aarch64.reg("x2") in insn.regs_read
     assert Aarch64.reg("x0") in insn.regs_written
     assert Aarch64.reg("x0") not in insn.regs_read
+
+
+# =============================================================================
+# ARM Register Lists
+# =============================================================================
 
 
 def test_arm_register_list_operand_access_as_individual_registers():
@@ -427,3 +491,66 @@ def test_arm_register_list_replacement():
     insn = linux_arm.one_insn_or_raise("pop {r0}")
     new_insn = insn.operands.replace(0, "r4")
     assert new_insn.operands.reg(0) == Arm.reg("r4")
+
+
+# =============================================================================
+# MIPS Mnemonic Normalization
+# =============================================================================
+
+
+def test_mips_mnemonic_normalization_imm_to_reg():
+    Mips = Architectures.Mips.value
+    linux_mips = Triple(Mips, Platform.Linux)
+
+    # addiu to addu
+    insn = linux_mips.one_insn_or_raise("addiu $at, $at, 100")
+    insn = insn.operands.replace(-1, "s6")
+    assert insn.mnemonic == "addu"
+    assert insn.operands.reg(-1) == Mips.reg("s6")
+
+    # ori to or
+    insn = linux_mips.one_insn_or_raise("ori $t0, $t1, 0xff")
+    insn = insn.operands.replace(-1, "t2")
+    assert insn.mnemonic == "or"
+    assert insn.operands.reg(-1) == Mips.reg("t2")
+
+    # andi to and
+    insn = linux_mips.one_insn_or_raise("andi $v0, $v1, 0x10")
+    insn = insn.operands.replace(-1, "a0")
+    assert insn.mnemonic == "and"
+    assert insn.operands.reg(-1) == Mips.reg("a0")
+
+    # xori to xor
+    insn = linux_mips.one_insn_or_raise("xori $s0, $s1, 42")
+    insn = insn.operands.replace(-1, "s2")
+    assert insn.mnemonic == "xor"
+    assert insn.operands.reg(-1) == Mips.reg("s2")
+
+
+def test_mips_mnemonic_normalization_reg_to_imm():
+    Mips = Architectures.Mips.value
+    linux_mips = Triple(Mips, Platform.Linux)
+
+    # addu to addiu
+    insn = linux_mips.one_insn_or_raise("addu $t0, $t1, $t2")
+    insn = insn.operands.replace(-1, 100)
+    assert insn.mnemonic == "addiu"
+    assert insn.operands.imm(-1) == 100
+
+    # or to ori
+    insn = linux_mips.one_insn_or_raise("or $v0, $v1, $a0")
+    insn = insn.operands.replace(-1, 0xFF)
+    assert insn.mnemonic == "ori"
+    assert insn.operands.imm(-1) == 0xFF
+
+    # and to andi
+    insn = linux_mips.one_insn_or_raise("and $s0, $s1, $s2")
+    insn = insn.operands.replace(-1, 0x10)
+    assert insn.mnemonic == "andi"
+    assert insn.operands.imm(-1) == 0x10
+
+    # xor to xori
+    insn = linux_mips.one_insn_or_raise("xor $a0, $a1, $a2")
+    insn = insn.operands.replace(-1, 42)
+    assert insn.mnemonic == "xori"
+    assert insn.operands.imm(-1) == 42

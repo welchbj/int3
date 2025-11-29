@@ -283,6 +283,9 @@ class OperandView:
             ptr_desc = "dword ptr"
         elif mem_token.startswith("byte ptr"):
             ptr_desc = "byte ptr"
+        elif "(" in mem_token and mem_token.endswith(")"):
+            # MIPS-style: offset(base)
+            ptr_desc = ""
         else:
             raise Int3CodeGenerationError(f"Unexpected memory token: {mem_token}")
 
@@ -528,6 +531,76 @@ class Instruction:
 
     def is_nop(self) -> bool:
         return self.mnemonic == "nop"
+
+    def _memory_operand_index(self) -> int | None:
+        """Return the index of the memory operand, or None if none exists."""
+        for i in range(len(self.operands)):
+            if self.operands.is_mem(i):
+                return i
+        return None
+
+    def has_memory_operand(self) -> bool:
+        """Whether this instruction has a memory operand."""
+        return self._memory_operand_index() is not None
+
+    def memory_operand(self) -> MemoryOperand:
+        """Get the memory operand of this instruction."""
+        idx = self._memory_operand_index()
+        if idx is None:
+            raise Int3ArgumentError("Instruction has no memory operand")
+        return self.operands.mem(idx)
+
+    def is_load(self) -> bool:
+        """Check if this instruction loads from memory."""
+        mem_idx = self._memory_operand_index()
+        if mem_idx is None:
+            return False
+        elif self.mnemonic == "lea":
+            return False
+
+        match self.arch:
+            case Architectures.x86.value | Architectures.x86_64.value:
+                return mem_idx != 0
+            case _:
+                return self.mnemonic.startswith("ldr") or self.mnemonic in (
+                    "lw",
+                    "lb",
+                    "lh",
+                    "lbu",
+                    "lhu",
+                    "ld",
+                )
+
+    def is_store(self) -> bool:
+        """Check if this instruction stores to memory."""
+        mem_idx = self._memory_operand_index()
+        if mem_idx is None:
+            return False
+        elif self.mnemonic == "lea":
+            return False
+
+        match self.arch:
+            case Architectures.x86.value | Architectures.x86_64.value:
+                return mem_idx == 0
+            case _:
+                mn = self.mnemonic
+                return self.mnemonic.startswith("str") or self.mnemonic in (
+                    "sw",
+                    "sb",
+                    "sh",
+                    "sd",
+                )
+
+    def is_pre_indexed(self) -> bool:
+        """Check if this instruction uses pre-indexed addressing with writeback."""
+        return (self.is_load() or self.is_store()) and "!" in self.op_str
+
+    def is_post_indexed(self) -> bool:
+        """Check if this instruction uses post-indexed addressing with writeback."""
+        if not (self.is_load() or self.is_store()):
+            return False
+        else:
+            return len(self.operands) == 3 and self.operands.is_imm(2)
 
     def has_only_register_operands(self) -> bool:
         if len(self.operands) == 0:

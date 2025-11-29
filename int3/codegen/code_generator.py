@@ -165,31 +165,105 @@ class CodeGenerator:
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
-    def add(self, one: RegType, two: ImmType | RegType) -> Choice:
+    def _add_inplace(self, dest: RegType, src: ImmType | RegType) -> Choice:
+        """Two-operand add: dest = dest + src."""
         match self.arch:
             case (
                 Architectures.x86_64.value
                 | Architectures.x86.value
                 | Architectures.Mips.value
             ):
-                return self.choice(f"add {self.f(one)}, {self.f(two)}")
+                return self.choice(f"add {self.f(dest)}, {self.f(src)}")
             case Architectures.Arm.value | Architectures.Aarch64.value:
-                return self.choice(f"add {self.f(one)}, {self.f(one)}, {self.f(two)}")
+                return self.choice(f"add {self.f(dest)}, {self.f(dest)}, {self.f(src)}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
 
-    def sub(self, one: RegType, two: ImmType | RegType) -> Choice:
+    def _add_into(self, dest: RegType, src1: RegType, src2: RegType) -> Choice:
+        """Three-operand add: dest = src1 + src2."""
+        match self.arch:
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.choice(
+                    f"add {self.f(dest)}, {self.f(src1)}, {self.f(src2)}"
+                )
+            case Architectures.Mips.value:
+                return self.choice(
+                    f"addu {self.f(dest)}, {self.f(src1)}, {self.f(src2)}"
+                )
+            case Architectures.x86_64.value | Architectures.x86.value:
+                return self.choice(
+                    f"lea {self.f(dest)}, [{self.f(src1)} + {self.f(src2)}]"
+                )
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
+
+    def add(
+        self,
+        dest: RegType,
+        src_or_imm: ImmType | RegType,
+        src2: RegType | None = None,
+    ) -> Choice:
+        """Add two values into dest.
+
+        Multiple variants are supported:
+
+        - Two-operand form: ``add(dest, src)`` computes ``dest = dest + src``.
+        - Three-operand form: ``add(dest, src1, src2)`` computes ``dest = src1 + src2``.
+
+        """
+        if src2 is None:
+            return self._add_inplace(dest, src_or_imm)
+        else:
+            return self._add_into(dest, src_or_imm, src2)
+
+    def _sub_inplace(self, dest: RegType, src: ImmType | RegType) -> Choice:
+        """Two-operand sub: dest = dest - src."""
         match self.arch:
             case (
                 Architectures.x86_64.value
                 | Architectures.x86.value
                 | Architectures.Mips.value
             ):
-                return self.choice(f"sub {self.f(one)}, {self.f(two)}")
+                return self.choice(f"sub {self.f(dest)}, {self.f(src)}")
             case Architectures.Arm.value | Architectures.Aarch64.value:
-                return self.choice(f"sub {self.f(one)}, {self.f(one)}, {self.f(two)}")
+                return self.choice(f"sub {self.f(dest)}, {self.f(dest)}, {self.f(src)}")
             case _:
                 raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
+
+    def _sub_into(self, dest: RegType, src1: RegType, src2: RegType) -> Choice:
+        """Three-operand sub: dest = src1 - src2."""
+        match self.arch:
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                return self.choice(
+                    f"sub {self.f(dest)}, {self.f(src1)}, {self.f(src2)}"
+                )
+            case Architectures.Mips.value:
+                return self.choice(
+                    f"subu {self.f(dest)}, {self.f(src1)}, {self.f(src2)}"
+                )
+            case Architectures.x86_64.value | Architectures.x86.value:
+                raise Int3CodeGenerationError("x86 does not support three-operand sub")
+            case _:
+                raise NotImplementedError(f"Unhandled architecture: {self.arch.name}")
+
+    def sub(
+        self,
+        dest: RegType,
+        src_or_imm: ImmType | RegType,
+        src2: RegType | None = None,
+    ) -> Choice:
+        """Subtract two values into dest.
+
+        Multiple variants are supported:
+
+        - Two-operand form: ``sub(dest, src)`` computes ``dest = dest - src``.
+        - Three-operand form: ``sub(dest, src1, src2)`` computes ``dest = src1 - src2``.
+
+        """
+        if src2 is None:
+            return self._sub_inplace(dest, src_or_imm)
+        else:
+            return self._sub_into(dest, src_or_imm, src2)
 
     def lsl(self, one: RegType, two: ImmType | RegType) -> Choice:
         """Logical shift left."""
@@ -603,45 +677,67 @@ class CodeGenerator:
         )
         return self.segment(*factor_op_choices)
 
+    def _mips_requires_at(self, imm: int) -> bool:
+        """Check if MIPS assembler would use $at for this immediate.
+
+        MIPS instructions with immediates larger than 16 bits cause the
+        assembler to use $at (assembler temporary) for pseudo-instruction
+        expansion. This can clobber values we need to preserve.
+
+        """
+        if self.arch != Architectures.Mips.value:
+            return False
+        return imm < -0x8000 or imm > 0xFFFF
+
     def _factor_clause_to_choice(
         self, clause: FactorClause, dest: RegisterDef, scratch: RegisterDef
     ) -> Choice:
         """Convert a factor clause to corresponding instructions."""
         imm = clause.operand
 
+        # For MIPS with large immediates, only use the scratch path to avoid
+        # clobbering $at which the assembler uses for pseudo-instructions.
+        use_scratch_only = self._mips_requires_at(imm)
+
         match clause.operation:
             case FactorOperation.Init:
                 return self.ll_put(dest, imm)
             case FactorOperation.Sub:
-                return self.choice(
-                    self.sub(dest, imm),
-                    self.segment(
-                        self.ll_put(scratch, imm),
-                        self.sub(dest, scratch),
-                    ),
+                scratch_path = self.segment(
+                    self.ll_put(scratch, imm),
+                    self.sub(dest, scratch),
                 )
+                if use_scratch_only:
+                    return self.choice(scratch_path)
+                else:
+                    return self.choice(
+                        self.sub(dest, imm),
+                        scratch_path,
+                    )
             case FactorOperation.Add:
-                return self.choice(
-                    self.add(dest, imm),
-                    self.segment(
-                        self.ll_put(scratch, imm),
-                        self.add(
-                            dest,
-                            scratch,
-                        ),
-                    ),
+                scratch_path = self.segment(
+                    self.ll_put(scratch, imm),
+                    self.add(dest, scratch),
                 )
+                if use_scratch_only:
+                    return self.choice(scratch_path)
+                else:
+                    return self.choice(
+                        self.add(dest, imm),
+                        scratch_path,
+                    )
             case FactorOperation.Xor:
-                return self.choice(
-                    self.xor(dest, imm),
-                    self.segment(
-                        self.ll_put(scratch, imm),
-                        self.xor(
-                            dest,
-                            scratch,
-                        ),
-                    ),
+                scratch_path = self.segment(
+                    self.ll_put(scratch, imm),
+                    self.xor(dest, scratch),
                 )
+                if use_scratch_only:
+                    return self.choice(scratch_path)
+                else:
+                    return self.choice(
+                        self.xor(dest, imm),
+                        scratch_path,
+                    )
             case FactorOperation.Neg:
                 raise NotImplementedError("Negation support not yet implemented")
 
