@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import TYPE_CHECKING
 
 from int3.architecture import Architecture, RegisterDef
@@ -11,6 +12,12 @@ from .instruction import Instruction
 
 if TYPE_CHECKING:
     from int3.platform import Triple
+
+
+@lru_cache(maxsize=4096)
+def _assemble_to_segment(triple: "Triple", asm: str) -> "Segment":
+    assembled_asm = assemble(arch=triple.arch, assembly=asm)
+    return Segment.from_bytes(triple=triple, raw_asm=assembled_asm)
 
 
 @dataclass(frozen=True)
@@ -43,9 +50,8 @@ class Segment:
 
     @staticmethod
     def from_asm(triple: "Triple", asm: str) -> Segment:
-        """Factory method to create an instance from raw machine code."""
-        assembled_asm = assemble(arch=triple.arch, assembly=asm)
-        return Segment.from_bytes(triple=triple, raw_asm=assembled_asm)
+        """Factory method to create an instance from assembly text."""
+        return _assemble_to_segment(triple, asm)
 
     @property
     def arch(self) -> Architecture:

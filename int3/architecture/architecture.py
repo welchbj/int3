@@ -159,6 +159,16 @@ class Architecture:
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} [{self}]>"
 
+    def __hash__(self) -> int:
+        # An architecture is uniquely identified by name, so we only hash that.
+        return hash(self.name)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Architecture):
+            return NotImplemented
+
+        return self.name == other.name
+
     def is_okay_value(self, imm: int) -> bool:
         """Tests whether a value can be represented on this architecture."""
         return imm.bit_length() <= self.bit_size

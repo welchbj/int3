@@ -68,6 +68,16 @@ class Triple:
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} [{self}]>"
 
+    def __hash__(self) -> int:
+        # Triple is uniquely identified by arch and platform.
+        return hash((self.arch, self.platform))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Triple):
+            return NotImplemented
+
+        return self.arch == other.arch and self.platform == other.platform
+
     def _resolve_call_preserved_regs(self) -> tuple[RegisterDef, ...]:
         """Determine which registers LLVM considers call-preserved for this platform/architecture.
 
