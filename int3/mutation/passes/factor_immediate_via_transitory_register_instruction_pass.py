@@ -22,11 +22,17 @@ class FactorImmediateViaTransitoryRegisterInstructionPass(InstructionMutationPas
         """Factor immediate values into multiple instructions."""
         dest_reg = insn.operands.reg(0)
         imm = insn.operands.imm(-1)
+
         scratch_regs = self.segment.scratch_regs_for_size(dest_reg.bit_size)
 
         options = []
 
         if insn.is_mov():
+            # A lui is still considered a move internally, so we adjust the target
+            # of the move to match the lui semantics.
+            if insn.mnemonic == "lui":
+                imm <<= 16
+
             # For mov instructions, we can use hl_put_imm fairly directly.
             return self.codegen.hl_put_imm(
                 imm=imm,
