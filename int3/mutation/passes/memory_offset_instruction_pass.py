@@ -31,11 +31,11 @@ class MemoryOffsetInstructionPass(InstructionMutationPass):
     """
 
     def should_mutate(self, insn: Instruction) -> bool:
-        if not (insn.is_load() or insn.is_store()):
-            return False
-        if insn.is_pre_indexed() or insn.is_post_indexed():
-            return False
-        return True
+        return (
+            (insn.is_load() or insn.is_store())
+            and not insn.is_pre_indexed()
+            and not insn.is_post_indexed()
+        )
 
     def mutate(self, insn: Instruction) -> Choice:
         mem_op = insn.memory_operand()
