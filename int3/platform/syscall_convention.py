@@ -5,7 +5,18 @@ from int3.architecture import Architecture, Architectures, RegisterDef
 
 @dataclass(frozen=True)
 class SyscallConvention:
-    """Architecture/platform-specific syscall convention."""
+    """Architecture/platform-specific syscall convention.
+
+    .. doctest::
+
+        >>> from int3 import Triple
+        >>> conv = Triple.from_str("x86_64-linux").syscall_convention
+        >>> conv.sys_num
+        <RegisterDef [rax:64]>
+        >>> conv.max_args
+        6
+
+    """
 
     arch: Architecture
     sys_num: RegisterDef

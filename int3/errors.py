@@ -49,6 +49,18 @@ class Int3UnsuitableCodeMutation(Int3CodeGenerationError):
     """Exception type for when code mutations should not / cannot be applied."""
 
 
+class Int3ChoiceError(Int3CodeGenerationError):
+    """Exception type for choice-related errors."""
+
+
+class Int3NoValidChoiceError(Int3ChoiceError):
+    """Exception type when no options within a choice are valid."""
+
+
+class Int3MismatchedTripleError(Int3ChoiceError):
+    """Exception type when options of conflicting triples are presented in a choice."""
+
+
 class Int3ProgramDefinitionError(Int3Error):
     """Exception type for program definition errors."""
 

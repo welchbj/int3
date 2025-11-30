@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import operator
 import platform
+import sys
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from io import BytesIO
@@ -12,13 +13,15 @@ from typing import TYPE_CHECKING, ContextManager, Iterator, Literal, cast, overl
 from int3._vendored.llvmlite import binding as llvm
 from int3._vendored.llvmlite import ir as llvmir
 from int3.architecture import Architecture, Architectures, RegisterDef
-from int3.codegen import CodeGenerator, MutationEngine
+from int3.codegen import Choice, CodeGenerator
 from int3.errors import (
     Int3ArgumentError,
     Int3CompilationError,
     Int3ContextError,
+    Int3NoValidChoiceError,
     Int3ProgramDefinitionError,
 )
+from int3.mutation import MutationEngine
 from int3.platform import Platform, SyscallConvention, Triple
 
 from .call_proxy import CallFactory, CallProxy
@@ -148,7 +151,7 @@ class Compiler:
         self.def_func = FunctionFactory(store=self.func)
         self.call = CallFactory(compiler=self)
         self.types = TypeManager(compiler=self)
-        self.codegen = CodeGenerator(arch=self.arch)
+        self.codegen = CodeGenerator(triple=self.triple)
 
         # We create a fresh llvmlite context for our module. Otherwise, multiple
         # compiler instances will reference the same llvmlite library-level global
@@ -341,7 +344,6 @@ class Compiler:
             >>> from int3 import Compiler
             >>> cc = Compiler.from_str("linux/x86_64")
 
-
         """
 
         return IntConstant(
@@ -418,6 +420,11 @@ class Compiler:
         """Create a 64-bit unsigned integer constant."""
         return self.make_int(value, type=self.types.u64)
 
+    def _choice_to_asm(self, choice: Choice) -> str:
+        """Convert a Choice from codegen into an assembly string."""
+        segment = choice.choose()
+        return "\n".join(insn.asm_str for insn in segment.insns)
+
     def breakpoint(self):
         """Emit an architecture-aware assembly breakpoint."""
         llvm_func_type = llvmir.FunctionType(
@@ -425,10 +432,12 @@ class Compiler:
             args=[],
         )
 
+        breakpoint_asm = self._choice_to_asm(self.codegen.breakpoint())
+
         self.builder.comment("breakpoint")
         self.builder.asm(
             ftype=llvm_func_type,
-            asm=self.codegen.breakpoint(),
+            asm=breakpoint_asm,
             constraint="",
             args=[],
             side_effect=True,
@@ -747,12 +756,24 @@ class Compiler:
     ) -> bytes:
         if self.load_addr is None:
             # We have to determine the current PC at runtime.
-            get_pc_stub = self.codegen.compute_pc(result=pc_transfer_reg).bytes
+            get_pc_choice = self.codegen.compute_pc(result=pc_transfer_reg)
         else:
-            get_pc_stub = self.codegen.mov(pc_transfer_reg, self.load_addr).bytes
+            # We can rely on using a static, known address.
+            get_pc_choice = self.codegen.ll_put(pc_transfer_reg, self.load_addr)
 
-        # Attempt to remove bad bytes from the PC derivation stub.
-        get_pc_stub = self._clean_asm(get_pc_stub)
+        try:
+            # We first try choosing a "raw" PC-derivation stub that is aware
+            # of our bad byte constraints, so that we can look at all of the
+            # "vanilla" options and pick one right away if any are valid.
+            get_pc_stub = get_pc_choice.choose(bad_bytes=self.bad_bytes).raw
+        except Int3NoValidChoiceError:
+            # If we have no already-clean PC-derivation stubs, we try cleaning
+            # one of the choices via our mutation pipeline.
+            get_pc_stub = get_pc_choice.choose().raw
+            get_pc_stub = self._clean_asm(get_pc_stub)
+            # XXX: We are only mutating the first choice. We could be iterating
+            #      over ever concrete option available and attempting to clean
+            #      each one manually.
 
         sub_cc = self.clean_slate()
         with sub_cc.def_func.entry_stub():
@@ -926,3 +947,13 @@ class Compiler:
             bad_bytes=bad_bytes,
             load_addr=load_addr,
         )
+
+    @staticmethod
+    def to_stdout(data: bytes) -> None:
+        """Write raw bytes to stdout."""
+        sys.stdout.buffer.write(data)
+
+    @staticmethod
+    def to_stderr(data: bytes) -> None:
+        """Write raw bytes to stderr."""
+        sys.stderr.buffer.write(data)

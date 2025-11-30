@@ -9,6 +9,8 @@ from int3.assembly import assemble, disassemble_to_str
 from int3.errors import Int3Error
 from int3.execution import execute
 from int3.format import FormatStyle, Formatter
+from int3.mutation import MutationEngine
+from int3.platform import Platform, Triple
 from int3.version import __version__
 
 
@@ -34,7 +36,7 @@ def _parse_hex_addr(ctx, param, value: str | None) -> int | None:
 
 
 def _setup_logging(debug: bool):
-    level = logging.DEBUG if debug else logging.INFO
+    level = logging.DEBUG if debug else logging.WARN
     logging.basicConfig(
         format="[%(levelname)8s] %(message)s (%(filename)s:%(lineno)s)", level=level
     )
@@ -156,6 +158,31 @@ def cli_assemble_repl(arch: Architecture, debug: bool):
         except KeyboardInterrupt:
             click.echo("Quitting!")
             break
+
+
+@cli.command("clean")
+@file_or_stdin_input_option
+@arch_option
+@bad_bytes_option
+@debug_option
+def cli_clean(input_file: BinaryIO, arch: Architecture, bad_bytes: bytes, debug: bool):
+    _setup_logging(debug)
+
+    with input_file:
+        asm_text: str = input_file.read().decode()
+
+    asm_bytes = assemble(arch=arch, assembly=asm_text)
+
+    triple = Triple(arch, Platform.Linux)
+    engine = MutationEngine(triple=triple, raw_asm=asm_bytes, bad_bytes=bad_bytes)
+
+    try:
+        clean_segment = engine.clean()
+    except Int3Error as e:
+        click.echo(str(e).lstrip("\n"))
+    else:
+        for insn in clean_segment.insns:
+            click.echo(insn.asm_str)
 
 
 @cli.command("disassemble")

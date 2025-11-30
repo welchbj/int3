@@ -1,20 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import Sequence
 
 from int3.architecture import Architecture, RegisterDef
 from int3.errors import Int3MissingEntityError
-from int3.instructions import Instruction
 
 from .factor_operation import FactorOperation
 
-# TODO: docstring for the context classes
-# TODO: collapse context classes?
-
 
 @dataclass(frozen=True)
-class ImmediateDirectPutContext:
+class ImmediateMutationContext:
+    """Context for a mutation of an immediate value."""
+
     arch: Architecture
     bad_bytes: bytes
     imm: int
@@ -27,7 +24,7 @@ class ImmediateDirectPutContext:
     def __post_init__(self) -> None:
         object.__setattr__(self, "scratch_regs_set", frozenset(self.scratch_regs))
 
-    def with_locked_reg(self, reg: RegisterDef) -> ImmediateDirectPutContext:
+    def with_locked_reg(self, reg: RegisterDef) -> ImmediateMutationContext:
         if reg not in self.scratch_regs_set:
             raise Int3MissingEntityError(
                 f"Cannot lock reg {reg} that is not in this context's scratch regs"
@@ -40,13 +37,8 @@ class ImmediateDirectPutContext:
 
 
 @dataclass(frozen=True)
-class ImmediateMutationContext(ImmediateDirectPutContext):
-    insn: Instruction
-
-
-@dataclass(frozen=True)
 class FactorContext:
-    """The context for a factoring solve."""
+    """Context for a factoring solve."""
 
     arch: Architecture
 
@@ -55,6 +47,9 @@ class FactorContext:
 
     # The bytes that should be avoided in generated factor operands.
     bad_bytes: bytes = b""
+
+    # The minimum amount of nested operations to enforce.
+    min_depth: int = 1
 
     # The maximum amount of nested operations to permit.
     max_depth: int = 3
@@ -69,17 +64,20 @@ class FactorContext:
     width: int | None = None
 
     # The operations (add, xor, etc.) that may be used by the engine.
-    allowed_ops: Sequence[FactorOperation] | None = None
+    allowed_ops: tuple[FactorOperation, ...] | None = None
 
     # The operations (add, xor, etc.) that cannot be used by the engine.
-    forbidden_ops: Sequence[FactorOperation] | None = None
+    forbidden_ops: tuple[FactorOperation, ...] | None = None
 
     # The initial value to work from. When omitted, the engine will select
     # one based on the existing constraints.
     start: int | None = None
 
+    # Whether to skip bad byte checking for the specified start value.
+    allow_bad_bytes_in_start: bool = False
+
     # Additional context related to the assembly instruction that originated
     # this factor requirement. This is mainly useful for understanding the
     # instruction being mutated, as this informs what instruction-specific
     # immediate encoding constraints should be applied.
-    insn_ctx: ImmediateDirectPutContext | ImmediateMutationContext | None = None
+    imm_mut_ctx: ImmediateMutationContext | None = None

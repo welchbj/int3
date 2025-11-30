@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+set -xo pipefail
+
+python3 -m pytest --ignore=examples/ --log-cli-level=INFO "$@"

@@ -8,7 +8,7 @@
 .. automodule:: int3.factor.factor_clause
     :members:
 
-.. automodule:: int3.factor.factor_context
+.. automodule:: int3.factor.context
     :members:
 
 .. automodule:: int3.factor.factor_operation

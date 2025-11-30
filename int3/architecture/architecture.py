@@ -33,6 +33,7 @@ from keystone import (
 
 from int3.errors import (
     Int3ArgumentError,
+    Int3CodeGenerationError,
     Int3InsufficientWidthError,
     Int3MissingEntityError,
 )
@@ -96,15 +97,20 @@ class Architecture:
     capstone_mode: int
 
     reg_cls: type
-    reg_clobber_groups: tuple[set[RegisterDef], ...]
-    reserved_regs: set[RegisterDef]
+    reg_clobber_groups: tuple[frozenset[RegisterDef], ...]
+    reserved_regs: frozenset[RegisterDef]
+
+    # Alternative names/aliases for this architecture.
+    aliases: tuple[str, ...] = field(default_factory=tuple)
 
     byte_size: int = field(init=False)
     regs: tuple[RegisterDef, ...] = field(init=False)
-    expanded_reserved_regs: set[RegisterDef] = field(init=False)
+    expanded_reserved_regs: frozenset[RegisterDef] = field(init=False)
 
-    _reg_name_map: dict[str, RegisterDef] = field(init=False)
-    _reg_clobber_map: dict[RegisterDef, set[RegisterDef]] = field(init=False)
+    _reg_name_map: dict[str, RegisterDef] = field(init=False, hash=False, compare=False)
+    _reg_clobber_map: dict[RegisterDef, frozenset[RegisterDef]] = field(
+        init=False, hash=False, compare=False
+    )
 
     BITS_IN_A_BYTE: ClassVar[int] = 8
 
@@ -125,21 +131,43 @@ class Architecture:
 
         # Init _reg_clobber_map. We ensure every register is marked as a
         # clobber of itself before adding the explicit clobbers.
-        reg_clobber_map = defaultdict(set)
+        reg_clobber_map_mutable = defaultdict(set)
         for reg in self.regs:
-            reg_clobber_map[reg].add(reg)
+            reg_clobber_map_mutable[reg].add(reg)
         for reg_clobber_set in self.reg_clobber_groups:
             for reg in reg_clobber_set:
-                reg_clobber_map[reg] |= reg_clobber_set
+                reg_clobber_map_mutable[reg] |= reg_clobber_set
+        # Convert to frozensets for immutability
+        reg_clobber_map: dict[RegisterDef, frozenset[RegisterDef]] = {
+            k: frozenset(v) for k, v in reg_clobber_map_mutable.items()
+        }
         object.__setattr__(self, "_reg_clobber_map", reg_clobber_map)
 
         # We also initialize our fully-expanded set of reserved registers,
         # which prevents us from selecting reserved registers or any of their
         # aliases/clobbers as scratch registers.
-        expanded_reserved_regs = set()
+        expanded_reserved_regs: set[RegisterDef] = set()
         for reg in self.reserved_regs:
             expanded_reserved_regs |= reg_clobber_map[reg]
-        object.__setattr__(self, "expanded_reserved_regs", expanded_reserved_regs)
+        object.__setattr__(
+            self, "expanded_reserved_regs", frozenset(expanded_reserved_regs)
+        )
+
+    def __str__(self) -> str:
+        return self.name
+
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__} [{self}]>"
+
+    def __hash__(self) -> int:
+        # An architecture is uniquely identified by name, so we only hash that.
+        return hash(self.name)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Architecture):
+            return NotImplemented
+
+        return self.name == other.name
 
     def is_okay_value(self, imm: int) -> bool:
         """Tests whether a value can be represented on this architecture."""
@@ -196,7 +224,7 @@ class Architecture:
             >>> from int3 import Architectures
             >>> x86_64 = Architectures.x86_64.value
             >>> x86_64.reg("rax")
-            RegisterDef(name='rax', bit_size=64, llvm_alt_name=None)
+            <RegisterDef [rax:64]>
 
         """
         try:
@@ -300,6 +328,29 @@ class Architecture:
                 f"Unable to unpack {len(data)} bytes using fmt string {format_str}"
             ) from e
 
+    def make_clean_imm(self, bad_bytes: bytes, bit_size: int | None = None) -> int:
+        """Create an immediate value that won't contain bad bytes when assembled."""
+        # XXX: This will need to account for arch-specific immediate encoding (.e.g., for ARM).
+        if bit_size is None:
+            bit_size = self.bit_size
+
+        if bit_size % self.BITS_IN_A_BYTE:
+            raise Int3CodeGenerationError(
+                f"bit_size must be aligned to {self.BITS_IN_A_BYTE}"
+            )
+
+        num_bytes = bit_size // self.BITS_IN_A_BYTE
+        clean_bytes = bytes([i for i in range(0x100) if i not in bad_bytes])
+        if not clean_bytes:
+            raise Int3CodeGenerationError(
+                "Unable to find any byte values that would be clean"
+            )
+
+        clean_byte = clean_bytes[-1]
+        return self.unpack(
+            bytes([clean_byte for _ in range(num_bytes)]), width=bit_size
+        )
+
 
 class Architectures(Enum):
     """Interface for accessing supported ``Architecture`` definitions.
@@ -326,22 +377,23 @@ class Architectures(Enum):
         clang_name="i386",
         llvm_reg_prefix="%",
         keystone_reg_prefix="",
+        aliases=("i386", "i686"),
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_32,
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_32,
         reg_cls=Registers.x86,
         reg_clobber_groups=(
-            {Registers.x86.esp, Registers.x86.sp, Registers.x86.spl},
-            {Registers.x86.ebp, Registers.x86.bp, Registers.x86.bpl},
-            {Registers.x86.eax, Registers.x86.ax, Registers.x86.al},
-            {Registers.x86.ebx, Registers.x86.bx, Registers.x86.bl},
-            {Registers.x86.ecx, Registers.x86.cx, Registers.x86.cl},
-            {Registers.x86.edx, Registers.x86.dx, Registers.x86.dl},
-            {Registers.x86.esi, Registers.x86.si, Registers.x86.sil},
-            {Registers.x86.edi, Registers.x86.di, Registers.x86.dil},
+            frozenset({Registers.x86.esp, Registers.x86.sp, Registers.x86.spl}),
+            frozenset({Registers.x86.ebp, Registers.x86.bp, Registers.x86.bpl}),
+            frozenset({Registers.x86.eax, Registers.x86.ax, Registers.x86.al}),
+            frozenset({Registers.x86.ebx, Registers.x86.bx, Registers.x86.bl}),
+            frozenset({Registers.x86.ecx, Registers.x86.cx, Registers.x86.cl}),
+            frozenset({Registers.x86.edx, Registers.x86.dx, Registers.x86.dl}),
+            frozenset({Registers.x86.esi, Registers.x86.si, Registers.x86.sil}),
+            frozenset({Registers.x86.edi, Registers.x86.di, Registers.x86.dil}),
         ),
-        reserved_regs={Registers.x86.esp, Registers.x86.eip},
+        reserved_regs=frozenset({Registers.x86.esp, Registers.x86.eip}),
     )
     x86_64 = Architecture(
         name="x86_64",
@@ -357,110 +409,143 @@ class Architectures(Enum):
         clang_name="x86_64",
         llvm_reg_prefix="%",
         keystone_reg_prefix="",
+        aliases=("amd64", "x64"),
         keystone_arch=KS_ARCH_X86,
         keystone_mode=KS_MODE_64,
         capstone_arch=CS_ARCH_X86,
         capstone_mode=CS_MODE_64,
         reg_cls=Registers.x86_64,
         reg_clobber_groups=(
-            {
-                Registers.x86_64.rsp,
-                Registers.x86_64.esp,
-                Registers.x86_64.sp,
-                Registers.x86_64.spl,
-            },
-            {
-                Registers.x86_64.rbp,
-                Registers.x86_64.ebp,
-                Registers.x86_64.bp,
-                Registers.x86_64.bpl,
-            },
-            {
-                Registers.x86_64.rax,
-                Registers.x86_64.eax,
-                Registers.x86_64.ax,
-                Registers.x86_64.al,
-            },
-            {
-                Registers.x86_64.rbx,
-                Registers.x86_64.ebx,
-                Registers.x86_64.bx,
-                Registers.x86_64.bl,
-            },
-            {
-                Registers.x86_64.rcx,
-                Registers.x86_64.ecx,
-                Registers.x86_64.cx,
-                Registers.x86_64.cl,
-            },
-            {
-                Registers.x86_64.rdx,
-                Registers.x86_64.edx,
-                Registers.x86_64.dx,
-                Registers.x86_64.dl,
-            },
-            {
-                Registers.x86_64.rdi,
-                Registers.x86_64.edi,
-                Registers.x86_64.di,
-                Registers.x86_64.dil,
-            },
-            {
-                Registers.x86_64.rsi,
-                Registers.x86_64.esi,
-                Registers.x86_64.si,
-                Registers.x86_64.sil,
-            },
-            {
-                Registers.x86_64.r8,
-                Registers.x86_64.r8d,
-                Registers.x86_64.r8w,
-                Registers.x86_64.r8b,
-            },
-            {
-                Registers.x86_64.r9,
-                Registers.x86_64.r9d,
-                Registers.x86_64.r9w,
-                Registers.x86_64.r9b,
-            },
-            {
-                Registers.x86_64.r10,
-                Registers.x86_64.r10d,
-                Registers.x86_64.r10w,
-                Registers.x86_64.r10b,
-            },
-            {
-                Registers.x86_64.r11,
-                Registers.x86_64.r11d,
-                Registers.x86_64.r11w,
-                Registers.x86_64.r11b,
-            },
-            {
-                Registers.x86_64.r12,
-                Registers.x86_64.r12d,
-                Registers.x86_64.r12w,
-                Registers.x86_64.r12b,
-            },
-            {
-                Registers.x86_64.r13,
-                Registers.x86_64.r13d,
-                Registers.x86_64.r13w,
-                Registers.x86_64.r13b,
-            },
-            {
-                Registers.x86_64.r14,
-                Registers.x86_64.r14d,
-                Registers.x86_64.r14w,
-                Registers.x86_64.r14b,
-            },
-            {
-                Registers.x86_64.r15,
-                Registers.x86_64.r15d,
-                Registers.x86_64.r15w,
-                Registers.x86_64.r15b,
-            },
+            frozenset(
+                {
+                    Registers.x86_64.rsp,
+                    Registers.x86_64.esp,
+                    Registers.x86_64.sp,
+                    Registers.x86_64.spl,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.rbp,
+                    Registers.x86_64.ebp,
+                    Registers.x86_64.bp,
+                    Registers.x86_64.bpl,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.rax,
+                    Registers.x86_64.eax,
+                    Registers.x86_64.ax,
+                    Registers.x86_64.al,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.rbx,
+                    Registers.x86_64.ebx,
+                    Registers.x86_64.bx,
+                    Registers.x86_64.bl,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.rcx,
+                    Registers.x86_64.ecx,
+                    Registers.x86_64.cx,
+                    Registers.x86_64.cl,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.rdx,
+                    Registers.x86_64.edx,
+                    Registers.x86_64.dx,
+                    Registers.x86_64.dl,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.rdi,
+                    Registers.x86_64.edi,
+                    Registers.x86_64.di,
+                    Registers.x86_64.dil,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.rsi,
+                    Registers.x86_64.esi,
+                    Registers.x86_64.si,
+                    Registers.x86_64.sil,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.r8,
+                    Registers.x86_64.r8d,
+                    Registers.x86_64.r8w,
+                    Registers.x86_64.r8b,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.r9,
+                    Registers.x86_64.r9d,
+                    Registers.x86_64.r9w,
+                    Registers.x86_64.r9b,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.r10,
+                    Registers.x86_64.r10d,
+                    Registers.x86_64.r10w,
+                    Registers.x86_64.r10b,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.r11,
+                    Registers.x86_64.r11d,
+                    Registers.x86_64.r11w,
+                    Registers.x86_64.r11b,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.r12,
+                    Registers.x86_64.r12d,
+                    Registers.x86_64.r12w,
+                    Registers.x86_64.r12b,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.r13,
+                    Registers.x86_64.r13d,
+                    Registers.x86_64.r13w,
+                    Registers.x86_64.r13b,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.r14,
+                    Registers.x86_64.r14d,
+                    Registers.x86_64.r14w,
+                    Registers.x86_64.r14b,
+                }
+            ),
+            frozenset(
+                {
+                    Registers.x86_64.r15,
+                    Registers.x86_64.r15d,
+                    Registers.x86_64.r15w,
+                    Registers.x86_64.r15b,
+                }
+            ),
         ),
-        reserved_regs={Registers.x86_64.rsp, Registers.x86_64.rip},
+        reserved_regs=frozenset({Registers.x86_64.rsp, Registers.x86_64.rip}),
     )
     Mips = Architecture(
         name="mips",
@@ -482,7 +567,7 @@ class Architectures(Enum):
         capstone_mode=CS_MODE_MIPS32 + CS_MODE_BIG_ENDIAN,
         reg_cls=Registers.Mips,
         reg_clobber_groups=tuple(),
-        reserved_regs={Registers.Mips.sp, Registers.Mips.gp},
+        reserved_regs=frozenset({Registers.Mips.sp, Registers.Mips.gp}),
     )
     Arm = Architecture(
         name="arm",
@@ -498,22 +583,29 @@ class Architectures(Enum):
         clang_name="armv7",
         llvm_reg_prefix="",
         keystone_reg_prefix="",
+        aliases=("armv6l", "armv7l", "armv7", "armhf"),
         keystone_arch=KS_ARCH_ARM,
         keystone_mode=KS_MODE_ARM + KS_MODE_LITTLE_ENDIAN,
         capstone_arch=CS_ARCH_ARM,
         capstone_mode=CS_MODE_ARM + CS_MODE_LITTLE_ENDIAN,
         reg_cls=Registers.Arm,
         reg_clobber_groups=(
-            {Registers.Arm.r13, Registers.Arm.sp},
-            {Registers.Arm.r14, Registers.Arm.lr},
-            {Registers.Arm.r15, Registers.Arm.pc},
+            frozenset({Registers.Arm.r9, Registers.Arm.sb}),
+            frozenset({Registers.Arm.r10, Registers.Arm.sl}),
+            frozenset({Registers.Arm.r11, Registers.Arm.fp}),
+            frozenset({Registers.Arm.r12, Registers.Arm.ip}),
+            frozenset({Registers.Arm.r13, Registers.Arm.sp}),
+            frozenset({Registers.Arm.r14, Registers.Arm.lr}),
+            frozenset({Registers.Arm.r15, Registers.Arm.pc}),
         ),
-        reserved_regs={
-            Registers.Arm.sp,
-            Registers.Arm.pc,
-            Registers.Arm.r13,
-            Registers.Arm.r15,
-        },
+        reserved_regs=frozenset(
+            {
+                Registers.Arm.sp,
+                Registers.Arm.pc,
+                Registers.Arm.r13,
+                Registers.Arm.r15,
+            }
+        ),
     )
     Aarch64 = Architecture(
         name="aarch64",
@@ -529,50 +621,57 @@ class Architectures(Enum):
         clang_name="aarch64",
         llvm_reg_prefix="",
         keystone_reg_prefix="",
+        aliases=("arm64",),
         keystone_arch=KS_ARCH_ARM64,
         keystone_mode=KS_MODE_LITTLE_ENDIAN,
         capstone_arch=CS_ARCH_ARM64,
         capstone_mode=CS_MODE_LITTLE_ENDIAN,
         reg_cls=Registers.Aarch64,
         reg_clobber_groups=(
-            {Registers.Aarch64.x0, Registers.Aarch64.w0},
-            {Registers.Aarch64.x1, Registers.Aarch64.w1},
-            {Registers.Aarch64.x2, Registers.Aarch64.w2},
-            {Registers.Aarch64.x3, Registers.Aarch64.w3},
-            {Registers.Aarch64.x4, Registers.Aarch64.w4},
-            {Registers.Aarch64.x5, Registers.Aarch64.w5},
-            {Registers.Aarch64.x6, Registers.Aarch64.w6},
-            {Registers.Aarch64.x7, Registers.Aarch64.w7},
-            {Registers.Aarch64.x8, Registers.Aarch64.w8},
-            {Registers.Aarch64.x9, Registers.Aarch64.w9},
-            {Registers.Aarch64.x10, Registers.Aarch64.w10},
-            {Registers.Aarch64.x11, Registers.Aarch64.w11},
-            {Registers.Aarch64.x12, Registers.Aarch64.w12},
-            {Registers.Aarch64.x13, Registers.Aarch64.w13},
-            {Registers.Aarch64.x14, Registers.Aarch64.w14},
-            {Registers.Aarch64.x15, Registers.Aarch64.w15},
-            {Registers.Aarch64.x16, Registers.Aarch64.w16},
-            {Registers.Aarch64.x17, Registers.Aarch64.w17},
-            {Registers.Aarch64.x18, Registers.Aarch64.w18},
-            {Registers.Aarch64.x19, Registers.Aarch64.w19},
-            {Registers.Aarch64.x20, Registers.Aarch64.w20},
-            {Registers.Aarch64.x21, Registers.Aarch64.w21},
-            {Registers.Aarch64.x22, Registers.Aarch64.w22},
-            {Registers.Aarch64.x23, Registers.Aarch64.w23},
-            {Registers.Aarch64.x24, Registers.Aarch64.w24},
-            {Registers.Aarch64.x25, Registers.Aarch64.w25},
-            {Registers.Aarch64.x26, Registers.Aarch64.w26},
-            {Registers.Aarch64.x27, Registers.Aarch64.w27},
-            {Registers.Aarch64.x28, Registers.Aarch64.w28},
-            {Registers.Aarch64.x29, Registers.Aarch64.w29},
-            {Registers.Aarch64.x30, Registers.Aarch64.w30, Registers.Aarch64.lr},
-            {Registers.Aarch64.xzr, Registers.Aarch64.wzr},
+            frozenset({Registers.Aarch64.x0, Registers.Aarch64.w0}),
+            frozenset({Registers.Aarch64.x1, Registers.Aarch64.w1}),
+            frozenset({Registers.Aarch64.x2, Registers.Aarch64.w2}),
+            frozenset({Registers.Aarch64.x3, Registers.Aarch64.w3}),
+            frozenset({Registers.Aarch64.x4, Registers.Aarch64.w4}),
+            frozenset({Registers.Aarch64.x5, Registers.Aarch64.w5}),
+            frozenset({Registers.Aarch64.x6, Registers.Aarch64.w6}),
+            frozenset({Registers.Aarch64.x7, Registers.Aarch64.w7}),
+            frozenset({Registers.Aarch64.x8, Registers.Aarch64.w8}),
+            frozenset({Registers.Aarch64.x9, Registers.Aarch64.w9}),
+            frozenset({Registers.Aarch64.x10, Registers.Aarch64.w10}),
+            frozenset({Registers.Aarch64.x11, Registers.Aarch64.w11}),
+            frozenset({Registers.Aarch64.x12, Registers.Aarch64.w12}),
+            frozenset({Registers.Aarch64.x13, Registers.Aarch64.w13}),
+            frozenset({Registers.Aarch64.x14, Registers.Aarch64.w14}),
+            frozenset({Registers.Aarch64.x15, Registers.Aarch64.w15}),
+            frozenset({Registers.Aarch64.x16, Registers.Aarch64.w16}),
+            frozenset({Registers.Aarch64.x17, Registers.Aarch64.w17}),
+            frozenset({Registers.Aarch64.x18, Registers.Aarch64.w18}),
+            frozenset({Registers.Aarch64.x19, Registers.Aarch64.w19}),
+            frozenset({Registers.Aarch64.x20, Registers.Aarch64.w20}),
+            frozenset({Registers.Aarch64.x21, Registers.Aarch64.w21}),
+            frozenset({Registers.Aarch64.x22, Registers.Aarch64.w22}),
+            frozenset({Registers.Aarch64.x23, Registers.Aarch64.w23}),
+            frozenset({Registers.Aarch64.x24, Registers.Aarch64.w24}),
+            frozenset({Registers.Aarch64.x25, Registers.Aarch64.w25}),
+            frozenset({Registers.Aarch64.x26, Registers.Aarch64.w26}),
+            frozenset({Registers.Aarch64.x27, Registers.Aarch64.w27}),
+            frozenset({Registers.Aarch64.x28, Registers.Aarch64.w28}),
+            frozenset(
+                {Registers.Aarch64.x29, Registers.Aarch64.w29, Registers.Aarch64.fp}
+            ),
+            frozenset(
+                {Registers.Aarch64.x30, Registers.Aarch64.w30, Registers.Aarch64.lr}
+            ),
+            frozenset({Registers.Aarch64.xzr, Registers.Aarch64.wzr}),
         ),
-        reserved_regs={
-            Registers.Aarch64.sp,
-            Registers.Aarch64.xzr,
-            Registers.Aarch64.wzr,
-        },
+        reserved_regs=frozenset(
+            {
+                Registers.Aarch64.sp,
+                Registers.Aarch64.xzr,
+                Registers.Aarch64.wzr,
+            }
+        ),
     )
 
     @staticmethod
@@ -628,3 +727,13 @@ _ARCHITECTURE_MAP: dict[str, Architecture] = {
     architecture_enum.value.name: architecture_enum.value
     for architecture_enum in Architectures
 }
+
+# Build a map that includes both canonical names and aliases
+_ARCHITECTURE_ALIAS_MAP: dict[str, Architecture] = {}
+for architecture_enum in Architectures:
+    arch = architecture_enum.value
+    # Add canonical name
+    _ARCHITECTURE_ALIAS_MAP[arch.name] = arch
+    # Add all aliases
+    for alias in arch.aliases:
+        _ARCHITECTURE_ALIAS_MAP[alias] = arch

@@ -1,4 +1,5 @@
+from .choice import Choice, FluidSegment, Option
 from .code_generator import CodeGenerator
-from .code_segment import CodeSegment
-from .mutation_engine import MutationEngine
-from .passes import *
+from .instruction import Instruction, MemoryOperand, OperandView, RegisterListOperand
+from .segment import Segment
+from .strategy import Strategy

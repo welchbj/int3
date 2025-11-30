@@ -8,7 +8,6 @@ from int3 import Architecture, Compiler, Int3CompilationError, LinuxCompiler
 from .qemu import parametrize_common_bad_bytes, parametrize_qemu_arch, run_in_qemu
 
 
-@pytest.mark.xfail()
 @parametrize_qemu_arch
 @parametrize_common_bad_bytes
 def test_sys_exit(arch: Architecture, bad_bytes: bytes):
@@ -56,4 +55,4 @@ def test_sys_write_with_ambiguous_count():
             cc.sys_write(fd=1, buf=literal_addr)
 
 
-# TODO: Test no known load address
+# XXX: Test no known load address.

@@ -2,9 +2,15 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from int3.architecture import Architecture, Architectures, RegisterDef, Registers
-from int3.errors import Int3CodeGenerationError
-from int3.instructions import Instruction
+from int3.architecture import (
+    Architecture,
+    Architectures,
+    RegisterDef,
+    Registers,
+)
+from int3.architecture.architecture import _ARCHITECTURE_ALIAS_MAP
+from int3.codegen import Instruction, Segment
+from int3.errors import Int3ArgumentError, Int3CodeGenerationError
 
 from .platform import Platform
 from .syscall_convention import SyscallConvention
@@ -14,7 +20,7 @@ from .syscall_convention import SyscallConvention
 class Triple:
     """Encapsulation of an LLVM target machine triple.
 
-    Triple strings have the form:
+    Triple strings typically have the form:
 
         ``<arch><sub>-<vendor>-<sys>-<env>``
 
@@ -61,6 +67,16 @@ class Triple:
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} [{self}]>"
+
+    def __hash__(self) -> int:
+        # Triple is uniquely identified by arch and platform.
+        return hash((self.arch, self.platform))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Triple):
+            return NotImplemented
+
+        return self.arch == other.arch and self.platform == other.platform
 
     def _resolve_call_preserved_regs(self) -> tuple[RegisterDef, ...]:
         """Determine which registers LLVM considers call-preserved for this platform/architecture.
@@ -231,12 +247,22 @@ class Triple:
                 "Non-Linux Syscall convention resolution not yet implemented"
             )
 
-    def insns(self, raw: str | bytes) -> tuple[Instruction, ...]:
+    def insns(self, *raw_insns: str | bytes) -> tuple[Instruction, ...]:
         """Transform assembly or machine code into a sequence of instructions."""
-        if isinstance(raw, str):
-            return Instruction.from_str(raw, triple=self)
-        else:
-            return Instruction.from_bytes(raw, triple=self)
+        parsed_insns: list[Instruction] = []
+        for raw_insn in raw_insns:
+            if isinstance(raw_insn, str):
+                new_insns = Instruction.from_str(raw_insn, triple=self)
+            else:
+                new_insns = Instruction.from_bytes(raw_insn, triple=self)
+
+            parsed_insns.extend(new_insns)
+
+        return tuple(parsed_insns)
+
+    def segment(self, *raw_insns: str | bytes) -> Segment:
+        """Transform assembly or machine code into a segment."""
+        return Segment.from_insns(self, *self.insns(*raw_insns))
 
     def one_insn_or_raise(self, raw: str | bytes) -> Instruction:
         """Transform assembly or machine code into exactly one instruction."""
@@ -247,3 +273,79 @@ class Triple:
             )
 
         return insns[0]
+
+    @staticmethod
+    def from_host() -> Triple:
+        """Derive a triple from the host system."""
+        return Triple(arch=Architectures.from_host(), platform=Platform.from_host())
+
+    @staticmethod
+    def from_str(triple_str: str) -> Triple:
+        """Parse a triple from its string representation.
+
+        Supports LLVM-style triple strings with 2-4 components:
+
+        - ``<arch>-<sys>``
+        - ``<arch>-<sys>-<env>``
+        - ``<arch>-<vendor>-<sys>-<env>``
+
+        .. doctest::
+
+            >>> from int3 import Triple
+            >>> triple = Triple.from_str("x86_64-linux")
+            >>> triple.arch.name
+            'x86_64'
+            >>> triple.platform.name
+            'Linux'
+
+        """
+        parts = triple_str.split("-")
+        if len(parts) < 2 or len(parts) > 4:
+            raise Int3ArgumentError(
+                f"Triple string must have 2-4 components, got {len(parts)}: {triple_str}"
+            )
+
+        # Parse architecture from first component.
+        arch_str = parts[0]
+        arch = _parse_arch_from_triple_component(arch_str)
+
+        # Parse platform from system component. The system component is at
+        # different positions depending on the overall component count:
+        # - 2 parts: arch-sys
+        # - 3 parts: arch-sys-env OR arch-vendor-sys (we assume arch-sys-env)
+        # - 4 parts: arch-vendor-sys-env
+        if len(parts) == 2:
+            sys_str = parts[1]
+        elif len(parts) == 3:
+            # Assume format is arch-sys-env (more common than arch-vendor-sys)
+            sys_str = parts[1]
+        else:  # len(parts) == 4
+            sys_str = parts[2]
+        platform = _parse_platform_from_triple_component(sys_str)
+
+        return Triple(arch=arch, platform=platform)
+
+
+def _parse_arch_from_triple_component(arch_str: str) -> Architecture:
+    """Parse an architecture from a triple component string."""
+    arch = _ARCHITECTURE_ALIAS_MAP.get(arch_str.lower())
+    if arch is None:
+        supported = sorted(set(_ARCHITECTURE_ALIAS_MAP.keys()))
+        raise Int3ArgumentError(
+            f"Unrecognized architecture in triple: {arch_str}. "
+            f"Supported: {', '.join(supported)}"
+        )
+
+    return arch
+
+
+def _parse_platform_from_triple_component(sys_str: str) -> Platform:
+    """Parse a platform from a triple system component string."""
+    sys_str_lower = sys_str.lower()
+
+    if sys_str_lower.startswith("linux") or sys_str_lower in ("gnu", "musl"):
+        return Platform.Linux
+    elif sys_str_lower in ("windows", "win32", "mingw32", "mingw64", "msvc"):
+        return Platform.Windows
+    else:
+        raise Int3ArgumentError(f"Unrecognized system in triple: {sys_str}")
