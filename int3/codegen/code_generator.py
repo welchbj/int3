@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from int3.architecture import Architecture, Architectures, RegisterDef
 from int3.errors import (
@@ -214,7 +214,7 @@ class CodeGenerator:
         if src2 is None:
             return self._add_inplace(dest, src_or_imm)
         else:
-            return self._add_into(dest, src_or_imm, src2)
+            return self._add_into(dest, cast(RegType, src_or_imm), src2)
 
     def _sub_inplace(self, dest: RegType, src: ImmType | RegType) -> Choice:
         """Two-operand sub: dest = dest - src."""
@@ -263,7 +263,7 @@ class CodeGenerator:
         if src2 is None:
             return self._sub_inplace(dest, src_or_imm)
         else:
-            return self._sub_into(dest, src_or_imm, src2)
+            return self._sub_into(dest, cast(RegType, src_or_imm), src2)
 
     def lsl(self, one: RegType, two: ImmType | RegType) -> Choice:
         """Logical shift left."""
