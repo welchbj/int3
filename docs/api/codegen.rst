@@ -2,17 +2,14 @@
 ``int3.codegen``
 ================
 
-.. automodule:: int3.codegen.mutation_engine
-    :members:
-
 .. automodule:: int3.codegen.code_generator
     :members:
 
-.. automodule:: int3.codegen.code_segment
+.. automodule:: int3.codegen.segment
     :members:
 
-.. automodule:: int3.codegen.passes.abc
+.. automodule:: int3.mutation.mutation_engine
     :members:
 
-.. automodule:: int3.codegen.passes.instruction_passes
+.. automodule:: int3.mutation.passes.abc
     :members:

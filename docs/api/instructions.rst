@@ -2,12 +2,12 @@
 ``int3.instructions``
 =====================
 
-.. autoclass:: int3.instructions.instruction.MemoryOperand
+.. autoclass:: int3.codegen.instruction.MemoryOperand
     :members:
 
-.. autoclass:: int3.instructions.instruction.OperandView
+.. autoclass:: int3.codegen.instruction.OperandView
     :members:
 
-.. autoclass:: int3.instructions.instruction.Instruction
+.. autoclass:: int3.codegen.instruction.Instruction
     :members:
     :undoc-members:
