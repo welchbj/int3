@@ -14,21 +14,7 @@ _TERMINAL_OFFSETS = (8, 16, 64, 128, 256, 512, 520, 528)
 
 
 class MemoryOffsetInstructionPass(InstructionMutationPass):
-    """Mutate load/store by computing effective address in a scratch register.
-
-    Uses three-operand add/sub to cleanly compute the effective address,
-    factoring the offset delta into a separate register. This avoids null
-    bytes that appear in direct register-to-register moves from sp.
-
-    .. code-block:: nasm
-
-        ; Original: str x30, [sp, #0x10]
-        ; Becomes (with terminal=512, delta=-496):
-        mov delta_scratch, #496
-        sub addr_scratch, sp, delta_scratch
-        str x30, [addr_scratch, #512]
-
-    """
+    """Mutate load/store by recomputing the effective address in a scratch register."""
 
     def should_mutate(self, insn: Instruction) -> bool:
         return (
