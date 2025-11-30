@@ -28,13 +28,26 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class MemoryOperand:
-    """Specialized operand type for representing memory access."""
+    """Specialized operand type for representing memory access.
+
+    .. doctest::
+
+        >>> from int3 import Registers, MemoryOperand
+        >>> MemoryOperand(Registers.x86_64.rax, offset=0)
+        <MemoryOperand [[rax]]>
+        >>> MemoryOperand(Registers.x86_64.rsp, offset=-8)
+        <MemoryOperand [[rsp - 8]]>
+        >>> MemoryOperand(Registers.x86_64.rbp, offset=16, ptr_desc="qword ptr")
+        <MemoryOperand [qword ptr [rbp + 16]]>
+
+    """
 
     reg: RegisterDef
     offset: int
     ptr_desc: PointerDesc = ""
 
     def __str__(self) -> str:
+        """Architecture-agnostic string representation."""
         deref_str: str
         if self.offset == 0:
             deref_str = f"[{self.reg}]"
@@ -51,10 +64,51 @@ class MemoryOperand:
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__} [{self}]>"
 
+    def to_asm_str(self, arch: Architecture) -> str:
+        """Format this memory operand for assembly in the given architecture."""
+        reg_prefix = arch.keystone_reg_prefix
+        reg_str = f"{reg_prefix}{self.reg}"
+
+        match arch:
+            case Architectures.Mips.value:
+                # MIPS uses offset($reg) syntax.
+                return f"{self.offset}({reg_str})"
+            case Architectures.Arm.value | Architectures.Aarch64.value:
+                # ARM/AArch64 use [reg, #offset] syntax.
+                if self.offset == 0:
+                    return f"[{reg_str}]"
+                else:
+                    return f"[{reg_str}, #{self.offset}]"
+            case _:
+                # x86 uses [reg + offset] syntax with ptr_desc.
+                if self.offset == 0:
+                    deref_str = f"[{reg_str}]"
+                elif self.offset < 0:
+                    deref_str = f"[{reg_str} - {abs(self.offset)}]"
+                else:
+                    deref_str = f"[{reg_str} + {self.offset}]"
+
+                if not self.ptr_desc:
+                    return deref_str
+                else:
+                    return f"{self.ptr_desc} {deref_str}"
+
 
 @dataclass(frozen=True)
 class RegisterListOperand:
-    """Specialized operand type for ARM register lists (push/pop/ldm/stm)."""
+    """Specialized operand type for ARM register lists (push/pop/ldm/stm).
+
+    .. doctest::
+
+        >>> from int3 import Architectures, RegisterListOperand
+        >>> arm = Architectures.Arm.value
+        >>> regs = RegisterListOperand.of(arm, "r4", "r5", "lr")
+        >>> regs
+        <RegisterListOperand [{r4, r5, lr}]>
+        >>> arm.reg("r5") in regs
+        True
+
+    """
 
     regs: tuple[RegisterDef, ...]
 
@@ -143,6 +197,7 @@ class OperandView:
         raw_tokens: list[str] = []
         current = ""
         in_braces = False
+        in_brackets = False
 
         for char in op_str:
             if char == "{":
@@ -151,7 +206,13 @@ class OperandView:
             elif char == "}":
                 in_braces = False
                 current += char
-            elif char == "," and not in_braces:
+            elif char == "[":
+                in_brackets = True
+                current += char
+            elif char == "]":
+                in_brackets = False
+                current += char
+            elif char == "," and not in_braces and not in_brackets:
                 raw_tokens.append(current.strip())
                 current = ""
             else:
@@ -324,7 +385,7 @@ class OperandView:
             if isinstance(operand, (str, RegisterDef)):
                 new_tokens[tok_idx] = self.arch.keystone_reg_prefix + str(operand)
             elif isinstance(operand, MemoryOperand):
-                new_tokens[tok_idx] = str(operand)
+                new_tokens[tok_idx] = operand.to_asm_str(self.arch)
             else:
                 new_tokens[tok_idx] = str(operand)
 
