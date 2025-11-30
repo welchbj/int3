@@ -206,7 +206,7 @@ def test_patch_immediates_and_registers():
     assert str(insn).startswith("xor $a0, $t9, $zero")
 
 
-def test_patch_memory_operand():
+def test_patch_memory_operand_x86():
     x86_64 = Architectures.x86_64.value
     linux_x86_64 = Triple(x86_64, Platform.Linux)
 
@@ -214,6 +214,63 @@ def test_patch_memory_operand():
     insn = insn.operands.replace(0, MemoryOperand(x86_64.reg("rax"), 0x64, "qword ptr"))
     insn = insn.operands.replace(-1, 0xDEAD)
     assert str(insn).startswith("mov qword ptr [rax + 0x64], 0xdead")
+
+
+def test_patch_memory_operand_mips():
+    Mips = Architectures.Mips.value
+    linux_mips = Triple(Mips, Platform.Linux)
+
+    # Replace memory operand in load instruction.
+    insn = linux_mips.one_insn_or_raise("lw $t0, 0x10($sp)")
+    insn = insn.operands.replace(1, MemoryOperand(Mips.reg("t9"), 0x20))
+    mem = insn.memory_operand()
+    assert mem.reg == Mips.reg("t9")
+    assert mem.offset == 0x20
+
+    # Replace memory operand with zero offset.
+    insn = linux_mips.one_insn_or_raise("sw $ra, 0x100($sp)")
+    insn = insn.operands.replace(1, MemoryOperand(Mips.reg("s0"), 0))
+    mem = insn.memory_operand()
+    assert mem.reg == Mips.reg("s0")
+    assert mem.offset == 0
+
+
+def test_patch_memory_operand_arm():
+    Arm = Architectures.Arm.value
+    linux_arm = Triple(Arm, Platform.Linux)
+
+    # Replace memory operand in load instruction.
+    insn = linux_arm.one_insn_or_raise("ldr r0, [sp, #0x10]")
+    insn = insn.operands.replace(1, MemoryOperand(Arm.reg("r1"), 0x20))
+    mem = insn.memory_operand()
+    assert mem.reg == Arm.reg("r1")
+    assert mem.offset == 0x20
+
+    # Replace memory operand with zero offset.
+    insn = linux_arm.one_insn_or_raise("str lr, [sp, #0x100]")
+    insn = insn.operands.replace(1, MemoryOperand(Arm.reg("r2"), 0))
+    mem = insn.memory_operand()
+    assert mem.reg == Arm.reg("r2")
+    assert mem.offset == 0
+
+
+def test_patch_memory_operand_aarch64():
+    Aarch64 = Architectures.Aarch64.value
+    linux_aarch64 = Triple(Aarch64, Platform.Linux)
+
+    # Replace memory operand in load instruction.
+    insn = linux_aarch64.one_insn_or_raise("ldr x0, [sp, #0x10]")
+    insn = insn.operands.replace(1, MemoryOperand(Aarch64.reg("x1"), 0x20))
+    mem = insn.memory_operand()
+    assert mem.reg == Aarch64.reg("x1")
+    assert mem.offset == 0x20
+
+    # Replace memory operand with zero offset.
+    insn = linux_aarch64.one_insn_or_raise("str x30, [sp, #0x100]")
+    insn = insn.operands.replace(1, MemoryOperand(Aarch64.reg("x2"), 0))
+    mem = insn.memory_operand()
+    assert mem.reg == Aarch64.reg("x2")
+    assert mem.offset == 0
 
 
 # =============================================================================
